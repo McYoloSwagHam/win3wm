@@ -1,9 +1,10 @@
 #include <windows.h>
 #include <dwmapi.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <vector>
-#include<cassert>
-#include<atomic>
+#include <cassert>
+#include <atomic>
 
 
 
@@ -96,6 +97,7 @@ struct WORKSPACE_INFO
 //------------------------------------------------------------------
 CHAR AppWindowName[] = "Win3wmWindow";
 CHAR DebugAppWindowName[] = "FocusDebugOverlay";
+CHAR FocusAppWindowName[] = "FocusWin3WM";
 CHAR StatusBarWindowName[] = "Win3wmStatus";
 
 // ------------------------------------------------------------------
@@ -103,10 +105,14 @@ CHAR StatusBarWindowName[] = "Win3wmStatus";
 // ------------------------------------------------------------------
 HWND MainWindow;
 HWND DebugWindow;
-HWND StatusBarWindow;
+HWND FocusWindow;
+HWND StatusBarWindow[10];
+HWND BtnToColor;
+HWND CurrentFocusChild;
 
 ATOM WindowAtom;
 ATOM DebugWindowAtom;
+ATOM FocusAtom;
 ATOM StatusBarAtom;
 // change later to more C-ish datastructure (AKA don't use std::vector)
 std::vector<TILE_INFO> WindowOrderList;
@@ -117,6 +123,7 @@ HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
 INT CurrentWorkspaceInFocus = 1;
 #define WM_INSTALL_HOOKS 0x8069
+#define TIMER_FOCUS 0x1234
 
 // ------------------------------------------------------------------
 // Screen Globals
@@ -148,7 +155,8 @@ HWND StatusButtonList[10];
 // Windows Stuff 
 // ------------------------------------------------------------------
 
-const wchar_t* Win32kDefaultWindowNames[] = { L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow"};
+const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow"};
+const wchar_t* Win32kDefaultWindowNames[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow"};
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
 	{ L"ConsoleWindowClass", SW_MAXIMIZE }
@@ -193,6 +201,7 @@ VOID FailWithCode(const char* ErrorMessage)
 	RtlFormatPrint(ErrorMsgBuffer, sizeof(ErrorMsgBuffer),
 		"%s : %u", ErrorMessage, GetLastError());
 
+	logc(12, ErrorMsgBuffer);
 	MessageBoxA(NULL, ErrorMsgBuffer, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
@@ -229,7 +238,6 @@ VOID ShowTaskBar(BOOL SetTaskBar)
 	ShowWindow(Start, SetTaskBar ? SW_SHOW : SW_HIDE);
 	*/
 }
-
 
 const char* MakeFormatString(const char* Format, ...)
 {
@@ -293,20 +301,20 @@ BOOL AppRunningCheck()
 VOID MainWindowToFore()
 {
 	HWND CurrentFgWindow;
-	DWORD FgWindowThreadID;
+	DWORD FgThreadID;
 	DWORD CurrentThreadID;
 
 	CurrentFgWindow = GetForegroundWindow();
 	CurrentThreadID = GetCurrentThreadId();
-	GetWindowThreadProcessId(CurrentFgWindow, &FgWindowThreadID);
+	GetWindowThreadProcessId(CurrentFgWindow, &FgThreadID);
 
-	AttachThreadInput(FgWindowThreadID, CurrentThreadID, TRUE);
+	AttachThreadInput(CurrentThreadID, FgThreadID, TRUE);
 	SetWindowPos(MainWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 	SetWindowPos(MainWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
 	SetForegroundWindow(MainWindow);
 	SetFocus(MainWindow);
 	SetActiveWindow(MainWindow);
-	AttachThreadInput(FgWindowThreadID, CurrentThreadID, FALSE);
+	AttachThreadInput(CurrentThreadID, FgThreadID, FALSE);
 	ShowWindow(MainWindow, SW_SHOW);
 
 }
@@ -386,10 +394,10 @@ BOOL TransparentWindow(HWND WindowHandle)
 		DWORD Flags;
 
 		if (!GetLayeredWindowAttributes(WindowHandle, &WindowColorRef, &WindowAlphaByte, &Flags))
-			printf("Secret Cloak : %u\n", IsWindowSecretCloaked(WindowHandle));
+			logc(5, "Secret Cloak : %u\n", IsWindowSecretCloaked(WindowHandle));
 		
 
-		printf("Handle : %X : Layered Byte: %X : %X : %X\n",WindowHandle, WindowColorRef, WindowAlphaByte, Flags);
+		logc(5, "Handle : %X : Layered Byte: %X : %X : %X\n",WindowHandle, WindowColorRef, WindowAlphaByte, Flags);
 		if (Flags & LWA_ALPHA && !WindowAlphaByte)
 			return TRUE;
 
@@ -453,7 +461,7 @@ VOID CreateX86Process()
 
 	GetCurrentDirectoryW(sizeof(DirLength), DirLength);
 
-	printf("%ls\n", DirLength);
+	logc(5, "%ls\n", DirLength);
 
 	CHAR CmdLine[] = "";
 	if (!CreateProcessA("win3wmipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
@@ -539,7 +547,7 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		!TransparentWindow(WindowHandle))	
 	{
 		GetWindowTextW(WindowHandle, WindowText, 1024);
-		printf("Pushing Back : %X : %ls\n", WindowHandle, WindowText);
+		logc(5, "Pushing Back : %X : %ls\n", WindowHandle, WindowText);
 		TILE_INFO TileInfo = { 0 };
 
 		TileInfo.WindowHandle = WindowHandle;
@@ -585,6 +593,35 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 VOID GetOtherApplicationWindows()
 {
 	EnumWindows(EnumWndProc, NULL);
+
+}
+
+INT GetActiveWorkspace()
+{
+
+	INT Count = 0;
+
+	for (int i = 1; i < 10; i++)
+		if (WorkspaceList[i].Tiles)
+			Count++;
+
+	return Count;
+}
+
+INT GetWindowCount(TILE_INFO* Tile)
+{
+
+	INT Count = 0;
+
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->NodeType != TERMINAL)
+			Count += GetWindowCount(Tile->BranchTile);
+
+		Count++;
+	}
+
+	return Count;
 
 }
 
@@ -1564,7 +1601,6 @@ VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
 			TileToAdd->ChildTile->ParentTile = TileToAdd;
 		}
 
-
 		Workspace->TileInFocus->ChildTile = TileToAdd;
 		TileToAdd->ParentTile = Workspace->TileInFocus;
 
@@ -1617,10 +1653,7 @@ VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
 
 	}
 
-
-
 }
-
 
 // Seperate the all the windows we got into tiles. there are 10 workspaces.
 // and upon init regrouping there are 4 windows per workspaces. If there
@@ -1710,6 +1743,45 @@ VOID HandleWeirdWindowState(HWND WindowHandle)
 	}
 
 	ShowWindow(WindowHandle, ShowMask);
+
+}
+
+VOID RenderFocusWindow(TILE_INFO* Tile)
+{
+
+	HWND WindowHandle = Tile->WindowHandle;
+
+	ForceToForeground(WindowHandle);
+
+	logc(6, "RenderFocusWindow : %X\n", WindowHandle);
+
+	RECT ClientRect;
+	PRECT TileRect = &Tile->Placement.rcNormalPosition;
+
+	GetClientRect(WindowHandle, &ClientRect);
+
+	logc(6, "%lu %lu %lu %lu\n", ClientRect.left, ClientRect.top, ClientRect.right, ClientRect.bottom);
+
+	INT Width = ClientRect.right - ClientRect.left;
+	INT BorderSize = 5;
+
+	POINT TopLeftClientArea = { 0 };
+
+	if (!ClientToScreen(WindowHandle, &TopLeftClientArea))
+		FailWithCode("ClientToScreen");
+
+	logc(6, "TL - X : %lu, TL - Y : %lu\n", TopLeftClientArea.x, TopLeftClientArea.y);
+
+	ClientRect.left += TopLeftClientArea.x;
+	ClientRect.top += TopLeftClientArea.y;
+	ClientRect.bottom += TopLeftClientArea.y;
+
+	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
+		FailWithCode("SetWindowPos Focus Window");
+
+	if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
+		FailWithCode("SetWindowPos Focus Window");
+	
 }
 
 INT RenderWindows(TILE_INFO* Tile)
@@ -1722,7 +1794,7 @@ INT RenderWindows(TILE_INFO* Tile)
 
 		if (Tile->NodeType != TERMINAL)
 		{
-			Count+= RenderWindows(Tile->BranchTile);
+			Count += RenderWindows(Tile->BranchTile);
 			continue;
 		}
 
@@ -1731,15 +1803,15 @@ INT RenderWindows(TILE_INFO* Tile)
 		INT Height = (PrintRect.bottom - PrintRect.top);
 		WCHAR WindowText[1024] = { 0 };
 
-		printf("CurHandle : %X\n", Tile->WindowHandle);
+		logc(5, "CurHandle : %X\n", Tile->WindowHandle);
 		GetWindowTextW(Tile->WindowHandle, WindowText, 512);
-		
+
 		memset(WindowText, 0, sizeof(WindowText));
 
-		printf("WindowText: %ls\n", WindowText);
+		logc(5, "WindowText: %ls\n", WindowText);
 		GetClassName(Tile->WindowHandle, WindowText, 512);
-		printf("WindowClassName: %ls\n", WindowText);
-		printf("ToPrint: %u %u %u %u\n", PrintRect.left, PrintRect.top, PrintRect.right, PrintRect.bottom);
+		logc(5, "WindowClassName: %ls\n", WindowText);
+		logc(5, "ToPrint: %u %u %u %u\n", PrintRect.left, PrintRect.top, PrintRect.right, PrintRect.bottom);
 
 		DWORD RetVal = 1;
 		HandleWeirdWindowState(Tile->WindowHandle);
@@ -1748,8 +1820,7 @@ INT RenderWindows(TILE_INFO* Tile)
 			PrintRect.left, PrintRect.top, Width, Height, 0);
 
 		if (!RetVal)
-			FailWithCode(MakeFormatString("SetWindowPos : %u\n", Tile->WindowHandle));
-
+			FailWithCode(MakeFormatString("SetWindowPos : %X\n", Tile->WindowHandle));
 
 		Count++;
 	}
@@ -1758,12 +1829,14 @@ INT RenderWindows(TILE_INFO* Tile)
 
 }
 
-
 VOID RenderDebugWindow(TILE_INFO* FocusTile)
 {
 
+	return;
+
 	if (!FocusTile)
 		return;
+
 
 	RECT* FocusRect = &FocusTile->Placement.rcNormalPosition;
 
@@ -1781,6 +1854,8 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 {
 	assert(Workspace->IsFullScreen && Workspace->TileInFocus);
 
+	ForceToForeground(Workspace->TileInFocus->WindowHandle);
+
 	HandleWeirdWindowState(Workspace->TileInFocus->WindowHandle);
 
 	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, 0, 0, ScreenWidth, ScreenHeight, 0);
@@ -1790,20 +1865,59 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 
 }
 
+VOID RenderStatusBar()
+{
+
+	INT SlotCount = 1;
+	CHAR ButtonText[2] = { '0', '\0' };
+
+	BtnToColor = 0; 
+
+	for (int i = 1; i < 10; i++)
+	{
+		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+
+		if (i == CurrentWorkspaceInFocus)
+		{
+			BtnToColor = StatusBarWindow[SlotCount];
+			ButtonText[0] = '0' + i;
+			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
+			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
+			SlotCount++;
+		}
+		else if (Workspace->Tiles)
+		{
+			ButtonText[0] = '0' + i;
+			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
+			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
+			SlotCount++;
+		}
+	}
+
+	for (int i = 1; i < 10; i++)
+	{
+		if (i < SlotCount)
+		{
+			ShowWindow(StatusBarWindow[i], SW_SHOW);
+			logc(12, "Showing Button : %u : %X\n", i, StatusBarWindow[i]);
+		}
+		else
+		{
+			ShowWindow(StatusBarWindow[i], SW_HIDE);
+			logc(12, "Hiding Button : %u : %X\n", i, StatusBarWindow[i]);
+		}
+	}
+}
+
 VOID RenderWorkspace(INT WorkspaceNumber)
 {
 
 	//the window about to be rendered is the window in focus;
-	CurrentWorkspaceInFocus  = WorkspaceNumber;
+	CurrentWorkspaceInFocus = WorkspaceNumber;
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
 	logc(13, "Rendering Workspace ; %u\n", WorkspaceNumber);
-
-	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
-		RenderDebugWindow(Workspace->TileInFocus);
-	else
-		ShowWindow(DebugWindow, SW_HIDE);
 
 	INT Count = 1;
 
@@ -1811,6 +1925,19 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		RenderFullscreenWindow(Workspace);
 	else
 		Count = RenderWindows(Workspace->Tiles);
+
+	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
+	{
+		RenderDebugWindow(Workspace->TileInFocus);
+		RenderFocusWindow(Workspace->TileInFocus);
+	}
+	else
+	{
+		ShowWindow(DebugWindow, SW_HIDE);
+		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+	}
+
+	RenderStatusBar();
 
 	logc(12, "Total Length Of Workspace : %u\n", Count);
 
@@ -1961,6 +2088,56 @@ BOOL ButtonDown(UINT_PTR Button)
 	return (Button == WM_KEYDOWN || Button == WM_SYSKEYDOWN);
 }
 
+VOID SetWindowFocus(TILE_INFO* PrevTile, TILE_INFO* FocusTile)
+{
+
+	return;
+
+	logc(6, "SetWindowFocus\nPrevTile->WindowHandle : %X\nFocusTile->WindowHandle : %X\n", PrevTile->WindowHandle, FocusTile->WindowHandle);
+
+	if (PrevTile->WindowHandle != FocusTile->WindowHandle)
+	{
+		//DWORD PrevThreadId = GetWindowThreadProcessId(PrevTile->WindowHandle, NULL);
+		DWORD FgThreadId = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+		DWORD CurThreadId = GetWindowThreadProcessId(FocusTile->WindowHandle, NULL);
+
+		if (!AttachThreadInput(FgThreadId,CurThreadId,  TRUE))
+			FailWithCode("AttachThreadInput");
+
+		DWORD FgTimeout;
+
+		if (!SystemParametersInfoW(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, &FgTimeout, 0))
+			FailWithCode("SystemParamterInfoW GetForegroundLock");
+
+		if (!SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, NULL, SPIF_SENDCHANGE))
+			FailWithCode("SystemParamterInfoW GetForegroundLock");
+
+		//DWORD WindowProcessId;
+		//GetWindowThreadProcessId(FocusTile->WindowHandle, &WindowProcessId);
+
+		AllowSetForegroundWindow(ASFW_ANY);
+
+		//if (!BringWindowToTop(FocusTile->WindowHandle))
+		//	FailWithCode("BringWindowToTop - Focus");
+
+		if (!SetWindowPos(FocusTile->WindowHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE))
+			FailWithCode("SetWindowPos - Focus");
+
+		if (!SetForegroundWindow(FocusTile->WindowHandle))
+			FailWithCode("SetForegroundWindow - Focus");
+
+		if (!SetFocus(FocusTile->WindowHandle))
+			FailWithCode("SetForegroundWindow - Focus");
+
+		if (!AttachThreadInput(FgThreadId, CurThreadId, FALSE))
+			FailWithCode("AttachThreadInput");
+
+	}
+
+	logc(6, "ForegroundWindow : %X\n", GetForegroundWindow());
+
+}
+
 
 VOID HandleLeft(WORKSPACE_INFO* Workspace)
 {
@@ -1968,9 +2145,10 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace)
 	if (!Workspace->Tiles)
 		return;
 
+	TILE_INFO* PrevTile = Workspace->TileInFocus;
+
 	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
 	{
-		TILE_INFO* PrevTile = Workspace->TileInFocus;
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusLeft(Workspace);
 
@@ -1984,8 +2162,8 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace)
 	else
 		FocusLeft(Workspace);
 
-
 	FocusRoot(Workspace);
+	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
 
 }
@@ -1997,9 +2175,10 @@ VOID HandleRight(WORKSPACE_INFO* Workspace)
 	if (!Workspace->Tiles)
 		return;
 
+	TILE_INFO* PrevTile = Workspace->TileInFocus;
+
 	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
 	{
-		TILE_INFO* PrevTile = Workspace->TileInFocus;
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusRight(Workspace);
 
@@ -2014,6 +2193,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace)
 		FocusRight(Workspace);
 
 	FocusRoot(Workspace);
+	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
 
 }
@@ -2024,9 +2204,10 @@ VOID HandleTop(WORKSPACE_INFO* Workspace)
 	if (!Workspace->Tiles)
 		return;
 
+	TILE_INFO* PrevTile = Workspace->TileInFocus;
+
 	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
 	{
-		TILE_INFO* PrevTile = Workspace->TileInFocus;
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusTop(Workspace);
 
@@ -2041,6 +2222,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace)
 		FocusTop(Workspace);
 
 	FocusRoot(Workspace);
+	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
 
 }
@@ -2052,9 +2234,10 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace)
 	if (!Workspace->Tiles)
 		return;
 
+	TILE_INFO* PrevTile = Workspace->TileInFocus;
+
 	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
 	{
-		TILE_INFO* PrevTile = Workspace->TileInFocus;
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusBottom(Workspace);
 
@@ -2073,6 +2256,7 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace)
 	// happens regardless
 
 	FocusRoot(Workspace);
+	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
 
 }
@@ -2181,6 +2365,23 @@ INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 			HandleChangeWorkspace(WorkspaceNumber);
 
 		break;
+	case 'P':
+		for (int i = 0; i < 10; i++)
+		{
+			logc(11, "Showing Button : %X\n", StatusBarWindow[i]);
+			ShowWindow(StatusBarWindow[i], SW_SHOW);
+		}
+		break;
+	case 'T':
+		TerminateProcess(GetCurrentProcess(), 420);
+		break;
+	case 'Y':
+		for (int i = 0; i < 10; i++)
+		{
+			logc(11, "Hiding Button : %X\n", StatusBarWindow[i]);
+			ShowWindow(StatusBarWindow[i], SW_HIDE);
+		}
+		break;
 	case 'F':
 		if (Workspace->TileInFocus)
 			Workspace->IsFullScreen = !Workspace->IsFullScreen;
@@ -2201,15 +2402,31 @@ INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 			Workspace->Layout = UserChosenLayout;
 		break;
 	case VK_LEFT:
+
+		if (Workspace->IsFullScreen)
+			break;
+
 		HandleLeft(Workspace);
 		break;
 	case VK_UP:
+
+		if (Workspace->IsFullScreen)
+			break;
+
 		HandleTop(Workspace);
 		break;
 	case VK_DOWN:
+
+		if (Workspace->IsFullScreen)
+			break;
+
 		HandleBottom(Workspace);
 		break;
 	case VK_RIGHT:
+
+		if (Workspace->IsFullScreen)
+			break;
+
 		HandleRight(Workspace);
 		RenderDebugWindow(Workspace->TileInFocus);
 		break;
@@ -2299,12 +2516,10 @@ VOID SetCrashRoutine()
 }
 
 
-
-
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
 
-	if (IsDefaultWindow(WindowHandle))
+	if (IsDefaultWindow(WindowHandle) || !IsWindow(WindowHandle))
 		return;
 
 	InstallWindowSizeHook();
@@ -2379,14 +2594,18 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 }
 
 
-VOID CreateStatusButton(HWND ParentHandle, INT Slot, INT Position, const char* ButtonText)
+VOID CreateStatusButton(HWND ParentHandle, INT Slot, const char* ButtonText)
 {
-	StatusButtonList[Slot] = CreateWindowA(
+
+	INT ButtonStyle = WS_CHILD | WS_VISIBLE | BS_OWNERDRAW;
+
+	StatusButtonList[Slot] = CreateWindowExA(
+		NULL,
 		"BUTTON",  // Predefined class; Unicode assumed 
 		ButtonText,      // Button text 
-		WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_DEFPUSHBUTTON,  // Styles 
-		10 + Position * 35,         // x position 
-		10,         // y position 
+		ButtonStyle,  // Styles 
+		0,         // x position 
+		0,         // y position 
 		25,        // Button width
 		25,        // Button height
 		ParentHandle,     // Parent window
@@ -2399,6 +2618,10 @@ VOID CreateStatusButton(HWND ParentHandle, INT Slot, INT Position, const char* B
 
 }
 
+INT ButtonIdx = 1;
+HBRUSH ButtonBrush;
+HBRUSH DefaultBrush;
+
 LRESULT CALLBACK StatusBarMsgHandler(
 	HWND WindowHandle,
 	UINT Message,
@@ -2407,22 +2630,48 @@ LRESULT CALLBACK StatusBarMsgHandler(
 )
 {
 
-	CHAR ButtonText[] = { '0',  '\0' };
+	CHAR ButtonText[] = { '1',  '\0' };
 
-	logc(13, "Message : %X\n", Message);
 
 	switch (Message)
 	{
 	case WM_CREATE:
-
-		//for (int i = 0; i < 9; i++)
-		//{
-		//	ButtonText[0] += 1;
-		//	CreateStatusButton(WindowHandle, i + 1, i, ButtonText);
-		//}
+		CreateStatusButton(WindowHandle, ButtonIdx, ButtonText);
+		ButtonIdx++;
 		break;
+	case WM_DRAWITEM:
+	{
+		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
+		WCHAR BtnCaption[3] = { 0 };
+		GetWindowTextW(DrawItem->hwndItem, BtnCaption, 6);
+
+		if (BtnToColor == WindowHandle)
+		{
+			SetBkColor(DrawItem->hDC, RGB(0, 0, 255));
+			SetTextColor(DrawItem->hDC, RGB(255, 255, 255));
+		}
+		else
+		{
+			SetBkColor(DrawItem->hDC, GetSysColor(COLOR_BTNFACE));
+			SetTextColor(DrawItem->hDC, RGB(0,0,0));
+		}
+
+		DrawTextW(DrawItem->hDC, BtnCaption, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		return TRUE;
+		break;
+	}
 	case WM_CTLCOLORBTN:
-		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+		if (BtnToColor == WindowHandle)
+		{
+			//Blue Brush.
+			return (LRESULT)ButtonBrush;
+		}
+		else
+		{
+			//Red Brush.
+			//ButtonBrush = CreateSolidBrush(RGB(rand() % 252, rand() % 255, rand() % 255));
+			return (LRESULT)DefaultBrush;
+		}
 		break;
 	default:
 		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
@@ -2448,38 +2697,48 @@ LRESULT CALLBACK WindowMessageHandler(
 	LPARAM LParam
 )
 {
+	return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+}
 
-	if (!is_init)
-		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
-	
-	if (Message == WM_INSTALL_HOOKS)
+LRESULT CALLBACK FocusMessageHandler(
+	HWND WindowHandle,
+	UINT Message,
+	WPARAM WParam,
+	LPARAM LParam
+)
+{
+	switch (Message) 
 	{
-
-		HWND TargetWindow = (HWND)LParam;
-
-		//logc(4, "Recevied Message\n");
-		if (WParam)
+		case WM_TIMER:
 		{
-			logc(9,"WindowMessageHandler - DestroyWindow : %X\n", TargetWindow);
-			//OnDestroyWindow(TargetWindow);
+			UINT TimerId = (UINT)WParam;
+
+			switch (TimerId)
+			{
+			case TIMER_FOCUS:
+			{
+				RECT FocusRect;
+
+				GetWindowRect(FocusWindow, &FocusRect);
+
+				INT Width = (FocusRect.right - FocusRect.left);
+				INT Height = (FocusRect.bottom - FocusRect.top);
+
+				if (!SetWindowPos(FocusWindow, HWND_TOPMOST, FocusRect.left, FocusRect.top, Width, Height, 0))
+					FailWithCode("SetWindowPos Focus Window");
+
+				if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, FocusRect.left, FocusRect.top, Width, Height, 0))
+					FailWithCode("SetWindowPos Focus Window");
+			}
+			default:
+				return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+			}
+
 		}
-		else
-		{
-			logc(9, "WindowMessageHandler - NewWindow : %X\n", TargetWindow);
 
-			//Check If there's another instant message for Race-Check;
-			// Yes I know this is not full proof because there could be some other shit
-			// but this is the best shif
-
-			//OnNewWindow(TargetWindow);
-
-		}
+		default:
+			return DefWindowProcA(WindowHandle, Message, WParam, LParam);
 	}
-
-
-
-	//printf("Hit\n");
-	return 0;
 }
 
 LRESULT CALLBACK NewWindowHookProc(int nCode, WPARAM WParam, LPARAM LParam)
@@ -2491,7 +2750,10 @@ LRESULT CALLBACK NewWindowHookProc(int nCode, WPARAM WParam, LPARAM LParam)
 		return CallNextHookEx(KeyboardHook, nCode, WParam, LParam);
 
 	if (nCode == HCBT_CREATEWND)
+	{
+		logc(9, "NewWindow : %X\n", WParam);
 		OnNewWindow((HWND)WParam);
+	}
 
 	if (nCode == HCBT_DESTROYWND)
 		OnDestroyWindow((HWND)WParam);
@@ -2515,7 +2777,7 @@ VOID InstallNewWindowHook()
 
 	NewWindowHook = SetWindowsHookExA(WH_SHELL, NewWindowHookProc, WinHook64, 0);
 
-	printf("NewWindowHook : %p\n", NewWindowHook);
+	logc(5,"NewWindowHook : %p\n", NewWindowHook);
 
 	if (!NewWindowHook)
 		FailWithCode("Couldn't set NewWindowHook");
@@ -2585,8 +2847,6 @@ VOID CreateInitialWindow()
 	if (!ChangeWindowMessageFilterEx(MainWindow, WM_INSTALL_HOOKS, MSGFLT_ALLOW, NULL))
 		FailWithCode("Change Window Perms");
 
-
-
 }
 
 
@@ -2602,6 +2862,8 @@ LRESULT CALLBACK DebugMessageHandler(
 
 VOID CreateDebugOverlay()
 {
+
+	return;
 
 	WNDCLASSEXA WindowClass;
 
@@ -2646,6 +2908,8 @@ VOID CreateDebugOverlay()
 
 
 	ShowWindow(DebugWindow, SW_SHOW);
+	SetWindowLongPtrA(DebugWindow, GWL_STYLE, 0);
+	SetWindowLongPtrA(DebugWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
 	UpdateWindow(DebugWindow);
 
 
@@ -2653,11 +2917,74 @@ VOID CreateDebugOverlay()
 
 }
 
+VOID CreateFocusOverlay()
+{
+
+	WNDCLASSEXA WindowClass;
+
+	WindowClass.cbSize = sizeof(WNDCLASSEX);
+	WindowClass.style = NULL;
+	WindowClass.lpfnWndProc = FocusMessageHandler;
+	WindowClass.cbClsExtra = 0;
+	WindowClass.cbWndExtra = 0;
+	WindowClass.hInstance = NULL;
+	WindowClass.hIcon = NULL;
+	WindowClass.hCursor = NULL;
+	WindowClass.hbrBackground = CreateSolidBrush(RGB(0xff, 0, 0xff));
+	WindowClass.lpszMenuName = NULL;
+	WindowClass.lpszClassName = FocusAppWindowName;
+	WindowClass.hIconSm = NULL;
+
+	FocusAtom = RegisterClassExA(&WindowClass);
+
+	if (!FocusAtom)
+		FailWithCode("Couldn't Register FocusWindow Class");
+
+	FocusWindow = CreateWindowExA(
+		WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
+		FocusAppWindowName,
+		"FocusWin3WM",
+		0,
+		0,
+		0,
+		0,
+		0,
+		NULL,
+		NULL,
+		NULL,
+		NULL
+	);
+
+	if (!FocusWindow)
+		FailWithCode("FocusWindow creation failed");
+
+	ShowWindow(FocusWindow, SW_SHOW);
+	SetWindowLongPtrA(FocusWindow, GWL_STYLE, 0);
+	SetWindowLongPtrA(FocusWindow, GWL_EXSTYLE, WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
+	UpdateWindow(FocusWindow);
+
+	SetTimer(FocusWindow, TIMER_FOCUS, 1000, NULL);
+
+}
+
 VOID InitScreenGlobals()
 {
 
+	HWND ShellWindow = FindWindowW(L"Shell_TrayWnd", NULL);
+	RECT ShellRect;
+
+	if (!ShellWindow)
+		FailWithCode("No Shell Window Found");
+
+	GetWindowRect(ShellWindow, &ShellRect);
+
 	ScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-	ScreenHeight = (float)GetSystemMetrics(SM_CYSCREEN) - 40; //40 px is about the size of a taskbar
+	ScreenHeight = GetSystemMetrics(SM_CYSCREEN) - (ShellRect.bottom - ShellRect.top);
+
+	ButtonBrush = CreateSolidBrush(RGB(0, 0, 255));
+	DefaultBrush = GetSysColorBrush(COLOR_BTNFACE);
+
+	logc(9, "ScreenHeight: %lu - ScreenWidth : %lu\n", ScreenHeight, ScreenWidth);
 
 }
 
@@ -2674,6 +3001,8 @@ VOID MoveButtonToPosition(INT Slot, INT Position, const char* ButtonText)
 VOID InitStatusBar()
 {
 
+	INT WorkspaceCount = GetActiveWorkspace();
+
 	WNDCLASSEXA WindowClass;
 
 	WindowClass.cbSize			= sizeof(WNDCLASSEX);
@@ -2684,58 +3013,79 @@ VOID InitStatusBar()
 	WindowClass.hInstance		= NULL;
 	WindowClass.hIcon			= NULL;
 	WindowClass.hCursor			= NULL;
-	WindowClass.hbrBackground	= CreateSolidBrush(RGB(0x0, 0xff, 0xff));
+	WindowClass.hbrBackground	= CreateSolidBrush(RGB(0x22, 0x22, 0x22));
 	WindowClass.lpszMenuName	= NULL;
 	WindowClass.lpszClassName	= StatusBarWindowName;
 	WindowClass.hIconSm			= NULL;
 
 	StatusBarAtom = RegisterClassExA(&WindowClass);
 
-	InitCommonControls();
+	HWND SearchBarWindow = FindWindowExW(FindWindowW(L"Shell_TrayWnd", NULL), NULL, L"TrayDummySearchControl", NULL);
+	RECT SearchBarRect;
 
-	StatusBarWindow = CreateWindowExA(
-		NULL_EX_STYLE,
-		StatusBarWindowName,
-		"Win3wmStatusBar",
-		NULL_STYLE,
-		0,
-		100,
-		GetSystemMetrics(SM_CXSCREEN),
-		45,
-		NULL,
-		NULL,
-		NULL,
-		NULL
-	);
+	assert(SearchBarWindow);
 
-	if (!StatusBarWindow)
-		FailWithCode("Could not create Status Bar Window!");
+	GetWindowRect(SearchBarWindow, &SearchBarRect);
 
-
-	CHAR ButtonText[2] = { '1', '\0' };
+	
 
 	for (int i = 1; i < 10; i++)
 	{
-		CreateStatusButton(StatusBarWindow, i, i, ButtonText);
-		ButtonText[0]++;
+
+		StatusBarWindow[i] = CreateWindowExA(
+			WS_EX_TOOLWINDOW,
+			StatusBarWindowName,
+			"Win3wmStatusBar",
+			WS_POPUP,
+			SearchBarRect.left + i * 25,
+			SearchBarRect.top - 35,
+			25,
+			25,
+			NULL,
+			NULL,
+			NULL,
+			NULL
+		);
+
+		if (i == CurrentWorkspaceInFocus)
+			BtnToColor = StatusBarWindow[CurrentWorkspaceInFocus];
+
+		if (!StatusBarWindow[i])
+			FailWithCode("Could not create Status Bar Window!");
+
+		SetWindowLongPtrA(StatusBarWindow[i], GWL_EXSTYLE, WS_EX_TOOLWINDOW);
+		SetWindowLongPtrA(StatusBarWindow[i], GWL_STYLE, WS_POPUP);
+		SetWindowPos(StatusBarWindow[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+		UpdateWindow(StatusBarWindow[i]);
+
+		if (i - 1 < WorkspaceCount)
+		{
+			ShowWindow(StatusBarWindow[i], SW_SHOW);
+		}
+		else
+			ShowWindow(StatusBarWindow[i], SW_HIDE);
+			
 	}
 
-	SetWindowLongPtrA(StatusBarWindow, GWL_STYLE, 0);
 
-	SetWindowPos(StatusBarWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 
-	ShowWindow(StatusBarWindow, SW_SHOW);
-	UpdateWindow(StatusBarWindow);
+	
 
-		//SetWindowPos(StatusButtonList[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_FRAMECHANGED);
-		//SendMessageA(StatusButtonList[i], WM_PAINT, 0, 0);
+}
 
+VOID DpiSet()
+{
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
 }
 
 INT main()
 {
 	if (AppRunningCheck())
 		Fail("Only a single instance of Win3m can be run");
+
+	DpiSet();
+
+	FreeConsole();
 
 	SetCrashRoutine();
 	InitScreenGlobals();
@@ -2750,8 +3100,9 @@ INT main()
 	InstallNewWindowHook();
 	InstallKeyboardHooks();
 	CreateDebugOverlay();
-	InitStatusBar();
+	CreateFocusOverlay();
 	RenderWorkspace(CurrentWorkspaceInFocus);
+	InitStatusBar();
 	is_init = TRUE;
 
 	MSG msg;
@@ -2774,7 +3125,7 @@ INT main()
 
 	}
 
-	printf("hit2\n");
+	logc(5, "hit2\n");
 	__debugbreak();
 
 	return 0;
