@@ -37,6 +37,7 @@
 
 std::atomic<int> is_init = 0;
 std::atomic<BOOL> IsPressed;
+HANDLE DestroyMutex;
 
 //------------------------------------------------------------------
 // Application Structs 
@@ -1427,7 +1428,7 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 	POINT TopLeftClientArea = { 0 };
 
 	if (!ClientToScreen(WindowHandle, &TopLeftClientArea))
-		FailWithCode("ClientToScreen");
+		return;
 
 	logc(6, "TL - X : %lu, TL - Y : %lu\n", TopLeftClientArea.x, TopLeftClientArea.y);
 
@@ -1492,7 +1493,13 @@ INT RenderWindows(TILE_INFO* Tile)
 		DWORD RetVal = SetWindowPlacement(Tile->WindowHandle, &WndPlacement);
 
 		if (!RetVal)
+		{
+			if (GetLastError() == ERROR_INVALID_WINDOW_HANDLE)
+				return ++Count;
+
 			FailWithCode(MakeFormatString("SetWindowPos : %X\n", Tile->WindowHandle));
+
+		}
 
 		Count++;
 	}
@@ -2787,7 +2794,6 @@ VOID CreateFocusOverlay()
 VOID InitScreenGlobals()
 {
 
-
 	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
 
 	HWND ShellWindow = TrayWindow;
@@ -2804,7 +2810,6 @@ VOID InitScreenGlobals()
 
 	ButtonBrush = CreateSolidBrush(RGB(0, 0, 255));
 	DefaultBrush = GetSysColorBrush(COLOR_BTNFACE);
-
 
 	logc(9, "ScreenHeight: %lu - ScreenWidth : %lu\n", ScreenHeight, ScreenWidth);
 
@@ -2931,7 +2936,7 @@ INT main()
 	DpiSet();
 
 
-	FreeConsole();
+	//FreeConsole();
 
 	SetCrashRoutine();
 	InitScreenGlobals();
