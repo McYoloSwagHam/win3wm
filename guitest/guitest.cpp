@@ -3,16 +3,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
+#include <string>
+#include <sstream>
 #include <cassert>
 #include <atomic>
+#include <unordered_map>
 #include <commctrl.h>
+#include <shlwapi.h>
+#include <shlobj.h>
 
+#include "json.hpp"
 #include "resource3.h"
+#include "SG_InputBox.h"
+#include "VDesktops.h"
 
 // ------------------------------------------------------------------
-// Tracy Profiler
+// Defs
 // ------------------------------------------------------------------
-#define TRACY_ENABLE
+#define COMMERCIAL
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -20,6 +29,7 @@
 #define RtlFormatPrint snprintf
 #define RtlAlloc malloc
 #define ForegroundClass 25
+
 
 //------------------------------------------------------------------
 // Application Definitions
@@ -42,6 +52,37 @@ HANDLE DestroyMutex;
 //------------------------------------------------------------------
 // Application Structs 
 //------------------------------------------------------------------
+
+
+//------------------------------------------------------------------
+// Config
+//------------------------------------------------------------------
+using json = nlohmann::json;
+std::unordered_map<std::string, unsigned int> KeyMap;
+
+
+//------------------------------------------------------------------
+// C generics
+//------------------------------------------------------------------
+#define ChangeWorkspaceEx(Number) VOID ChangeWorkspaceEx_##Number()\
+	{											\
+		if (Number == CurrentWorkspaceInFocus)	\
+			return;								\
+												\
+		HandleChangeWorkspace(Number);			\
+	}											\
+
+#define MoveWorkspaceEx(Number) VOID MoveWorkspaceEx_##Number()\
+	{											\
+		if (Number == CurrentWorkspaceInFocus)	\
+			return;								\
+												\
+		HandleMoveWindowWorkspace(Number);		\
+	}											\
+
+#define ParseConfigEx(Key, Value) CurrentKey = Key; \
+		ParseConfig(JsonParsed[CurrentKey], Value); \
+	
 
 enum LAYOUT_STATE
 {
@@ -152,6 +193,14 @@ CHAR AppCheckName[] = "Win3WM";
 // Application Globals
 // ------------------------------------------------------------------
 typedef PVOID(*InitFn)(HWND WindowHandle);
+typedef VOID (*HOTKEY_FN)();
+
+typedef struct _HotKeyDispatch_
+{
+	BOOL ShiftCb;
+	HOTKEY_FN HotKeyCb;
+} HOTKEY_DISPATCH;
+
 HMODULE ForceResize64;
 HMODULE ForceResize86;
 HMODULE WinHook64;
@@ -492,7 +541,7 @@ VOID IPCWindowHandle(HWND WindowHandle)
 {
 
 	if (!x86ProcessHandle)
-		CreateX86Process();
+		Fail("Couldn't create x86 process earlier");
 
 	if (PipeHandle == INVALID_HANDLE_VALUE)
 		ConnectTox86Pipe();
@@ -617,7 +666,7 @@ INT GetActiveWorkspace()
 
 	INT Count = 0;
 
-	for (int i = 1; i < 10; i++)
+	for (int i = 1; i < WorkspaceList.size(); i++)
 		if (WorkspaceList[i].Tiles)
 			Count++;
 
@@ -1232,7 +1281,7 @@ VOID RemoveTileFromWorkspace(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRemove)
 	Workspace->TileInFocus = UnlinkNode(Workspace, TileToRemove);
 
 
-	if (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
+	while (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
 		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
 
 
@@ -1329,11 +1378,16 @@ VOID PerformInitialRegroupring()
 	INT TilesPerWorkspace;
 	INT NumTiles;
 	INT WorkspaceIndex;
+	INT NumWorkspace;
+	INT MaxInitTiles;
 
 	NumTiles = WindowOrderList.size();
+	NumWorkspace = WorkspaceList.size() - 1;
+	MaxInitTiles = NumWorkspace * 4;
+	
 
-	if (NumTiles > MAX_INIT_TILES)
-		TilesPerWorkspace = (NumTiles / 10) + 1;
+	if (NumTiles > MaxInitTiles)
+		TilesPerWorkspace = (NumTiles / NumWorkspace) + 1;
 	else if (NumTiles > INIT_TILES_PER_WORKSPACE)
 		TilesPerWorkspace = INIT_TILES_PER_WORKSPACE;
 	else
@@ -1383,7 +1437,7 @@ INT ForceToForeground(HWND WindowHandle)
 	return 1;
 }
 
-VOID HandleWeirdWindowState(HWND WindowHandle)
+DWORD HandleWeirdWindowState(HWND WindowHandle)
 {
 	WCHAR CurrentWindowText[1024] = { 0 };
 	DWORD ShowMask = SW_RESTORE;
@@ -1398,7 +1452,7 @@ VOID HandleWeirdWindowState(HWND WindowHandle)
 		}
 	}
 
-	ShowWindow(WindowHandle, ShowMask);
+	return ShowMask;
 
 }
 
@@ -1552,7 +1606,7 @@ VOID RenderStatusBar()
 
 	BtnToColor = 0; 
 
-	for (int i = 1; i < 10; i++)
+	for (int i = 1; i < WorkspaceList.size(); i++)
 	{
 		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
@@ -1631,7 +1685,11 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 VOID InitWorkspaceList()
 {
+#ifdef COMMERCIAL
 	WorkspaceList.resize(10);
+#else
+	WorkspaceList.resize(5);
+#endif
 }
 
 VOID LoadNecessaryModules()
@@ -1643,7 +1701,9 @@ VOID LoadNecessaryModules()
 
 }
 
-UINT_PTR KeyboardLookupTable[0x100] = { 0 };
+UINT_PTR KeyboardLookupTable[0x100];
+HOTKEY_DISPATCH HotKeyCallbackTable[0x100][2];
+
 
 NODE_TYPE GetBranchLayout(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
 {
@@ -1825,7 +1885,7 @@ VOID SetWindowFocus(TILE_INFO* PrevTile, TILE_INFO* FocusTile)
 }
 
 
-VOID HandleLeft(WORKSPACE_INFO* Workspace)
+VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
 	if (!Workspace->Tiles)
@@ -1833,7 +1893,7 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace)
 
 	TILE_INFO* PrevTile = Workspace->TileInFocus;
 
-	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
+	if (Swap)
 	{
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusLeft(Workspace);
@@ -1855,7 +1915,7 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace)
 }
 
 
-VOID HandleRight(WORKSPACE_INFO* Workspace)
+VOID HandleRight(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
 	if (!Workspace->Tiles)
@@ -1863,7 +1923,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace)
 
 	TILE_INFO* PrevTile = Workspace->TileInFocus;
 
-	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
+	if (Swap)
 	{
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusRight(Workspace);
@@ -1884,7 +1944,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace)
 
 }
 
-VOID HandleTop(WORKSPACE_INFO* Workspace)
+VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
 	if (!Workspace->Tiles)
@@ -1892,7 +1952,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace)
 
 	TILE_INFO* PrevTile = Workspace->TileInFocus;
 
-	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
+	if (Swap)
 	{
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusTop(Workspace);
@@ -1914,7 +1974,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace)
 }
 
 
-VOID HandleBottom(WORKSPACE_INFO* Workspace)
+VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
 	if (!Workspace->Tiles)
@@ -1922,7 +1982,7 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace)
 
 	TILE_INFO* PrevTile = Workspace->TileInFocus;
 
-	if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
+	if (Swap)
 	{
 		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
 		FocusBottom(Workspace);
@@ -1962,6 +2022,7 @@ INT HideWindows(TILE_INFO* Tile)
 			continue;
 		}
 
+		//SetWindowPos(Tile->WindowHandle, 0, 0, 0, 0, 0, 0);
 		ShowWindow(Tile->WindowHandle, SW_MINIMIZE);
 		
 	}
@@ -2009,6 +2070,29 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	AddTileToWorkspace(TargetWorkspace, NewNode);
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
+
+}
+
+
+INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
+{
+	
+	BOOL AltDown = (KeyboardLookupTable[KeyboardData->vkCode] == WM_SYSKEYDOWN);
+	BOOL ShiftDown = ButtonDown(KeyboardLookupTable[VK_LSHIFT]);
+	INT SkipKey = TRUE;
+
+	if (!AltDown)
+		return FALSE;
+
+	if (KeyboardData->vkCode == 0xa4)
+		return TRUE;
+
+	HOTKEY_DISPATCH HotkeyDispatch = HotKeyCallbackTable[KeyboardData->vkCode][ShiftDown];
+
+	if (HotkeyDispatch.HotKeyCb)
+		HotkeyDispatch.HotKeyCb();
+
+	return TRUE;
 
 }
 
@@ -2061,17 +2145,19 @@ INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 
 		break;
 	case 'P':
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < WorkspaceList.size(); i++)
 		{
 			logc(11, "Showing Button : %X\n", StatusBarWindow[i]);
 			ShowWindow(StatusBarWindow[i], SW_SHOW);
 		}
 		break;
 	case 'T':
+		if (x86ProcessHandle)
+			TerminateProcess(x86ProcessHandle, 369);
 		TerminateProcess(GetCurrentProcess(), 420);
 		break;
 	case 'Y':
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; WorkspaceList.size(); i++)
 		{
 			logc(11, "Hiding Button : %X\n", StatusBarWindow[i]);
 			ShowWindow(StatusBarWindow[i], SW_HIDE);
@@ -2106,29 +2192,29 @@ INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 		if (Workspace->IsFullScreen)
 			break;
 
-		HandleLeft(Workspace);
+		//HandleLeft(Workspace);
 		break;
 	case VK_UP:
 
 		if (Workspace->IsFullScreen)
 			break;
 
-		HandleTop(Workspace);
+		//HandleTop(Workspace);
 		break;
 	case VK_DOWN:
 
 		if (Workspace->IsFullScreen)
 			break;
 
-		HandleBottom(Workspace);
+		//HandleBottom(Workspace);
 		break;
 	case VK_RIGHT:
 
 		if (Workspace->IsFullScreen)
 			break;
 
-		HandleRight(Workspace);
-		RenderDebugWindow(Workspace->TileInFocus);
+		//HandleRight(Workspace);
+		//RenderDebugWindow(Workspace->TileInFocus);
 		break;
 	case VK_RETURN:
 		system("start cmd.exe");
@@ -2173,7 +2259,7 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 
 	KeyboardLookupTable[KeyboardData->vkCode] = KeyState;
 
-	if (HandleKeyStates(KeyboardData, KeyState))
+	if (HandleKeyStatesConfig(KeyboardData, KeyState))
 	{
 		WCHAR WindowText[1024] = { 0 };
 		HWND WindowHandle;
@@ -2217,20 +2303,34 @@ LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 
 VOID SetCrashRoutine()
 {
+
 	AddVectoredExceptionHandler(FALSE, (PVECTORED_EXCEPTION_HANDLER)OnCrash);
 }
 
+VOID GetRidOfFade(HWND WindowHandle)
+{
+	BOOL DisableTransition = TRUE;
+	if (DwmSetWindowAttribute(WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition)) != S_OK)
+		FailWithCode("DwmSetWindowAttribute");
+}
 
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
 
+
 	if (IsDefaultWindow(WindowHandle) || !IsWindow(WindowHandle))
 		return;
 
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+#ifndef COMMERCIAL
+	if (GetWindowCount(Workspace->Tiles) > 4)
+		return;
+#endif
+
 	InstallWindowSizeHook();
+	GetRidOfFade(WindowHandle);
 	SendMessageW(WindowHandle, WM_INSTALL_HOOKS, NULL, (LPARAM)WindowHandle);
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
 	BOOL IsFirstTile = (!Workspace->Tiles);
 
 	TILE_INFO* TileToAdd = (TILE_INFO*)malloc(sizeof(TILE_INFO));
@@ -2492,8 +2592,19 @@ LRESULT CALLBACK FocusMessageHandler(
 				Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
 
 
-				if (!IsWindowVisible(FocusWindow))
-					return 0;
+
+				if (Workspace->TileInFocus)
+				{
+
+					RECT TileRect;
+
+					GetWindowRect(Workspace->TileInFocus->WindowHandle, &TileRect);
+
+					//There is a fullscreen window
+					//don't render focus bar
+					if ((TileRect.bottom - TileRect.top) > ScreenHeight)
+						return 0;
+				}
 
 				RECT FocusRect;
 
@@ -2787,7 +2898,7 @@ VOID CreateFocusOverlay()
 	ShowWindow(FocusWindow, SW_SHOW);
 	UpdateWindow(FocusWindow);
 
-	SetTimer(FocusWindow, TIMER_FOCUS, 5000, NULL);
+	SetTimer(FocusWindow, TIMER_FOCUS, 1500, NULL);
 
 }
 
@@ -2928,6 +3039,489 @@ VOID InitIcon()
 
 }
 
+namespace nlohmann
+{
+
+	bool exists(const json& j, const std::string& key)
+	{
+		return j.find(key) != j.end();
+	}
+	
+}
+
+VOID ParseToken(char* Token, PBOOL isShift)
+{
+
+	if (!strcmp(Token, "shift"))
+	{
+		*isShift = TRUE;
+		return;
+	}
+
+
+
+}
+
+char ParseHotkeyWord(const char* WordBinding)
+{
+	return KeyMap[WordBinding];
+}
+
+VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
+{
+
+	BOOL isShift = strstr(HotkeyString.c_str(), "shift") != NULL;
+	char Hotkey;
+
+	if (isShift)
+	{
+		const char* PlusLoc = strstr(HotkeyString.c_str(), "+");
+
+		if (!PlusLoc)
+			Fail(MakeFormatString("Couldn't parse \"%s\"", HotkeyString.c_str()));
+
+		if (!(*++PlusLoc))
+			Fail("No key for config");
+
+		const char* NextToken = PlusLoc;
+
+		Hotkey = *PlusLoc;
+
+		if (strlen(NextToken) != 1)
+			Hotkey = ParseHotkeyWord(NextToken);
+
+	}
+	else
+	{
+		Hotkey = HotkeyString[0];
+
+		if (!Hotkey)
+			Fail("Empty string");
+
+		if (strlen(HotkeyString.c_str()) != 1)
+		{
+
+			//Check for word bindings 
+			Hotkey = ParseHotkeyWord(HotkeyString.c_str());
+
+			if (!Hotkey)
+				Fail(MakeFormatString("Failed to parse Config \"%s\"", HotkeyString.c_str()));
+
+		}
+
+	}
+
+	if (islower(Hotkey))
+		Hotkey = toupper(Hotkey);
+
+	if (HotKeyCallbackTable[Hotkey][isShift].HotKeyCb)
+		Fail(MakeFormatString("Duplicate Key Bindings for binding \"%s\"", HotkeyString.c_str()));
+
+	HotKeyCallbackTable[Hotkey][isShift].HotKeyCb = Callback;
+
+}
+
+//Wrapper Callbacks for 
+VOID DestroyTileEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	Workspace->IsFullScreen = FALSE;
+
+	SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
+
+}
+
+VOID SetLayoutVerticalEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	IsPressed = TRUE;
+	UserChosenLayout = HORIZONTAL_SPLIT;
+	if (IsWorkspaceRootTile(Workspace))
+		Workspace->Layout = UserChosenLayout;
+}
+
+ChangeWorkspaceEx(1);
+ChangeWorkspaceEx(2);
+ChangeWorkspaceEx(3);
+ChangeWorkspaceEx(4);
+ChangeWorkspaceEx(5);
+ChangeWorkspaceEx(6);
+ChangeWorkspaceEx(7);
+ChangeWorkspaceEx(8);
+ChangeWorkspaceEx(9);
+MoveWorkspaceEx(1);
+MoveWorkspaceEx(2);
+MoveWorkspaceEx(3);
+MoveWorkspaceEx(4);
+MoveWorkspaceEx(5);
+MoveWorkspaceEx(6);
+MoveWorkspaceEx(7);
+MoveWorkspaceEx(8);
+MoveWorkspaceEx(9);
+
+VOID ShutdownEx()
+{
+	if (x86ProcessHandle)
+		TerminateProcess(x86ProcessHandle, 369);
+	TerminateProcess(GetCurrentProcess(), 420);
+}
+
+VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
+{
+
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile);
+
+		if (!IsWindowVisible(Tile->WindowHandle))
+		{
+			Workspace->TileInFocus = UnlinkNode(Workspace, Tile);
+
+			while (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
+				Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
+
+			free(Tile);
+		}
+	}
+
+}
+
+VOID VerifyWorkspaceEx()
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	TILE_INFO* Tile = Workspace->Tiles;
+
+	VerifyWorkspaceRecursive(Workspace, Tile);
+	ResortTiles(Workspace);
+	RenderWorkspace(CurrentWorkspaceInFocus);
+
+}
+
+VOID GoFullscreenEx()
+{
+
+		WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+		//Single tile no need to 
+		if (Workspace->Tiles && !Workspace->Tiles->ChildTile && Workspace->Tiles->NodeType == TERMINAL)
+			return;
+
+		if (Workspace->TileInFocus)
+			Workspace->IsFullScreen = !Workspace->IsFullScreen;
+		else
+			Workspace->IsFullScreen = FALSE;
+
+		RenderWorkspace(CurrentWorkspaceInFocus);
+
+}
+
+VOID SetLayoutHorizontalEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	IsPressed = TRUE;
+	UserChosenLayout = VERTICAL_SPLIT;
+	if (IsWorkspaceRootTile(Workspace))
+		Workspace->Layout = UserChosenLayout;
+
+
+}
+
+VOID HandleLeftEx()
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleLeft(Workspace, FALSE);
+
+}
+
+VOID SwapLeftEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleLeft(Workspace, TRUE);
+
+}
+
+VOID HandleRightEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleRight(Workspace, FALSE);
+
+}
+
+VOID SwapRightEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleRight(Workspace, TRUE);
+}
+
+
+VOID HandleDownEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleBottom(Workspace, FALSE);
+
+}
+
+VOID SwapDownEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleBottom(Workspace, TRUE);
+
+}
+
+
+VOID HandleUpEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleTop(Workspace, FALSE);
+
+}
+
+VOID SwapUpEx()
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!Workspace->IsFullScreen)
+		HandleTop(Workspace, TRUE);
+
+}
+
+VOID CreateTileEx()
+{
+	system("start cmd.exe");
+}
+
+VOID InitKeyMap()
+{
+
+	//oh boi keymap emplace
+	KeyMap.emplace("left", VK_LEFT);
+	KeyMap.emplace("right", VK_RIGHT);
+	KeyMap.emplace("up", VK_UP);
+	KeyMap.emplace("down", VK_DOWN);
+	KeyMap.emplace("enter", VK_RETURN);
+
+}
+
+VOID InitConfig()
+{
+
+	InitKeyMap();
+
+	if (!PathFileExistsW(L"config.json"))
+		FailWithCode("Couldn't find config.json");
+
+	HANDLE ConfigHandle = CreateFileW(L"config.json",
+		GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
+
+	if (ConfigHandle == INVALID_HANDLE_VALUE)
+		FailWithCode("Config Json CreateFileW");
+
+	PBYTE JsonBuffer = (PBYTE)RtlAlloc(16384);
+	RtlZeroMemory(JsonBuffer, 16384);
+	DWORD BytesRead;
+
+	if (!ReadFile(ConfigHandle, JsonBuffer, 16384, &BytesRead, NULL))
+		FailWithCode("Config Json ReadFile");
+
+	json JsonParsed;
+
+	try
+	{
+		JsonParsed = json::parse(JsonBuffer);
+	}
+	catch (json::parse_error& e)
+	{
+		Fail(MakeFormatString("Couldn't parse json - %s", e.what()));
+	}
+
+
+	const char* CurrentKey = NULL;
+
+	try
+	{
+		
+		ParseConfigEx("destroy_tile", DestroyTileEx);
+		ParseConfigEx("create_tile", CreateTileEx);
+		ParseConfigEx("set_layout_vertical", SetLayoutVerticalEx);
+		ParseConfigEx("set_layout_horizontal", SetLayoutHorizontalEx);
+		ParseConfigEx("change_workspace_1", ChangeWorkspaceEx_1);
+		ParseConfigEx("change_workspace_2", ChangeWorkspaceEx_2);
+		ParseConfigEx("change_workspace_3", ChangeWorkspaceEx_3);
+		ParseConfigEx("change_workspace_4", ChangeWorkspaceEx_4);
+		ParseConfigEx("change_workspace_5", ChangeWorkspaceEx_5);
+		ParseConfigEx("change_workspace_6", ChangeWorkspaceEx_6);
+		ParseConfigEx("change_workspace_7", ChangeWorkspaceEx_7);
+		ParseConfigEx("change_workspace_8", ChangeWorkspaceEx_8);
+		ParseConfigEx("change_workspace_9", ChangeWorkspaceEx_9);
+
+		ParseConfigEx("focus_left", HandleLeftEx);
+		ParseConfigEx("focus_right", HandleRightEx);
+		ParseConfigEx("focus_up", HandleUpEx);
+		ParseConfigEx("focus_down", HandleDownEx);
+
+		ParseConfigEx("swap_left", SwapLeftEx);
+		ParseConfigEx("swap_right", SwapRightEx);
+		ParseConfigEx("swap_up", SwapUpEx);
+		ParseConfigEx("swap_down", SwapDownEx);
+
+		ParseConfigEx("move_workspace_1", MoveWorkspaceEx_1);
+		ParseConfigEx("move_workspace_2", MoveWorkspaceEx_2);
+		ParseConfigEx("move_workspace_3", MoveWorkspaceEx_3);
+		ParseConfigEx("move_workspace_4", MoveWorkspaceEx_4);
+		ParseConfigEx("move_workspace_5", MoveWorkspaceEx_5);
+		ParseConfigEx("move_workspace_6", MoveWorkspaceEx_6);
+		ParseConfigEx("move_workspace_7", MoveWorkspaceEx_7);
+		ParseConfigEx("move_workspace_8", MoveWorkspaceEx_8);
+		ParseConfigEx("move_workspace_9", MoveWorkspaceEx_9);
+
+		ParseConfigEx("verify_workspace", VerifyWorkspaceEx)
+		ParseConfigEx("fullscreen", GoFullscreenEx);
+		ParseConfigEx("shutdown", ShutdownEx);
+		
+
+	}
+	catch (json::type_error& e)
+	{
+		Fail(MakeFormatString("Couldn't parse config.json - %s : %s", CurrentKey, e.what()));
+	}
+
+	free(JsonBuffer);
+
+}
+
+VOID InitConfigFree()
+{
+
+	HotKeyCallbackTable['Q'][TRUE].HotKeyCb = DestroyTileEx;
+	HotKeyCallbackTable[VK_RETURN][FALSE].HotKeyCb = CreateTileEx;
+
+	HotKeyCallbackTable['V'][FALSE].HotKeyCb = SetLayoutVerticalEx;
+	HotKeyCallbackTable['H'][FALSE].HotKeyCb = SetLayoutHorizontalEx;
+
+	HotKeyCallbackTable['1'][FALSE].HotKeyCb = ChangeWorkspaceEx_1;
+	HotKeyCallbackTable['2'][FALSE].HotKeyCb = ChangeWorkspaceEx_2;
+	HotKeyCallbackTable['3'][FALSE].HotKeyCb = ChangeWorkspaceEx_3;
+	HotKeyCallbackTable['4'][FALSE].HotKeyCb = ChangeWorkspaceEx_4;
+	HotKeyCallbackTable['5'][FALSE].HotKeyCb = ChangeWorkspaceEx_4;
+
+	HotKeyCallbackTable['1'][TRUE].HotKeyCb = MoveWorkspaceEx_1;
+	HotKeyCallbackTable['2'][TRUE].HotKeyCb = MoveWorkspaceEx_2;
+	HotKeyCallbackTable['3'][TRUE].HotKeyCb = MoveWorkspaceEx_3;
+	HotKeyCallbackTable['4'][TRUE].HotKeyCb = MoveWorkspaceEx_4;
+	HotKeyCallbackTable['5'][TRUE].HotKeyCb = MoveWorkspaceEx_4;
+
+	HotKeyCallbackTable[VK_LEFT][FALSE].HotKeyCb = HandleLeftEx;
+	HotKeyCallbackTable[VK_LEFT][TRUE].HotKeyCb = SwapLeftEx;
+	HotKeyCallbackTable[VK_RIGHT][FALSE].HotKeyCb = HandleRightEx;
+	HotKeyCallbackTable[VK_RIGHT][TRUE].HotKeyCb = SwapRightEx;
+	HotKeyCallbackTable[VK_UP][FALSE].HotKeyCb = HandleUpEx;
+	HotKeyCallbackTable[VK_UP][TRUE].HotKeyCb = SwapUpEx;
+	HotKeyCallbackTable[VK_DOWN][FALSE].HotKeyCb = HandleDownEx;
+	HotKeyCallbackTable[VK_DOWN][TRUE].HotKeyCb = SwapDownEx;
+	HotKeyCallbackTable ['R'] [FALSE] .HotKeyCb = VerifyWorkspaceEx;
+	HotKeyCallbackTable ['F'] [FALSE] .HotKeyCb = GoFullscreenEx;
+	HotKeyCallbackTable ['T'] [FALSE] .HotKeyCb = ShutdownEx;
+}
+
+BOOL VerifyLicense()
+{
+	
+	WCHAR LicensePath[2048] = { 0 };
+
+	PWSTR AppFolderPath;
+
+	if (SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &AppFolderPath) != S_OK)
+		FailWithCode("Error 55");
+
+	wcscat(LicensePath, AppFolderPath);
+	wcscat(LicensePath, L"\\a6js4r.txt");
+
+	if (PathFileExistsW(LicensePath))
+	{
+		HANDLE LicenseFile = CreateFileW(LicensePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+
+		if (LicenseFile == INVALID_HANDLE_VALUE)
+		{
+			CloseHandle(LicenseFile);
+			Fail("Error 54");
+		}
+
+		CHAR LicenseContent[40];
+		DWORD BytesRead;
+
+		if (!ReadFile(LicenseFile, LicenseContent, 40, &BytesRead, NULL))
+		{
+			CloseHandle(LicenseFile);
+			FailWithCode("Error 53");
+		}
+
+		CloseHandle(LicenseFile);
+
+		if (strstr(LicenseContent, "Win32kWindows"))
+			return TRUE;
+
+		return FALSE;
+	}
+
+	LPSTR result = SG_InputBox::GetString("WinWM", "Please Enter the WinWM License\nCopyright Ayaz Mammadov 2020", "");
+
+
+	if (!strlen(result))
+		TerminateProcess(GetCurrentProcess(), 369);
+
+	if (strcmp(result, "ILoveWin32K"))
+		TerminateProcess(GetCurrentProcess(), 369);
+
+	HANDLE LicenseFile = CreateFileW(LicensePath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
+
+	if (LicenseFile == INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(LicenseFile);
+		FailWithCode("Error 52");
+	}
+
+	DWORD BytesWritten;
+
+	if (!WriteFile(LicenseFile, "Win32kWindows", sizeof("Win32kWindows"), &BytesWritten, NULL))
+		FailWithCode("Error 52");
+
+	CloseHandle(LicenseFile);
+
+}
+
+
+
+
 INT main()
 {
 	if (AppRunningCheck())
@@ -2937,8 +3531,20 @@ INT main()
 
 
 	//FreeConsole();
-
 	SetCrashRoutine();
+	InitCom();
+	EnumVirtualDesktops(VDesktopManagerInternal);
+	return 0;
+
+#ifdef COMMERCIAL
+	if (!VerifyLicense())
+	{
+
+	}
+	InitConfig();
+#else
+	InitConfigFree();
+#endif
 	InitScreenGlobals();
 	InitWorkspaceList();
 	CreateInitialWindow();
@@ -2946,6 +3552,7 @@ INT main()
 	//EnterFullScreen();
 	//ShowWindow(MainWindow, SW_SHOW);
 	//MoveWindowToBack();
+	CreateX86Process();
 	GetOtherApplicationWindows();
 	PerformInitialRegroupring();
 	InstallNewWindowHook();

@@ -1,0 +1,51 @@
+{
+
+	"modifier" : "alt",
+
+	"destroy_tile" : "shift+q",
+	"create_tile" : "enter",
+
+	"set_layout_vertical" : "v",
+	"set_layout_horizontal" : "h",
+
+	"change_workspace_1" : "1",
+	"change_workspace_2" : "2",
+	"change_workspace_3" : "3",
+	"change_workspace_4" : "4",
+	"change_workspace_5" : "5",
+	"change_workspace_6" : "6",
+	"change_workspace_7" : "7",
+	"change_workspace_8" : "8",
+	"change_workspace_9" : "9",
+
+	"focus_left" : "left",
+	"focus_right" : "right",
+	"focus_up" : "up",
+	"focus_down" : "down",
+
+	"swap_left" : "shift+left",
+	"swap_right" : "shift+right",
+	"swap_up" : "shift+up",
+	"swap_down" : "shift+down",
+
+	"move_workspace_1" : "shift+1",
+	"move_workspace_2" : "shift+2",
+	"move_workspace_3" : "shift+3",
+	"move_workspace_4" : "shift+4",
+	"move_workspace_5" : "shift+5",
+	"move_workspace_6" : "shift+6",
+	"move_workspace_7" : "shift+7",
+	"move_workspace_8" : "shift+8",
+	"move_workspace_9" : "shift+9",
+
+	"verify_workspace" : "r",
+	"fullscreen" : "f",
+	"shutdown" : "t",
+
+	"windows_to_ignore" : [],
+	"windows_no_inject_dll" : []
+	
+
+}
+
+

@@ -11,7 +11,6 @@
 
 // Define TRACY_ENABLE to enable profiler.
 
-
 #include "common/TracySystem.cpp"
 
 #ifdef TRACY_ENABLE

@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\InputBox">
+      <UniqueIdentifier>{25ff5b8f-7c84-4cb5-95db-1d7fa56e5a97}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\VDesktops">
+      <UniqueIdentifier>{c5b40022-859b-473a-8a3e-49975239efbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Utils">
+      <UniqueIdentifier>{8cf25967-0236-481e-b98c-fee410db1c17}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="guitest.cpp">
@@ -24,10 +33,43 @@
     <ClCompile Include="tracy\TracyClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SG_InputBox.cpp">
+      <Filter>Source Files\InputBox</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files\InputBox</Filter>
+    </ClCompile>
+    <ClCompile Include="utils.cpp">
+      <Filter>Source Files\InputBox</Filter>
+    </ClCompile>
+    <ClCompile Include="VDesktops.cpp">
+      <Filter>Source Files\VDesktops</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource3.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SG_InputBox.h">
+      <Filter>Source Files\InputBox</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Source Files\InputBox</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Source Files\InputBox</Filter>
+    </ClInclude>
+    <ClInclude Include="utils.h">
+      <Filter>Source Files\InputBox</Filter>
+    </ClInclude>
+    <ClInclude Include="VDesktops.h">
+      <Filter>Source Files\VDesktops</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualDesktops.h">
+      <Filter>Source Files\VDesktops</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
