@@ -3520,21 +3520,14 @@ BOOL VerifyLicense()
 }
 
 
-
-
 INT main()
 {
 	if (AppRunningCheck())
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-
-
-	//FreeConsole();
+	FreeConsole();
 	SetCrashRoutine();
-	InitCom();
-	EnumVirtualDesktops(VDesktopManagerInternal);
-	return 0;
 
 #ifdef COMMERCIAL
 	if (!VerifyLicense())
