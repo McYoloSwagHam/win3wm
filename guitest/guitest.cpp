@@ -30,7 +30,11 @@
 #define RtlAlloc malloc
 #define ForegroundClass 25
 
-
+//------------------------------------------------------------------
+// COM Variables
+//------------------------------------------------------------------
+#define ComOk(x) if (const char* com_error =x)\
+	FailWithCode(com_error);
 //------------------------------------------------------------------
 // Application Definitions
 //------------------------------------------------------------------
@@ -84,62 +88,6 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 		ParseConfig(JsonParsed[CurrentKey], Value); \
 	
 
-enum LAYOUT_STATE
-{
-	HORIZONTAL_LAYOUT = 0,
-	VERTICAL_LAYOUT = 1,
-	ROOT_LAYOUT = 2,
-};
-
-enum NODE_TYPE
-{
-	TERMINAL = 0,
-	VERTICAL_SPLIT = 1,
-	HORIZONTAL_SPLIT = 2,
-};
-
- struct PRE_WM_INFO
-{
-	LONG_PTR WS_STYLE;
-	LONG_PTR WS_EX_STYLE;
-	WINDOWPLACEMENT OldPlacement;
-
-} ;
-
-struct _TILE_INFO_;
-
-struct SPECIFIC_WINDOW
-{
-
-	const wchar_t* ClassName;
-	DWORD ShowMask;
-
-};
-
-struct TILE_INFO
-{
-
-
-	NODE_TYPE NodeType;
-	HWND WindowHandle;
-	PRE_WM_INFO PreWMInfo;
-	TILE_INFO *ParentTile;
-	TILE_INFO *ChildTile;
-	TILE_INFO *BranchTile;
-	TILE_INFO *BranchParent;
-	WINDOWPLACEMENT Placement;
-	LAYOUT_STATE Layout;
-
-};
-
-struct WORKSPACE_INFO
-{
-	NODE_TYPE Layout;
-	TILE_INFO* Tiles;
-	TILE_INFO* TileInFocus;
-	BOOL IsFullScreen;
-
-};
 
 //------------------------------------------------------------------
 // Window Definitions
@@ -176,6 +124,7 @@ HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
 INT CurrentWorkspaceInFocus = 1;
 #define WM_INSTALL_HOOKS 0x8069
+#define WM_MOVE_TILE 0x806b
 #define WM_USER_FOCUS 0x8096
 #define MIN_ALL 419
 #define ID_EXIT 6
@@ -1088,6 +1037,7 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 		i++;
 	}
 
+	Workspace->NeedsRendering = TRUE;
 
 }
 
@@ -1385,7 +1335,6 @@ VOID PerformInitialRegroupring()
 	NumWorkspace = WorkspaceList.size() - 1;
 	MaxInitTiles = NumWorkspace * 4;
 	
-
 	if (NumTiles > MaxInitTiles)
 		TilesPerWorkspace = (NumTiles / NumWorkspace) + 1;
 	else if (NumTiles > INIT_TILES_PER_WORKSPACE)
@@ -1403,6 +1352,7 @@ VOID PerformInitialRegroupring()
 		// this is dumb as fuck don't use an array linked-list it because
 		// we're not morons 
 		INT ActualTilesLeft = NumTiles - (i * TilesPerWorkspace);
+		WORKSPACE_INFO* CurrentWorkspace = &WorkspaceList[WorkspaceIndex];
 
 
 		int j = 0;
@@ -1418,11 +1368,11 @@ VOID PerformInitialRegroupring()
 
 			TileToAdd->BranchTile = NULL;
 
-			LinkNode(&WorkspaceList[WorkspaceIndex], TileToAdd);
-
-			AddTileToWorkspace(&WorkspaceList[WorkspaceIndex], TileToAdd);
+			LinkNode(CurrentWorkspace, TileToAdd);
+			AddTileToWorkspace(CurrentWorkspace, TileToAdd);
 
 			TilesLeft--;
+			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
 		}
 
 		WorkspaceIndex++;
@@ -1601,6 +1551,7 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 VOID RenderStatusBar()
 {
 
+
 	INT SlotCount = 1;
 	CHAR ButtonText[2] = { '0', '\0' };
 
@@ -1655,6 +1606,12 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
+	RenderStatusBar();
+
+
+	if (!Workspace->NeedsRendering)
+		return;
+
 	logc(13, "Rendering Workspace ; %u\n", WorkspaceNumber);
 
 	INT Count = 1;
@@ -1667,17 +1624,11 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		Count = RenderWindows(Workspace->Tiles);
 
 	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
-	{
-		RenderDebugWindow(Workspace->TileInFocus);
 		RenderFocusWindow(Workspace->TileInFocus);
-	}
 	else
-	{
-		ShowWindow(DebugWindow, SW_HIDE);
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
-	}
 
-	RenderStatusBar();
+	Workspace->NeedsRendering = FALSE;
 
 	logc(12, "Total Length Of Workspace : %u\n", Count);
 
@@ -1690,6 +1641,12 @@ VOID InitWorkspaceList()
 #else
 	WorkspaceList.resize(5);
 #endif
+
+	for (int i = 0; i < WorkspaceList.size(); i++)
+	{
+		WorkspaceList[i].NeedsRendering = TRUE;
+	}
+
 }
 
 VOID LoadNecessaryModules()
@@ -1902,6 +1859,7 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 		{
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
+			Workspace->NeedsRendering = TRUE;
 			RenderWorkspace(CurrentWorkspaceInFocus);
 		}
 	}
@@ -1932,6 +1890,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace, BOOL Swap)
 		{
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
+			Workspace->NeedsRendering = TRUE;
 			RenderWorkspace(CurrentWorkspaceInFocus);
 		}
 	}
@@ -1961,6 +1920,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 		{
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
+			Workspace->NeedsRendering = TRUE;
 			RenderWorkspace(CurrentWorkspaceInFocus);
 		}
 	}
@@ -1991,6 +1951,7 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 		{
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
+			Workspace->NeedsRendering = TRUE;
 			RenderWorkspace(CurrentWorkspaceInFocus);
 		}
 	}
@@ -2039,12 +2000,30 @@ VOID HideWorkspace(INT WorkspaceNumber)
 
 }
 
-VOID HandleChangeWorkspace(INT WorkspaceNumber)
+VOID HandleSwitchDesktop(INT WorkspaceNumber)
 {
 
-	HideWorkspace(CurrentWorkspaceInFocus);
+	TILE_INFO* FocusTile = WorkspaceList[WorkspaceNumber].TileInFocus;
+
+	if (FocusTile)
+		RenderFocusWindow(FocusTile);
+	else
+		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+
 	RenderWorkspace(WorkspaceNumber);
-	
+	HRESULT hr = VDesktopManagerInternal->SwitchDesktop(WorkspaceList[WorkspaceNumber].VDesktop);
+
+	if (FAILED(hr))
+		Fail("SwitchDesktop");
+}
+
+
+VOID HandleChangeWorkspace(INT WorkspaceNumber)
+{
+	if (WorkspaceNumber == CurrentWorkspaceInFocus)
+		return;
+
+	PostThreadMessageA(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
 }
 
 VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
@@ -2065,11 +2044,14 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	if (!Node)
 		return;
 
+
+	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
+	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
+
 	RemoveTileFromWorkspace(Workspace, Node);
 	LinkNode(TargetWorkspace, NewNode);
 	AddTileToWorkspace(TargetWorkspace, NewNode);
 	RenderWorkspace(CurrentWorkspaceInFocus);
-
 
 }
 
@@ -2442,6 +2424,13 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	case WM_CREATE:
 		CreateStatusButton(WindowHandle, ButtonIdx, GlobalButtonText);
 		ButtonIdx++;
+
+		//IApplicationView* ApplicationView;
+		//if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
+		//	FailWithCode("StatusBar GetView");
+
+		//PinnedApps->PinView(ApplicationView);
+		//ApplicationView->Release();
 		break;
 	case WM_DRAWITEM:
 	{
@@ -2965,8 +2954,6 @@ VOID InitStatusBar()
 
 	GetWindowRect(SearchBarWindow, &SearchBarRect);
 
-	
-
 	for (int i = 1; i < 10; i++)
 	{
 
@@ -3127,6 +3114,9 @@ VOID DestroyTileEx()
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
 
+	if (!Workspace->TileInFocus)
+		return;
+
 	Workspace->IsFullScreen = FALSE;
 
 	SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
@@ -3214,6 +3204,7 @@ VOID GoFullscreenEx()
 		else
 			Workspace->IsFullScreen = FALSE;
 
+		Workspace->NeedsRendering = TRUE;
 		RenderWorkspace(CurrentWorkspaceInFocus);
 
 }
@@ -3516,6 +3507,8 @@ BOOL VerifyLicense()
 		FailWithCode("Error 52");
 
 	CloseHandle(LicenseFile);
+	
+	return TRUE;
 
 }
 
@@ -3528,18 +3521,20 @@ INT main()
 	DpiSet();
 	FreeConsole();
 	SetCrashRoutine();
+	ComOk(InitCom());
 
 #ifdef COMMERCIAL
 	if (!VerifyLicense())
-	{
+		TerminateProcess(GetCurrentProcess(), 3069);
 
-	}
 	InitConfig();
 #else
 	InitConfigFree();
 #endif
 	InitScreenGlobals();
 	InitWorkspaceList();
+	ComOk(RemoveOtherVDesktops());
+	ComOk(SetupVDesktops(WorkspaceList));
 	CreateInitialWindow();
 	LoadNecessaryModules();
 	//EnterFullScreen();
@@ -3552,15 +3547,29 @@ INT main()
 	InstallKeyboardHooks();
 	CreateDebugOverlay();
 	CreateNotificationWindow();
-	CreateFocusOverlay();
 	InitIcon();
+	CreateFocusOverlay();
+	ComOk(SwitchToWorkspace(&WorkspaceList[CurrentWorkspaceInFocus]));
 	RenderWorkspace(CurrentWorkspaceInFocus);
 	InitStatusBar();
+
 	is_init = TRUE;
 
 	MSG msg;
 	while (int RetVal = GetMessageA(&msg, NULL, 0,  0))
 	{
+
+		if (msg.message == WM_SWITCH_DESKTOP)
+		{
+			HandleSwitchDesktop(msg.wParam);
+			continue;
+		}
+
+		if (msg.message == WM_MOVE_TILE)
+		{
+			ComOk(MoveWindowToVDesktop((HWND)msg.wParam, (IVirtualDesktop*)msg.lParam));
+			continue;
+		}
 
 		if (msg.message == WM_INSTALL_HOOKS)
 		{

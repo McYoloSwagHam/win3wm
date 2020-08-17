@@ -2,6 +2,8 @@
 #pragma once
 
 #include <objbase.h>
+#include <hstring.h>
+#include <inspectable.h>
 #include <ObjectArray.h>
 
 const CLSID CLSID_ImmersiveShell = {
@@ -13,12 +15,94 @@ const CLSID CLSID_VirtualDesktopAPI_Unknown = {
 const IID IID_IVirtualDesktopManagerInternal = {
 	0xEF9F1A6C, 0xD3CC, 0x4358, 0xB7, 0x12, 0xF8, 0x4B, 0x63, 0x5B, 0xEB, 0xE7 };
 
+const CLSID CLSID_VirtualDesktopPinnedApps = {
+	0xb5a399e7, 0x1c87, 0x46b8, 0x88, 0xe9, 0xfc, 0x57, 0x47, 0xb1, 0x71, 0xbd
+};
+
 
 
 // ??. IApplicationView ?? Windows Runtime
-struct IApplicationView : public IUnknown
+// Ignore following API's:
+#define IAsyncCallback UINT
+#define IImmersiveMonitor UINT
+#define APPLICATION_VIEW_COMPATIBILITY_POLICY UINT
+#define IShellPositionerPriority UINT
+#define IApplicationViewOperation UINT
+#define APPLICATION_VIEW_CLOAK_TYPE UINT
+#define IApplicationViewPosition UINT
+
+// Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Interface\{372E1D3B-38D3-42E4-A15B-8AB2B178F513}
+// Found with searching "IApplicationView"
+DECLARE_INTERFACE_IID_(IApplicationView, IInspectable, "372E1D3B-38D3-42E4-A15B-8AB2B178F513")
 {
-public:
+	/*** IUnknown methods ***/
+	STDMETHOD(QueryInterface)(THIS_ REFIID riid, LPVOID FAR * ppvObject) PURE;
+	STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+	STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+	/*** IInspectable methods ***/
+	STDMETHOD(GetIids)(__RPC__out ULONG * iidCount, __RPC__deref_out_ecount_full_opt(*iidCount) IID * *iids) PURE;
+	STDMETHOD(GetRuntimeClassName)(__RPC__deref_out_opt HSTRING * className) PURE;
+	STDMETHOD(GetTrustLevel)(__RPC__out TrustLevel * trustLevel) PURE;
+
+	/*** IApplicationView methods ***/
+	STDMETHOD(SetFocus)(THIS) PURE;
+	STDMETHOD(SwitchTo)(THIS) PURE;
+	STDMETHOD(TryInvokeBack)(THIS_ IAsyncCallback*) PURE; // Proc8
+	STDMETHOD(GetThumbnailWindow)(THIS_ HWND*) PURE; // Proc9
+	STDMETHOD(GetMonitor)(THIS_ IImmersiveMonitor**) PURE; // Proc10
+	STDMETHOD(GetVisibility)(THIS_ int*) PURE; // Proc11
+	STDMETHOD(SetCloak)(THIS_ APPLICATION_VIEW_CLOAK_TYPE, int) PURE; // Proc12
+	STDMETHOD(GetPosition)(THIS_ REFIID, void**) PURE; // Proc13
+	STDMETHOD(SetPosition)(THIS_ IApplicationViewPosition*) PURE; // Proc14
+	STDMETHOD(InsertAfterWindow)(THIS_ HWND) PURE; // Proc15
+	STDMETHOD(GetExtendedFramePosition)(THIS_ RECT*) PURE; // Proc16
+	STDMETHOD(GetAppUserModelId)(THIS_ PWSTR*) PURE; // Proc17
+	STDMETHOD(SetAppUserModelId)(THIS_ PCWSTR) PURE; // Proc18
+	STDMETHOD(IsEqualByAppUserModelId)(THIS_ PCWSTR, int*) PURE; // Proc19
+	STDMETHOD(GetViewState)(THIS_ UINT*) PURE; // Proc20
+	STDMETHOD(SetViewState)(THIS_ UINT) PURE; // Proc21
+	STDMETHOD(GetNeediness)(THIS_ int*) PURE; // Proc22
+	STDMETHOD(GetLastActivationTimestamp)(THIS_ ULONGLONG*) PURE;
+	STDMETHOD(SetLastActivationTimestamp)(THIS_ ULONGLONG) PURE;
+	STDMETHOD(GetVirtualDesktopId)(THIS_ GUID*) PURE;
+	STDMETHOD(SetVirtualDesktopId)(THIS_ REFGUID) PURE;
+	STDMETHOD(GetShowInSwitchers)(THIS_ int*) PURE;
+	STDMETHOD(SetShowInSwitchers)(THIS_ int) PURE;
+	STDMETHOD(GetScaleFactor)(THIS_ int*) PURE;
+	STDMETHOD(CanReceiveInput)(THIS_ BOOL*) PURE;
+	STDMETHOD(GetCompatibilityPolicyType)(THIS_ APPLICATION_VIEW_COMPATIBILITY_POLICY*) PURE;
+	STDMETHOD(SetCompatibilityPolicyType)(THIS_ APPLICATION_VIEW_COMPATIBILITY_POLICY) PURE;
+	//STDMETHOD(GetPositionPriority)(THIS_ IShellPositionerPriority**) PURE; // removed in 1803
+	//STDMETHOD(SetPositionPriority)(THIS_ IShellPositionerPriority*) PURE; // removed in 1803
+	STDMETHOD(GetSizeConstraints)(THIS_ IImmersiveMonitor*, SIZE*, SIZE*) PURE;
+	STDMETHOD(GetSizeConstraintsForDpi)(THIS_ UINT, SIZE*, SIZE*) PURE;
+	STDMETHOD(SetSizeConstraintsForDpi)(THIS_ const UINT*, const SIZE*, const SIZE*) PURE;
+	//STDMETHOD(QuerySizeConstraintsFromApp)(THIS) PURE; // removed in 1803
+	STDMETHOD(OnMinSizePreferencesUpdated)(THIS_ HWND) PURE;
+	STDMETHOD(ApplyOperation)(THIS_ IApplicationViewOperation*) PURE;
+	STDMETHOD(IsTray)(THIS_ BOOL*) PURE;
+	STDMETHOD(IsInHighZOrderBand)(THIS_ BOOL*) PURE;
+	STDMETHOD(IsSplashScreenPresented)(THIS_ BOOL*) PURE;
+	STDMETHOD(Flash)(THIS) PURE;
+	STDMETHOD(GetRootSwitchableOwner)(THIS_ IApplicationView**) PURE; // proc45
+	STDMETHOD(EnumerateOwnershipTree)(THIS_ IObjectArray**) PURE; // proc46
+
+	STDMETHOD(GetEnterpriseId)(THIS_ PWSTR*) PURE; // proc47
+	STDMETHOD(IsMirrored)(THIS_ BOOL*) PURE; //
+
+	STDMETHOD(Unknown1)(THIS_ int*) PURE;
+	STDMETHOD(Unknown2)(THIS_ int*) PURE;
+	STDMETHOD(Unknown3)(THIS_ int*) PURE;
+	STDMETHOD(Unknown4)(THIS_ int) PURE;
+	STDMETHOD(Unknown5)(THIS_ int*) PURE;
+	STDMETHOD(Unknown6)(THIS_ int) PURE;
+	STDMETHOD(Unknown7)(THIS) PURE;
+	STDMETHOD(Unknown8)(THIS_ int*) PURE;
+	STDMETHOD(Unknown9)(THIS_ int) PURE;
+	STDMETHOD(Unknown10)(THIS_ int, int) PURE;
+	STDMETHOD(Unknown11)(THIS_ int) PURE;
+	STDMETHOD(Unknown12)(THIS_ SIZE*) PURE;
 
 };
 
@@ -200,3 +284,73 @@ DECLARE_INTERFACE_IID_(IApplicationViewCollection, IUnknown, "1841C6D7-4F9D-42C0
 	STDMETHOD(UnregisterForApplicationViewChanges)(THIS_ DWORD) PURE;
 };
 
+DECLARE_INTERFACE_IID_(IVirtualDesktopPinnedApps, IUnknown, "4ce81583-1e4c-4632-a621-07a53543148f")
+{
+		/*** IUnknown methods ***/
+		STDMETHOD(QueryInterface)(THIS_ REFIID riid, LPVOID FAR * ppvObject) PURE;
+		STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+		STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+
+		/*** IVirtualDesktopPinnedApps methods ***/
+		STDMETHOD(IsAppIdPinned)(THIS_ PCWSTR appId, BOOL*) PURE;
+		STDMETHOD(PinAppID)(THIS_ PCWSTR appId) PURE;
+		STDMETHOD(UnpinAppID)(THIS_ PCWSTR appId) PURE;
+		STDMETHOD(IsViewPinned)(THIS_ IApplicationView*, BOOL*) PURE;
+		STDMETHOD(PinView)(THIS_ IApplicationView*) PURE;
+		STDMETHOD(UnpinView)(THIS_ IApplicationView*) PURE; 
+};
+
+
+enum LAYOUT_STATE
+{
+	HORIZONTAL_LAYOUT = 0,
+	VERTICAL_LAYOUT = 1,
+	ROOT_LAYOUT = 2,
+};
+
+enum NODE_TYPE
+{
+	TERMINAL = 0,
+	VERTICAL_SPLIT = 1,
+	HORIZONTAL_SPLIT = 2,
+};
+
+ struct PRE_WM_INFO
+{
+	LONG_PTR WS_STYLE;
+	LONG_PTR WS_EX_STYLE;
+	WINDOWPLACEMENT OldPlacement;
+
+} ;
+
+struct SPECIFIC_WINDOW
+{
+
+	const wchar_t* ClassName;
+	DWORD ShowMask;
+
+};
+
+struct TILE_INFO
+{
+	NODE_TYPE NodeType;
+	HWND WindowHandle;
+	PRE_WM_INFO PreWMInfo;
+	TILE_INFO *ParentTile;
+	TILE_INFO *ChildTile;
+	TILE_INFO *BranchTile;
+	TILE_INFO *BranchParent;
+	WINDOWPLACEMENT Placement;
+	LAYOUT_STATE Layout;
+};
+
+struct WORKSPACE_INFO
+{
+	NODE_TYPE Layout;
+	TILE_INFO* Tiles;
+	TILE_INFO* TileInFocus;
+	BOOL IsFullScreen;
+	BOOL NeedsRendering;
+	IVirtualDesktop* VDesktop;
+};
