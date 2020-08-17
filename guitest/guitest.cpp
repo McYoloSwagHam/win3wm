@@ -21,7 +21,7 @@
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
-#define COMMERCIAL
+//#define COMMERCIAL
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -1639,7 +1639,7 @@ VOID InitWorkspaceList()
 #ifdef COMMERCIAL
 	WorkspaceList.resize(10);
 #else
-	WorkspaceList.resize(5);
+	WorkspaceList.resize(4);
 #endif
 
 	for (int i = 0; i < WorkspaceList.size(); i++)
@@ -2377,6 +2377,11 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 	RemoveTileFromWorkspace(Workspace, TileToRemove);
 	RenderWorkspace(CurrentWorkspaceInFocus);
+
+	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
+		RenderFocusWindow(Workspace->TileInFocus);
+	else
+		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 
 }
 
@@ -3422,14 +3427,10 @@ VOID InitConfigFree()
 	HotKeyCallbackTable['1'][FALSE].HotKeyCb = ChangeWorkspaceEx_1;
 	HotKeyCallbackTable['2'][FALSE].HotKeyCb = ChangeWorkspaceEx_2;
 	HotKeyCallbackTable['3'][FALSE].HotKeyCb = ChangeWorkspaceEx_3;
-	HotKeyCallbackTable['4'][FALSE].HotKeyCb = ChangeWorkspaceEx_4;
-	HotKeyCallbackTable['5'][FALSE].HotKeyCb = ChangeWorkspaceEx_4;
 
 	HotKeyCallbackTable['1'][TRUE].HotKeyCb = MoveWorkspaceEx_1;
 	HotKeyCallbackTable['2'][TRUE].HotKeyCb = MoveWorkspaceEx_2;
 	HotKeyCallbackTable['3'][TRUE].HotKeyCb = MoveWorkspaceEx_3;
-	HotKeyCallbackTable['4'][TRUE].HotKeyCb = MoveWorkspaceEx_4;
-	HotKeyCallbackTable['5'][TRUE].HotKeyCb = MoveWorkspaceEx_4;
 
 	HotKeyCallbackTable[VK_LEFT][FALSE].HotKeyCb = HandleLeftEx;
 	HotKeyCallbackTable[VK_LEFT][TRUE].HotKeyCb = SwapLeftEx;
