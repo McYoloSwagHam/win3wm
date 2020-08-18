@@ -12,6 +12,8 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <shlobj.h>
+#include <locale>
+#include <codecvt>
 
 #include "json.hpp"
 #include "resource3.h"
@@ -180,7 +182,7 @@ HWND StatusButtonList[10];
 // ------------------------------------------------------------------
 
 const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow"};
-const wchar_t* Win32kDefaultWindowNames[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow"};
+std::vector<std::wstring> Win32kDefaultWindowNames = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow"};
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
 	{ L"ConsoleWindowClass", SW_MAXIMIZE }
@@ -377,7 +379,7 @@ BOOL IsWindowSecretCloaked(HWND hwnd)
 		&isCloaked, sizeof(isCloaked))) && isCloaked);
 }
 
-BOOL IsDefaultWindow(HWND WindowHandle)
+BOOL IsIgnoreWindow(HWND WindowHandle)
 {
 	WCHAR WindowClassText[1024]		= { 0 };
 	WCHAR WindowNameText[1024]		= { 0 };
@@ -385,12 +387,12 @@ BOOL IsDefaultWindow(HWND WindowHandle)
 	GetClassNameW(WindowHandle, WindowClassText, 1024);
 	GetWindowTextW(WindowHandle, WindowNameText, 1024);
 
-	for (int i = 0; i < ARRAY_SIZEOF(Win32kDefaultWindowNames); i++)
+	for (int i = 0; i < Win32kDefaultWindowNames.size(); i++)
 	{
-		if (wcsstr(WindowClassText, Win32kDefaultWindowNames[i]))
+		if (wcsstr(WindowClassText, Win32kDefaultWindowNames[i].c_str()))
 			return TRUE;
 
-		if (wcsstr(WindowNameText, Win32kDefaultWindowNames[i]))
+		if (wcsstr(WindowNameText, Win32kDefaultWindowNames[i].c_str()))
 			return TRUE;
 	}
 
@@ -559,7 +561,7 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 	WCHAR WindowText[1024];
 
-	if (!IsDefaultWindow(WindowHandle)			&&
+	if (!IsIgnoreWindow(WindowHandle)			&&
 		!HasParentOrPopup(WindowHandle)			&&
 		IsWindowVisible(WindowHandle)			&&
 		IsWindowRectVisible(WindowHandle)		&& 
@@ -2342,7 +2344,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
 
 
-	if (IsDefaultWindow(WindowHandle) || !IsWindow(WindowHandle))
+	if (IsIgnoreWindow(WindowHandle) || !IsWindow(WindowHandle))
 		return;
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
@@ -2400,7 +2402,7 @@ TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 {
 
-	if (IsDefaultWindow(WindowHandle))
+	if (IsIgnoreWindow(WindowHandle))
 		return;
 
 
@@ -3460,6 +3462,15 @@ VOID InitConfig()
 		CurrentKey = "modifier";
 		ParseModifier(JsonParsed[CurrentKey]);
 
+		CurrentKey = "windows_to_ignore";
+		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+		std::vector<std::string> WindowsToIgnore = JsonParsed[CurrentKey];
+
+		for (auto& Title : WindowsToIgnore)
+		{
+			std::wstring wide_string = converter.from_bytes(Title);
+			Win32kDefaultWindowNames.push_back(wide_string);
+		}
 
 	}
 	catch (json::type_error& e)

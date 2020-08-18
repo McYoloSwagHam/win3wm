@@ -42,8 +42,7 @@
 	"fullscreen" : "f",
 	"shutdown" : "t",
 
-	"windows_to_ignore" : [],
-	"windows_no_inject_dll" : []
+	"windows_to_ignore" : ["memes", "memes2"]
 	
 
 }
