@@ -51,7 +51,6 @@ const char* InitCom()
 
 	ServiceProvider->QueryService(__uuidof(IVirtualDesktopManager), &VDesktopManager);
 	ServiceProvider->QueryService(__uuidof(IApplicationViewCollection), &ViewCollection);
-	ServiceProvider->QueryService(CLSID_VirtualDesktopPinnedApps, __uuidof(IVirtualDesktopPinnedApps), (PVOID*)&PinnedApps);
 
 
 	if (!VDesktopManager)
@@ -59,9 +58,6 @@ const char* InitCom()
 
 	if (!ViewCollection)
 		return "ViewCollection";
-
-	if (!PinnedApps)
-		return "PinnedApps";
 
 	UINT16 buildNumber = GetWinBuildNumber();
 

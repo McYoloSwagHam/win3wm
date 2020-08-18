@@ -21,7 +21,7 @@
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
-//#define COMMERCIAL
+#define COMMERCIAL
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -33,7 +33,7 @@
 //------------------------------------------------------------------
 // COM Variables
 //------------------------------------------------------------------
-#define ComOk(x) if (const char* com_error =x)\
+#define ComOk(x) if (const char* com_error = x)\
 	FailWithCode(com_error);
 //------------------------------------------------------------------
 // Application Definitions
@@ -88,6 +88,16 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 		ParseConfig(JsonParsed[CurrentKey], Value); \
 	
 
+//-------------------------
+// Hotkey stupid stuff
+//-------------------------
+enum MODKEY {
+	ALT = 0,
+	WIN = 1
+};
+
+MODKEY ModKey = ALT;
+
 
 //------------------------------------------------------------------
 // Window Definitions
@@ -124,6 +134,7 @@ HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
 INT CurrentWorkspaceInFocus = 1;
 #define WM_INSTALL_HOOKS 0x8069
+#define WM_SHUTDOWN 0x806C
 #define WM_MOVE_TILE 0x806b
 #define WM_USER_FOCUS 0x8096
 #define MIN_ALL 419
@@ -2003,15 +2014,16 @@ VOID HideWorkspace(INT WorkspaceNumber)
 VOID HandleSwitchDesktop(INT WorkspaceNumber)
 {
 
-	TILE_INFO* FocusTile = WorkspaceList[WorkspaceNumber].TileInFocus;
+	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
+	TILE_INFO* FocusTile = Workspace->TileInFocus;
 
-	if (FocusTile)
+	if (FocusTile && !Workspace->IsFullScreen)
 		RenderFocusWindow(FocusTile);
 	else
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 
 	RenderWorkspace(WorkspaceNumber);
-	HRESULT hr = VDesktopManagerInternal->SwitchDesktop(WorkspaceList[WorkspaceNumber].VDesktop);
+	HRESULT hr = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
 
 	if (FAILED(hr))
 		Fail("SwitchDesktop");
@@ -2059,22 +2071,37 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 {
 	
-	BOOL AltDown = (KeyboardLookupTable[KeyboardData->vkCode] == WM_SYSKEYDOWN);
+	BOOL ModDown;
+	if (ModKey == ALT)
+		ModDown = (KeyboardLookupTable[KeyboardData->vkCode] == WM_SYSKEYDOWN);
+	else
+		ModDown = KeyboardLookupTable[VK_LWIN] == WM_KEYDOWN && 
+			KeyboardLookupTable[KeyboardData->vkCode] == WM_KEYDOWN;
+
 	BOOL ShiftDown = ButtonDown(KeyboardLookupTable[VK_LSHIFT]);
 	INT SkipKey = TRUE;
 
-	if (!AltDown)
+	if (!ModDown)
 		return FALSE;
 
-	if (KeyboardData->vkCode == 0xa4)
+	if (ModDown == ALT && KeyboardData->vkCode == VK_LMENU)
+		return TRUE;
+
+	if (ModDown == WIN && KeyboardData->vkCode == VK_LWIN)
 		return TRUE;
 
 	HOTKEY_DISPATCH HotkeyDispatch = HotKeyCallbackTable[KeyboardData->vkCode][ShiftDown];
 
 	if (HotkeyDispatch.HotKeyCb)
+	{
 		HotkeyDispatch.HotKeyCb();
+		return TRUE;
+	}
 
-	return TRUE;
+	if (ModKey == ALT)
+		return TRUE;
+
+	return FALSE;
 
 }
 
@@ -2279,6 +2306,21 @@ LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
 
+
+	for (int i = 2; i < WorkspaceList.size(); i++)
+		if (WorkspaceList[i].VDesktop)
+		{
+			VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
+			WorkspaceList[i].VDesktop->Release();
+		}
+
+	WorkspaceList[1].VDesktop->Release();
+
+	ViewCollection->Release();
+	VDesktopManagerInternal->Release();
+	VDesktopManager->Release();
+	ServiceProvider->Release();
+
 	return EXCEPTION_CONTINUE_SEARCH;
 
 }
@@ -2286,7 +2328,7 @@ LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 VOID SetCrashRoutine()
 {
 
-	AddVectoredExceptionHandler(FALSE, (PVECTORED_EXCEPTION_HANDLER)OnCrash);
+	//AddVectoredExceptionHandler(FALSE, (PVECTORED_EXCEPTION_HANDLER)OnCrash);
 }
 
 VOID GetRidOfFade(HWND WindowHandle)
@@ -3159,9 +3201,8 @@ MoveWorkspaceEx(9);
 
 VOID ShutdownEx()
 {
-	if (x86ProcessHandle)
-		TerminateProcess(x86ProcessHandle, 369);
-	TerminateProcess(GetCurrentProcess(), 420);
+
+	PostThreadMessageA(GetCurrentThreadId(), WM_SHUTDOWN, 0, 0);
 }
 
 VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
@@ -3311,6 +3352,18 @@ VOID CreateTileEx()
 	system("start cmd.exe");
 }
 
+VOID ParseModifier(std::string ModifierString)
+{
+	if (ModifierString != "alt" && ModifierString != "win")
+		Fail("\"modifier\" is not \"alt\" or \"win\" in configs.json");
+
+	if (ModifierString == "alt")
+		ModKey = ALT;
+	else
+		ModKey = WIN;
+
+}
+
 VOID InitKeyMap()
 {
 
@@ -3403,7 +3456,10 @@ VOID InitConfig()
 		ParseConfigEx("verify_workspace", VerifyWorkspaceEx)
 		ParseConfigEx("fullscreen", GoFullscreenEx);
 		ParseConfigEx("shutdown", ShutdownEx);
-		
+
+		CurrentKey = "modifier";
+		ParseModifier(JsonParsed[CurrentKey]);
+
 
 	}
 	catch (json::type_error& e)
@@ -3491,7 +3547,7 @@ BOOL VerifyLicense()
 	if (!strlen(result))
 		TerminateProcess(GetCurrentProcess(), 369);
 
-	if (strcmp(result, "ILoveWin32K"))
+	if (strcmp(result, "athk3kf459idxz"))
 		TerminateProcess(GetCurrentProcess(), 369);
 
 	HANDLE LicenseFile = CreateFileW(LicensePath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
@@ -3559,6 +3615,31 @@ INT main()
 	MSG msg;
 	while (int RetVal = GetMessageA(&msg, NULL, 0,  0))
 	{
+
+		if (msg.message == WM_SHUTDOWN)
+		{
+			if (x86ProcessHandle)
+				TerminateProcess(x86ProcessHandle, 369);
+
+			for (int i = 2; i < WorkspaceList.size(); i++)
+				if (WorkspaceList[i].VDesktop)
+				{
+					HRESULT Result = VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
+
+					if (FAILED(Result))
+						MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
+					WorkspaceList[i].VDesktop->Release();
+				}
+
+			WorkspaceList[1].VDesktop->Release();
+
+			ViewCollection->Release();
+			VDesktopManagerInternal->Release();
+			VDesktopManager->Release();
+			ServiceProvider->Release();
+
+			TerminateProcess(GetCurrentProcess(), 420);
+		}
 
 		if (msg.message == WM_SWITCH_DESKTOP)
 		{
