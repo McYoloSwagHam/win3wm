@@ -52,10 +52,8 @@ BOOL FirstDesktopRender;
 #define MINIMUM_CONSIDERED_AREA 10000
 #define DO_NOT_PASS_KEY TRUE
 
-std::atomic<int> is_init = 0;
 std::atomic<int> CanSwitch = TRUE;
 std::atomic<BOOL> IsPressed;
-HANDLE DestroyMutex;
 
 //------------------------------------------------------------------
 // Application Structs 
@@ -178,7 +176,6 @@ BOOL ShouldRerender;
 // Status Bar Globals
 // ------------------------------------------------------------------
 HWND StatusButtonList[10];
-
 
 // ------------------------------------------------------------------
 // Windows Stuff 
@@ -1512,22 +1509,6 @@ INT RenderWindows(TILE_INFO* Tile)
 		RECT PrintRect = Tile->Placement.rcNormalPosition;
 		INT Width = (PrintRect.right - PrintRect.left);
 		INT Height = (PrintRect.bottom - PrintRect.top);
-		//WCHAR WindowText[1024] = { 0 };
-
-		//logc(5, "CurHandle : %X\n", Tile->WindowHandle);
-		//GetWindowTextW(Tile->WindowHandle, WindowText, 512);
-
-		//memset(WindowText, 0, sizeof(WindowText));
-
-		//logc(5, "WindowText: %ls\n", WindowText);
-		//GetClassName(Tile->WindowHandle, WindowText, 512);
-		//logc(5, "WindowClassName: %ls\n", WindowText);
-		//logc(5, "ToPrint: %u %u %u %u\n", PrintRect.left, PrintRect.top, PrintRect.right, PrintRect.bottom);
-
-		//HandleWeirdWindowState(Tile->WindowHandle);
-		
-		//DWORD RetVal = SetWindowPos(Tile->WindowHandle, HWND_TOP,
-			//PrintRect.left, PrintRect.top, Width, Height, 0);
 
 		WINDOWPLACEMENT WndPlacement = { 0 };
 
@@ -1535,7 +1516,6 @@ INT RenderWindows(TILE_INFO* Tile)
 		WndPlacement.flags = 0;
 		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
-
 
 		DWORD RetVal = SetWindowPlacement(Tile->WindowHandle, &WndPlacement);
 
@@ -1829,57 +1809,6 @@ BOOL ButtonDown(UINT_PTR Button)
 	return (Button == WM_KEYDOWN || Button == WM_SYSKEYDOWN);
 }
 
-VOID SetWindowFocus(TILE_INFO* PrevTile, TILE_INFO* FocusTile)
-{
-
-	return;
-
-	logc(6, "SetWindowFocus\nPrevTile->WindowHandle : %X\nFocusTile->WindowHandle : %X\n", PrevTile->WindowHandle, FocusTile->WindowHandle);
-
-	if (PrevTile->WindowHandle != FocusTile->WindowHandle)
-	{
-		//DWORD PrevThreadId = GetWindowThreadProcessId(PrevTile->WindowHandle, NULL);
-		DWORD FgThreadId = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
-		DWORD CurThreadId = GetWindowThreadProcessId(FocusTile->WindowHandle, NULL);
-
-		if (!AttachThreadInput(FgThreadId,CurThreadId,  TRUE))
-			FailWithCode("AttachThreadInput");
-
-		DWORD FgTimeout;
-
-		if (!SystemParametersInfoW(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, &FgTimeout, 0))
-			FailWithCode("SystemParamterInfoW GetForegroundLock");
-
-		if (!SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, NULL, SPIF_SENDCHANGE))
-			FailWithCode("SystemParamterInfoW GetForegroundLock");
-
-		//DWORD WindowProcessId;
-		//GetWindowThreadProcessId(FocusTile->WindowHandle, &WindowProcessId);
-
-		AllowSetForegroundWindow(ASFW_ANY);
-
-		//if (!BringWindowToTop(FocusTile->WindowHandle))
-		//	FailWithCode("BringWindowToTop - Focus");
-
-		if (!SetWindowPos(FocusTile->WindowHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE))
-			FailWithCode("SetWindowPos - Focus");
-
-		if (!SetForegroundWindow(FocusTile->WindowHandle))
-			FailWithCode("SetForegroundWindow - Focus");
-
-		if (!SetFocus(FocusTile->WindowHandle))
-			FailWithCode("SetForegroundWindow - Focus");
-
-		if (!AttachThreadInput(FgThreadId, CurThreadId, FALSE))
-			FailWithCode("AttachThreadInput");
-
-	}
-
-	logc(6, "ForegroundWindow : %X\n", GetForegroundWindow());
-
-}
-
-
 VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
@@ -2044,14 +1973,19 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 	TILE_INFO* FocusTile = Workspace->TileInFocus;
 
-	//Wait for atomic signal that can switch
+	//Atomically wait while a new window is being created
 	while (!CanSwitch)
 	{
 	}
 
 	RenderFocusWindowEx(Workspace);
 
-	//Minizime upon switch to first VDesktop fix
+	//The first time you switch to a VDesktop it minizimes all windows
+	//Unless you render the desktop during the switch, for every workspace
+	//that isn't Workspace 1, it's fine since they get rendered on switch
+	//but Workspace 1 gets rendered on App Start, but the first time we 
+	// switch to it we have to re-render.
+	// No idea why it works like that
 	if (WorkspaceNumber == 1 && !FirstDesktopRender)
 	{
 		Workspace->NeedsRendering = TRUE;
@@ -2059,12 +1993,46 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	}
 
 	RenderWorkspace(WorkspaceNumber);
-	HRESULT hr = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
+	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
 
-	if (FAILED(hr))
+	if (FAILED(Result))
 		Fail("SwitchDesktop");
 }
 
+VOID HandleShutdown()
+{
+	if (x86ProcessHandle)
+		TerminateProcess(x86ProcessHandle, 369);
+
+	NOTIFYICONDATA NotifyData;
+	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
+
+	NotifyData.hWnd = NotifWindow;
+	NotifyData.cbSize = sizeof(NotifyData);
+	NotifyData.uID = 1;
+
+	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+
+	for (int i = 2; i < WorkspaceList.size(); i++)
+		if (WorkspaceList[i].VDesktop)
+		{
+			HRESULT Result = VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
+
+			if (FAILED(Result))
+				MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
+			WorkspaceList[i].VDesktop->Release();
+		}
+
+	WorkspaceList[1].VDesktop->Release();
+
+	ViewCollection->Release();
+	VDesktopManagerInternal->Release();
+	VDesktopManager->Release();
+	ServiceProvider->Release();
+
+	TerminateProcess(GetCurrentProcess(), 420);
+
+}
 
 VOID HandleChangeWorkspace(INT WorkspaceNumber)
 {
@@ -2811,9 +2779,7 @@ VOID CreateInitialWindow()
 	);
 
 	if (!MainWindow)
-	{
 		FailWithCode("Could not create main window!");
-	}
 
 	if (!ChangeWindowMessageFilterEx(MainWindow, WM_INSTALL_HOOKS, MSGFLT_ALLOW, NULL))
 		FailWithCode("Change Window Perms");
@@ -3653,9 +3619,6 @@ INT main()
 	ComOk(SetupVDesktops(WorkspaceList));
 	CreateInitialWindow();
 	LoadNecessaryModules();
-	//EnterFullScreen();
-	//ShowWindow(MainWindow, SW_SHOW);
-	//MoveWindowToBack();
 	CreateX86Process();
 	GetOtherApplicationWindows();
 	PerformInitialRegroupring();
@@ -3665,78 +3628,42 @@ INT main()
 	CreateNotificationWindow();
 	InitIcon();
 	CreateFocusOverlay();
-	//ComOk(SwitchToWorkspace(&WorkspaceList[CurrentWorkspaceInFocus]));
 	WorkspaceList[CurrentWorkspaceInFocus].NeedsRendering = TRUE;
 	RenderWorkspace(CurrentWorkspaceInFocus);
 	InitStatusBar();
 
-	is_init = TRUE;
-
-	MSG msg;
-	while (int RetVal = GetMessageA(&msg, NULL, 0,  0))
+	MSG Message;
+	while (int RetVal = GetMessageA(&Message, NULL, 0,  0))
 	{
 
-		if (msg.message == WM_SHUTDOWN)
-		{
-			if (x86ProcessHandle)
-				TerminateProcess(x86ProcessHandle, 369);
-
-			NOTIFYICONDATA NotifyData;
-			RtlZeroMemory(&NotifyData, sizeof(NotifyData));
-
-			NotifyData.uID = 1;
-			Shell_NotifyIcon(NIM_DELETE, &NotifyData);
-
-			for (int i = 2; i < WorkspaceList.size(); i++)
-				if (WorkspaceList[i].VDesktop)
-				{
-					HRESULT Result = VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
-
-					if (FAILED(Result))
-						MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
-					WorkspaceList[i].VDesktop->Release();
-				}
-
-			WorkspaceList[1].VDesktop->Release();
-
-			ViewCollection->Release();
-			VDesktopManagerInternal->Release();
-			VDesktopManager->Release();
-			ServiceProvider->Release();
-
-			TerminateProcess(GetCurrentProcess(), 420);
-		}
-
-		if (msg.message == WM_SWITCH_DESKTOP)
-		{
-			HandleSwitchDesktop(msg.wParam);
-			continue;
-		}
-
-		if (msg.message == WM_MOVE_TILE)
-		{
-			ComOk(MoveWindowToVDesktop((HWND)msg.wParam, (IVirtualDesktop*)msg.lParam));
-			continue;
-		}
-
-		if (msg.message == WM_INSTALL_HOOKS)
-		{
-			HandleWindowMessage(&msg);
-			continue;
-		}
-
 		if (RetVal == -1)
-			PostQuitMessage(325);
-		else
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			PostQuitMessage(325);
+			continue;
 		}
+
+		switch (Message.message)
+		{
+		case WM_SHUTDOWN:
+			HandleShutdown();
+			continue;
+		case WM_SWITCH_DESKTOP:
+			HandleSwitchDesktop(Message.wParam);
+			continue;
+		case WM_MOVE_TILE:
+			ComOk(MoveWindowToVDesktop((HWND)Message.wParam, (IVirtualDesktop*)Message.lParam));
+			continue;
+		case WM_INSTALL_HOOKS:
+			HandleWindowMessage(&Message);
+			continue;
+		default:
+			break;
+		}
+
+		TranslateMessage(&Message);
+		DispatchMessage(&Message);
 
 	}
-
-	logc(5, "hit2\n");
-	__debugbreak();
 
 	return 0;
 
