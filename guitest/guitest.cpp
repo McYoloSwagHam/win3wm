@@ -53,6 +53,7 @@ BOOL FirstDesktopRender;
 #define DO_NOT_PASS_KEY TRUE
 
 std::atomic<int> is_init = 0;
+std::atomic<int> CanSwitch = TRUE;
 std::atomic<BOOL> IsPressed;
 HANDLE DestroyMutex;
 
@@ -527,13 +528,22 @@ VOID IPCWindowHandle(HWND WindowHandle)
 
 }
 
+BOOL IsOwned(HWND WindowHandle)
+{
+	return (BOOL)GetWindow(WindowHandle, GW_OWNER);
+}
+
 BOOL IsPopup(HWND WindowHandle)
 {
 
 	// we don't want tool windows
 	LONG_PTR Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
 	LONG_PTR ExStyle = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
-	return ((Style & WS_POPUP) || (ExStyle & WS_EX_TOOLWINDOW));
+
+	BOOL IsPopup = (Style & WS_POPUP);
+	BOOL IsToolWindow = (ExStyle & WS_EX_TOOLWINDOW);
+
+	return (IsPopup || IsToolWindow);
 }
 
 BOOL HasParentOrPopup(HWND WindowHandle)
@@ -563,11 +573,12 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 	WCHAR WindowText[1024];
 
-	if (!IsIgnoreWindow(WindowHandle)			&&
-		!HasParentOrPopup(WindowHandle)			&&
-		IsWindowVisible(WindowHandle)			&&
-		IsWindowRectVisible(WindowHandle)		&& 
-		!IsWindowCloaked(WindowHandle)			&&
+	if (!IsIgnoreWindow(WindowHandle)		&&
+		!HasParentOrPopup(WindowHandle)		&&
+		!IsOwned(WindowHandle)				&&
+		IsWindowVisible(WindowHandle)		&&
+		IsWindowRectVisible(WindowHandle)	&& 
+		!IsWindowCloaked(WindowHandle)		&&
 		!TransparentWindow(WindowHandle))	
 	{
 		GetWindowTextW(WindowHandle, WindowText, 1024);
@@ -2033,6 +2044,11 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 	TILE_INFO* FocusTile = Workspace->TileInFocus;
 
+	//Wait for atomic signal that can switch
+	while (!CanSwitch)
+	{
+	}
+
 	RenderFocusWindowEx(Workspace);
 
 	//Minizime upon switch to first VDesktop fix
@@ -2380,6 +2396,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		return;
 #endif
 
+	CanSwitch = FALSE;
+
 	InstallWindowSizeHook();
 	GetRidOfFade(WindowHandle);
 	SendMessageW(WindowHandle, WM_INSTALL_HOOKS, NULL, (LPARAM)WindowHandle);
@@ -2402,6 +2420,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	AddTileToWorkspace(Workspace, TileToAdd);
 	RenderWorkspace(CurrentWorkspaceInFocus);
+	CanSwitch = TRUE;
 
 }
 
@@ -3193,6 +3212,9 @@ VOID DestroyTileEx()
 	Workspace->IsFullScreen = FALSE;
 
 	SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
+
+	if (GetParent(Workspace->TileInFocus->WindowHandle))
+		OnDestroyWindow(Workspace->TileInFocus->WindowHandle);
 
 }
 
