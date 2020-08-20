@@ -42,6 +42,7 @@
 	"fullscreen" : "f",
 	"shutdown" : "t",
 
+	"start_command" : "start cmd.exe",
 	"windows_to_ignore" : ["memes", "memes2"]
 	
 

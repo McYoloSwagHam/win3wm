@@ -37,6 +37,7 @@
 //------------------------------------------------------------------
 #define ComOk(x) if (const char* com_error = x)\
 	FailWithCode(com_error);
+BOOL FirstDesktopRender;
 //------------------------------------------------------------------
 // Application Definitions
 //------------------------------------------------------------------
@@ -99,6 +100,7 @@ enum MODKEY {
 };
 
 MODKEY ModKey = ALT;
+const char* StartCommand = "start cmd.exe";
 
 
 //------------------------------------------------------------------
@@ -988,6 +990,8 @@ VOID ResortRecursive(TILE_INFO* BranchBegin, RECT* Box)
 VOID ResortTiles(WORKSPACE_INFO* Workspace)
 {
 
+	Workspace->NeedsRendering = TRUE;
+
 	if (!Workspace->Tiles)
 		return;
 
@@ -1050,7 +1054,6 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 		i++;
 	}
 
-	Workspace->NeedsRendering = TRUE;
 
 }
 
@@ -1348,12 +1351,19 @@ VOID PerformInitialRegroupring()
 	NumWorkspace = WorkspaceList.size() - 1;
 	MaxInitTiles = NumWorkspace * 4;
 	
+#ifdef COMMERCIAL
 	if (NumTiles > MaxInitTiles)
 		TilesPerWorkspace = (NumTiles / NumWorkspace) + 1;
 	else if (NumTiles > INIT_TILES_PER_WORKSPACE)
 		TilesPerWorkspace = INIT_TILES_PER_WORKSPACE;
 	else
 		TilesPerWorkspace = NumTiles;
+#else
+	TilesPerWorkspace = 3;
+
+	if (NumTiles > TilesPerWorkspace* NumWorkspace)
+		NumTiles = TilesPerWorkspace * NumWorkspace;
+#endif
 
 	WorkspaceIndex = CurrentWorkspaceInFocus;
 
@@ -1464,6 +1474,15 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 	ShowWindow(FocusWindow, SW_SHOW);
 	
 }
+
+VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
+{
+	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
+		RenderFocusWindow(Workspace->TileInFocus);
+	else
+		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+}
+
 
 INT RenderWindows(TILE_INFO* Tile)
 {
@@ -1629,17 +1648,12 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 	INT Count = 1;
 
-	if (!Workspace->Tiles)
-		RenderNoWindow();
-	else if (Workspace->IsFullScreen)
+	if (Workspace->IsFullScreen)
 		RenderFullscreenWindow(Workspace);
-	else
+	else if (Workspace->Tiles)
 		Count = RenderWindows(Workspace->Tiles);
 
-	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
-		RenderFocusWindow(Workspace->TileInFocus);
-	else
-		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+	RenderFocusWindowEx(Workspace);
 
 	Workspace->NeedsRendering = FALSE;
 
@@ -1652,7 +1666,7 @@ VOID InitWorkspaceList()
 #ifdef COMMERCIAL
 	WorkspaceList.resize(10);
 #else
-	WorkspaceList.resize(4);
+	WorkspaceList.resize(3);
 #endif
 
 	for (int i = 0; i < WorkspaceList.size(); i++)
@@ -2019,10 +2033,14 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 	TILE_INFO* FocusTile = Workspace->TileInFocus;
 
-	if (FocusTile && !Workspace->IsFullScreen)
-		RenderFocusWindow(FocusTile);
-	else
-		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+	RenderFocusWindowEx(Workspace);
+
+	//Minizime upon switch to first VDesktop fix
+	if (WorkspaceNumber == 1 && !FirstDesktopRender)
+	{
+		Workspace->NeedsRendering = TRUE;
+		FirstDesktopRender = TRUE;
+	}
 
 	RenderWorkspace(WorkspaceNumber);
 	HRESULT hr = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
@@ -2047,6 +2065,9 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	WORKSPACE_INFO* TargetWorkspace = &WorkspaceList[WorkspaceNumber];
 	TILE_INFO* Node = Workspace->TileInFocus;
 	TILE_INFO* NewNode;
+
+	if (!Node)
+		return;
 
 	NewNode = (TILE_INFO*)RtlAlloc(sizeof(TILE_INFO));
 	RtlZeroMemory(NewNode, sizeof(TILE_INFO));
@@ -2309,6 +2330,12 @@ LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 		TerminateProcess(x86ProcessHandle, 369);
 
 
+	NOTIFYICONDATA NotifyData;
+	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
+
+	NotifyData.uID = 1;
+	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+
 	for (int i = 2; i < WorkspaceList.size(); i++)
 		if (WorkspaceList[i].VDesktop)
 		{
@@ -2349,7 +2376,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
 #ifndef COMMERCIAL
-	if (GetWindowCount(Workspace->Tiles) > 4)
+	if (GetWindowCount(Workspace->Tiles) > 2)
 		return;
 #endif
 
@@ -2422,10 +2449,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	RemoveTileFromWorkspace(Workspace, TileToRemove);
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
-	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
-		RenderFocusWindow(Workspace->TileInFocus);
-	else
-		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+	RenderFocusWindowEx(Workspace);
 
 }
 
@@ -3351,7 +3375,7 @@ VOID SwapUpEx()
 
 VOID CreateTileEx()
 {
-	system("start cmd.exe");
+	system(StartCommand);
 }
 
 VOID ParseModifier(std::string ModifierString)
@@ -3472,6 +3496,10 @@ VOID InitConfig()
 			Win32kDefaultWindowNames.push_back(wide_string);
 		}
 
+		CurrentKey = "start_command";
+		std::string start_command = JsonParsed[CurrentKey];
+		StartCommand = _strdup(start_command.c_str());
+
 	}
 	catch (json::type_error& e)
 	{
@@ -3493,11 +3521,9 @@ VOID InitConfigFree()
 
 	HotKeyCallbackTable['1'][FALSE].HotKeyCb = ChangeWorkspaceEx_1;
 	HotKeyCallbackTable['2'][FALSE].HotKeyCb = ChangeWorkspaceEx_2;
-	HotKeyCallbackTable['3'][FALSE].HotKeyCb = ChangeWorkspaceEx_3;
 
 	HotKeyCallbackTable['1'][TRUE].HotKeyCb = MoveWorkspaceEx_1;
 	HotKeyCallbackTable['2'][TRUE].HotKeyCb = MoveWorkspaceEx_2;
-	HotKeyCallbackTable['3'][TRUE].HotKeyCb = MoveWorkspaceEx_3;
 
 	HotKeyCallbackTable[VK_LEFT][FALSE].HotKeyCb = HandleLeftEx;
 	HotKeyCallbackTable[VK_LEFT][TRUE].HotKeyCb = SwapLeftEx;
@@ -3617,7 +3643,8 @@ INT main()
 	CreateNotificationWindow();
 	InitIcon();
 	CreateFocusOverlay();
-	ComOk(SwitchToWorkspace(&WorkspaceList[CurrentWorkspaceInFocus]));
+	//ComOk(SwitchToWorkspace(&WorkspaceList[CurrentWorkspaceInFocus]));
+	WorkspaceList[CurrentWorkspaceInFocus].NeedsRendering = TRUE;
 	RenderWorkspace(CurrentWorkspaceInFocus);
 	InitStatusBar();
 
@@ -3631,6 +3658,12 @@ INT main()
 		{
 			if (x86ProcessHandle)
 				TerminateProcess(x86ProcessHandle, 369);
+
+			NOTIFYICONDATA NotifyData;
+			RtlZeroMemory(&NotifyData, sizeof(NotifyData));
+
+			NotifyData.uID = 1;
+			Shell_NotifyIcon(NIM_DELETE, &NotifyData);
 
 			for (int i = 2; i < WorkspaceList.size(); i++)
 				if (WorkspaceList[i].VDesktop)
