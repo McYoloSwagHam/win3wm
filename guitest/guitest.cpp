@@ -37,6 +37,7 @@
 //------------------------------------------------------------------
 #define ComOk(x) if (const char* com_error = x)\
 	FailWithCode(com_error);
+
 BOOL FirstDesktopRender;
 //------------------------------------------------------------------
 // Application Definitions
@@ -618,8 +619,7 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		
 		BOOL DisableTransition = TRUE;
 
-		if (DwmSetWindowAttribute(TileInfo.WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition)) != S_OK)
-			FailWithCode("DwmSetWindowAttribute");
+		DwmSetWindowAttribute(TileInfo.WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition));
 
 		WindowOrderList.push_back(TileInfo);
 	}
@@ -2347,8 +2347,7 @@ VOID SetCrashRoutine()
 VOID GetRidOfFade(HWND WindowHandle)
 {
 	BOOL DisableTransition = TRUE;
-	if (DwmSetWindowAttribute(WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition)) != S_OK)
-		FailWithCode("DwmSetWindowAttribute");
+	DwmSetWindowAttribute(WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition));
 }
 
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
@@ -3222,12 +3221,16 @@ VOID ShutdownEx()
 VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
 {
 
-	for (; Tile; Tile = Tile->ChildTile)
+	TILE_INFO* ChildTile = NULL;
+
+	for (; Tile; Tile = ChildTile)
 	{
+		ChildTile = Tile->ChildTile;
+
 		if (Tile->BranchTile)
 			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile);
 
-		if (!IsWindowVisible(Tile->WindowHandle))
+		if (!IsWindow(Tile->WindowHandle))
 		{
 			Workspace->TileInFocus = UnlinkNode(Workspace, Tile);
 
@@ -3246,7 +3249,7 @@ VOID VerifyWorkspaceEx()
 	TILE_INFO* Tile = Workspace->Tiles;
 
 	VerifyWorkspaceRecursive(Workspace, Tile);
-	ResortTiles(Workspace);
+ ResortTiles(Workspace);
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
 }
