@@ -24,9 +24,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="guitest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="list.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -44,6 +41,9 @@
     </ClCompile>
     <ClCompile Include="VDesktops.cpp">
       <Filter>Source Files\VDesktops</Filter>
+    </ClCompile>
+    <ClCompile Include="wm.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -4,6 +4,9 @@
 
 	"destroy_tile" : "shift+q",
 	"create_tile" : "enter",
+	
+	"gaps_enabled" : "y",
+	"gaps_percentage" : 10,
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
