@@ -1011,7 +1011,6 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 	INT Width = ScreenWidth;
 	INT Height = ScreenHeight;
 
-
 	INT DeltaWidth = Width / RightEncap;
 	INT DeltaHeight = Height / RightEncap;
 
@@ -1021,9 +1020,10 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 	if (Workspace->Layout == VERTICAL_SPLIT)
 	{
 
+
 		Encap.left = 0;
-		Encap.top = 0;
 		Encap.right = DeltaWidth;
+		Encap.top = 0;
 		Encap.bottom = Height;
 
 	}
