@@ -148,6 +148,9 @@ INT CurrentWorkspaceInFocus = 1;
 HANDLE AppMutex;
 INT ScreenWidth;
 INT ScreenHeight;
+
+INT RealScreenWidth;
+INT RealScreenHeight;
 CHAR AppCheckName[] = "Win3WM";
 
 // ------------------------------------------------------------------
@@ -194,8 +197,11 @@ MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
 BOOL IsGapsEnabled;
 POINT NewOrigin;
-FLOAT GapsPercentage;
-FLOAT GapSide;
+INT OuterGapsVertical;
+INT OuterGapsHorizontal;
+INT InnerGapsVertical;
+INT InnerGapsHorizontal;
+
 
 // ------------------------------------------------------------------
 // Code
@@ -1536,6 +1542,20 @@ VOID AdjustForGaps(TILE_INFO* Tile, RECT* PrintRect)
 	Width = PrintRect->right - PrintRect->left;
 	Height = PrintRect->bottom - PrintRect->top;
 
+	//Adjust for OuterGaps
+	PrintRect->left += OuterGapsHorizontal / 2;
+	PrintRect->right += OuterGapsHorizontal / 2;
+
+	PrintRect->top += OuterGapsVertical / 2;
+	PrintRect->bottom += OuterGapsVertical / 2;
+
+	//Adjust for InnerGaps
+	PrintRect->left += InnerGapsHorizontal / 2;
+	PrintRect->right -= InnerGapsHorizontal / 2;
+
+	PrintRect->top += InnerGapsVertical / 2;
+	PrintRect->bottom -= InnerGapsVertical / 2;
+
 }
 
 INT RenderWindows(TILE_INFO* Tile)
@@ -1614,7 +1634,7 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 
 	HandleWeirdWindowState(Workspace->TileInFocus->WindowHandle);
 
-	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, 0, 0, ScreenWidth, ScreenHeight, 0);
+	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, 0, 0, RealScreenWidth, RealScreenHeight, 0);
 
 	if (!RetVal)
 		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->TileInFocus->WindowHandle));
@@ -3015,6 +3035,15 @@ VOID InitScreenGlobals()
 	ScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 	ScreenHeight = GetSystemMetrics(SM_CYSCREEN) - (ShellRect.bottom - ShellRect.top);
 
+	RealScreenWidth = ScreenWidth;
+	RealScreenHeight = ScreenHeight;
+
+	if (IsGapsEnabled)
+	{
+		ScreenWidth -= OuterGapsHorizontal;
+		ScreenHeight -= OuterGapsVertical;
+	}
+
 	ButtonBrush = CreateSolidBrush(RGB(0, 0, 255));
 	DefaultBrush = GetSysColorBrush(COLOR_BTNFACE);
 
@@ -3483,6 +3512,12 @@ VOID InitConfig()
 
 	const char* CurrentKey = NULL;
 
+	auto GetJsonEx = [&CurrentKey, &JsonParsed](const char* JsonKey)
+	{
+		CurrentKey = JsonKey;
+		return JsonParsed[CurrentKey];
+	};
+
 	try
 	{
 
@@ -3524,8 +3559,7 @@ VOID InitConfig()
 			ParseConfigEx("fullscreen", GoFullscreenEx);
 		ParseConfigEx("shutdown", ShutdownEx);
 
-		CurrentKey = "modifier";
-		ParseModifier(JsonParsed[CurrentKey]);
+		ParseModifier(GetJsonEx("modifier"));
 
 		CurrentKey = "windows_to_ignore";
 		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
@@ -3537,12 +3571,10 @@ VOID InitConfig()
 			Win32kDefaultWindowNames.push_back(wide_string);
 		}
 
-		CurrentKey = "start_command";
-		std::string start_command = JsonParsed[CurrentKey];
+		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
-		CurrentKey = "gaps_enabled";
-		std::string gaps_enabled = JsonParsed[CurrentKey];
+		std::string gaps_enabled = GetJsonEx("gaps_enabled");
 
 		if (gaps_enabled == "y")
 			IsGapsEnabled = TRUE;
@@ -3551,12 +3583,25 @@ VOID InitConfig()
 		else
 			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
 
-		CurrentKey = "gaps_percentage";
-
 		if (IsGapsEnabled)
 		{
-			GapsPercentage = JsonParsed[CurrentKey];
-			GapSide = GapsPercentage/200;
+			OuterGapsVertical = GetJsonEx("outer_gaps_vertical");
+			OuterGapsHorizontal = GetJsonEx("outer_gaps_horizontal");
+
+			if (OuterGapsVertical > RealScreenHeight)
+				Fail("outer_gaps_vertical cannot be bigger than screen height");
+
+			if (OuterGapsHorizontal > RealScreenWidth)
+				Fail("outer_gaps_vertical cannot be bigger than screen height");
+
+			InnerGapsVertical = GetJsonEx("inner_gaps_vertical");
+			InnerGapsHorizontal = GetJsonEx("inner_gaps_horizontal");
+
+			if (InnerGapsVertical > RealScreenHeight)
+				Fail("outer_gaps_vertical cannot be bigger than screen height");
+
+			if (InnerGapsHorizontal > RealScreenWidth)
+				Fail("outer_gaps_vertical cannot be bigger than screen height");
 		}
 
 

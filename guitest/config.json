@@ -6,7 +6,11 @@
 	"create_tile" : "enter",
 	
 	"gaps_enabled" : "y",
-	"gaps_percentage" : 10,
+	"outer_gaps_vertical" : 200,
+	"outer_gaps_horizontal" : 100,
+	
+	"inner_gaps_horizontal" : 50,
+	"inner_gaps_vertical" : 50,
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
