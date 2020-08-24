@@ -6,7 +6,9 @@
 	
 	"adjust_for_nc" : "y",
 	"gaps_enabled" : "y",
-	"remove_titlebars" : "y",
+	"hide_explorer" : "n",
+	"fullscreen_past_explorer" : "n",
+	"remove_titlebars_experimental" : "y",
 	"outer_gaps_vertical" : 15,
 	"outer_gaps_horizontal" : 15,
 	

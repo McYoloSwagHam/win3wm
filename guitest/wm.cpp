@@ -122,6 +122,7 @@ HWND StatusBarWindow[10];
 HWND BtnToColor;
 HWND CurrentFocusChild;
 HWND TrayWindow;
+RECT ShellRect;
 
 ATOM WindowAtom;
 ATOM DebugWindowAtom;
@@ -200,7 +201,10 @@ const char* StartCommand = "start cmd.exe";
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
+BOOL ShouldHideExplorer;
+BOOL IsFullScreenMax;
 POINT NewOrigin;
+LONG_PTR FullScreenStyle;
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
@@ -1353,13 +1357,14 @@ VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
 
 }
 
+
+
 //Remove Title Bar from window, User Option.
 VOID RemoveTitleBar(HWND WindowHandle)
 {
 	LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
 
-	WindowStyle &= ~WS_CAPTION;
-	WindowStyle &= ~WS_THICKFRAME;
+	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
 
 	SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
 	
@@ -1421,6 +1426,7 @@ VOID PerformInitialRegroupring()
 
 			if (ShouldRemoveTitleBars)
 				RemoveTitleBar(TileToAdd->WindowHandle);
+
 
 			LinkNode(CurrentWorkspace, TileToAdd);
 			AddTileToWorkspace(CurrentWorkspace, TileToAdd);
@@ -1647,8 +1653,6 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 
 	ForceToForeground(Workspace->TileInFocus->WindowHandle);
 
-	HandleWeirdWindowState(Workspace->TileInFocus->WindowHandle);
-
 	RECT PrintRect;
 
 	PrintRect.left = 0;
@@ -1657,13 +1661,28 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 	PrintRect.right = RealScreenWidth;
 	PrintRect.bottom = RealScreenHeight;
 
-	if (AdjustForNC)
+	if (AdjustForNC && !IsFullScreenMax)
 		AdjustForBorder(Workspace->TileInFocus, &PrintRect);
 
 	INT Width = PrintRect.right - PrintRect.left;
 	INT Height = PrintRect.bottom - PrintRect.top;
 
-	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
+	if (IsFullScreenMax)
+	{
+		WCHAR ClassName[1024];
+		GetClassNameW(Workspace->TileInFocus->WindowHandle, ClassName, 1024);
+		
+		//If not Console Window
+		if (wcscmp(ClassName, L"ConsoleWindowClass"))
+			Height += (ShellRect.bottom - ShellRect.top);
+
+		FullScreenStyle = GetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE);
+		SetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE, FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
+
+
+	}
+
+	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, SWP_FRAMECHANGED | SWP_NOREPOSITION);
 
 	if (!RetVal)
 		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->TileInFocus->WindowHandle));
@@ -2106,6 +2125,9 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 
 VOID HandleShutdown()
 {
+
+	ShowWindow(TrayWindow, SW_SHOW);
+
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
 
@@ -2415,9 +2437,11 @@ VOID InstallKeyboardHooks()
 
 LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 {
+
+	ShowWindow(TrayWindow, SW_SHOW);
+
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
-
 
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
@@ -3063,15 +3087,14 @@ VOID InitScreenGlobals()
 
 	HWND ShellWindow = TrayWindow;
 
-	RECT ShellRect;
-
 	if (!ShellWindow)
 		FailWithCode("No Shell Window Found");
 
 	GetWindowRect(ShellWindow, &ShellRect);
 
 	ScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-	ScreenHeight = GetSystemMetrics(SM_CYSCREEN) - (ShellRect.bottom - ShellRect.top);
+	ScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+	ScreenHeight -= (ShellRect.bottom - ShellRect.top);
 
 	RealScreenWidth = ScreenWidth;
 	RealScreenHeight = ScreenHeight;
@@ -3135,11 +3158,29 @@ VOID InitStatusBar()
 	StatusBarAtom = RegisterClassExA(&WindowClass);
 
 	HWND SearchBarWindow = FindWindowExW(TrayWindow, NULL, L"TrayDummySearchControl", NULL);
-	RECT SearchBarRect;
-
 	assert(SearchBarWindow);
 
-	GetWindowRect(SearchBarWindow, &SearchBarRect);
+	POINT StatusBarPosition;
+
+	if (ShouldHideExplorer)
+	{
+		ShowWindow(TrayWindow, SW_HIDE);
+		StatusBarPosition.x = 0;
+		StatusBarPosition.y = RealScreenHeight + (ShellRect.bottom - ShellRect.top);
+	}
+	else
+	{
+		ShowWindow(TrayWindow, SW_SHOW);
+		RECT SearchBarRect;
+		GetWindowRect(SearchBarWindow, &SearchBarRect);
+
+		StatusBarPosition.x = SearchBarRect.left;
+		StatusBarPosition.y = SearchBarRect.top;
+
+	}
+
+	StatusBarPosition.x -= 25;
+	StatusBarPosition.y -= 25;
 
 	for (int i = 1; i < 10; i++)
 	{
@@ -3151,8 +3192,8 @@ VOID InitStatusBar()
 			StatusBarWindowName,
 			"Win3wmStatusBar",
 			WS_POPUP,
-			SearchBarRect.left + i * 25,
-			SearchBarRect.top - 35,
+			StatusBarPosition.x + i * 25,
+			StatusBarPosition.y,
 			25,
 			25,
 			NULL,
@@ -3395,6 +3436,13 @@ VOID GoFullscreenEx()
 		Workspace->IsFullScreen = !Workspace->IsFullScreen;
 	else
 		Workspace->IsFullScreen = FALSE;
+
+	if (Workspace->TileInFocus && FullScreenStyle)
+	{
+		SetWindowLongPtr(Workspace->TileInFocus->WindowHandle, GWL_STYLE, FullScreenStyle);
+		FullScreenStyle = NULL;
+	}
+
 
 	Workspace->NeedsRendering = TRUE;
 	RenderWorkspace(CurrentWorkspaceInFocus);
@@ -3639,7 +3687,9 @@ VOID InitConfig()
 
 		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
-		ParseBoolOptionEx(GetJsonEx("remove_titlebars"), &ShouldRemoveTitleBars);
+		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
+		ParseBoolOptionEx(GetJsonEx("hide_explorer"), &ShouldHideExplorer);
+		ParseBoolOptionEx(GetJsonEx("fullscreen_past_explorer"), &IsFullScreenMax);
 
 		if (IsGapsEnabled)
 		{
