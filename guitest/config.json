@@ -1,9 +1,16 @@
 {
 
 	"modifier" : "alt",
-
 	"destroy_tile" : "shift+q",
 	"create_tile" : "enter",
+	
+	"adjust_for_nc" : "y",
+	"gaps_enabled" : "y",
+	"outer_gaps_vertical" : 15,
+	"outer_gaps_horizontal" : 15,
+	
+	"inner_gaps_horizontal" : 20,
+	"inner_gaps_vertical" : 20,
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
@@ -42,8 +49,8 @@
 	"fullscreen" : "f",
 	"shutdown" : "t",
 
-	"windows_to_ignore" : [],
-	"windows_no_inject_dll" : []
+	"start_command" : "start cmd.exe",
+	"windows_to_ignore" : ["keypirinha"]
 	
 
 }

@@ -2,6 +2,10 @@
 #include <windows.h>
 #include <stdio.h>
 
+#include <objbase.h>
+
+#define WM_SWITCH_DESKTOP 0x8079
+
 //------------------------------------------------------------------
 // Com Variables
 //------------------------------------------------------------------
@@ -11,6 +15,7 @@ IVirtualDesktopManagerInternal* VDesktopManagerInternal;
 IVirtualDesktop* VWorkspaces[10];
 IVirtualDesktop* FirstDesktop;
 IApplicationViewCollection* ViewCollection;
+IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
@@ -47,6 +52,7 @@ const char* InitCom()
 	ServiceProvider->QueryService(__uuidof(IVirtualDesktopManager), &VDesktopManager);
 	ServiceProvider->QueryService(__uuidof(IApplicationViewCollection), &ViewCollection);
 
+
 	if (!VDesktopManager)
 		return "VDesktopManager";
 
@@ -71,6 +77,9 @@ const char* InitCom()
 
 	if (FAILED(hr))
 		return "QueryService VDM";
+
+	if (!VDesktopManagerInternal)
+		return "PinnedApps";
 
 	return NULL;
 }
@@ -148,20 +157,21 @@ const char* RemoveOtherVDesktops()
 
 	}
 
+	return NULL;
 
 }
 
-const char* SetupVDesktops(IVirtualDesktop** DesktopArray, UINT Count)
+const char* SetupVDesktops(std::vector<WORKSPACE_INFO>& WorkspaceList)
 {
 
-	DesktopArray[0] = FirstDesktop;
+	WorkspaceList[1].VDesktop = FirstDesktop;
 
-	for (int i = 1; i < Count; i++)
+	for (int i = 2; i < WorkspaceList.size(); i++)
 	{
 		HRESULT Hr;
-		Hr = VDesktopManagerInternal->CreateDesktopW(&DesktopArray[i]);
+		Hr = VDesktopManagerInternal->CreateDesktopW(&WorkspaceList[i].VDesktop);
 		
-		if (FAILED(Hr) || !DesktopArray[i])
+		if (FAILED(Hr) || !WorkspaceList[i].VDesktop)
 			return "CreateDesktopW";
 	}
 
@@ -171,14 +181,77 @@ const char* SetupVDesktops(IVirtualDesktop** DesktopArray, UINT Count)
 
 const char* MoveWindowToVDesktop(HWND WindowHandle, IVirtualDesktop* VDesktop)
 {
+
+	IApplicationView* ApplicationView;
+
+	HRESULT Result = ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView);
+
+	if (FAILED(Result))
+		return "GetViewForHwnd";
+
+	Result = VDesktopManagerInternal->MoveViewToDesktop(ApplicationView, VDesktop);
+
+	ApplicationView->Release();
+
+	if (FAILED(Result))
+		return "MoveViewToDesktop";
+	
+	return NULL;
+}
+
+const char* CheckViewPinned(HWND WindowHandle, BOOL* IsPinned)
+{
 	IApplicationView* ApplicationView;
 
 	if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
 		return "GetViewForHwnd";
 
-	if (FAILED(VDesktopManagerInternal->MoveViewToDesktop(ApplicationView, VDesktop)))
-		return "MoveViewToDesktop";
+	WCHAR ApplicationIdBuffer[1024];
+	PWSTR ApplicationId = ApplicationIdBuffer;
+	HRESULT Result;
+
+	Result = PinnedApps->IsViewPinned(ApplicationView, IsPinned);
+	ApplicationView->Release();
+
+	if (FAILED(Result))
+		return "IsAppIdPinned";
 
 	return NULL;
 }
 
+
+const char* CheckAppPinned(HWND WindowHandle, BOOL* IsPinned)
+{
+	IApplicationView* ApplicationView;
+
+	if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
+		return "GetViewForHwnd";
+
+	WCHAR ApplicationIdBuffer[1024];
+	PWSTR ApplicationId = ApplicationIdBuffer;
+	HRESULT Result;
+
+	Result = ApplicationView->GetAppUserModelId(&ApplicationId);
+	ApplicationView->Release();
+
+	if (FAILED(Result))
+		return "GetAppUserModelId";
+
+	Result = PinnedApps->IsAppIdPinned(ApplicationId, IsPinned);
+
+	if (FAILED(Result))
+		return "IsAppIdPinned";
+
+	return NULL;
+}
+
+const char* SwitchToWorkspace(WORKSPACE_INFO* Workspace)
+{
+	
+	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
+
+	if (FAILED(Result))
+		return "SwitchToWorkspace";
+
+	return NULL;
+}
