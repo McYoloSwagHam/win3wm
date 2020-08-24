@@ -6,6 +6,7 @@
 	
 	"adjust_for_nc" : "y",
 	"gaps_enabled" : "y",
+	"remove_titlebars" : "y",
 	"outer_gaps_vertical" : 15,
 	"outer_gaps_horizontal" : 15,
 	

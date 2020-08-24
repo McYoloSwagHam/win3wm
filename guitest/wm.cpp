@@ -90,6 +90,8 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 #define ParseConfigEx(Key, Value) CurrentKey = Key; \
 		ParseConfig(JsonParsed[CurrentKey], Value); \
 
+#define ParseBoolOptionEx(String, Option) ParseBoolOption(String, Option, CurrentKey)
+
 
 //-------------------------
 // Hotkey stupid stuff
@@ -197,6 +199,7 @@ MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
+BOOL ShouldRemoveTitleBars;
 POINT NewOrigin;
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
@@ -1350,12 +1353,23 @@ VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
 
 }
 
-// Seperate the all the windows we got into tiles. there are 10 workspaces.
+//Remove Title Bar from window, User Option.
+VOID RemoveTitleBar(HWND WindowHandle)
+{
+	LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+
+	WindowStyle &= ~WS_CAPTION;
+	WindowStyle &= ~WS_THICKFRAME;
+
+	SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
+	
+}
+
+// Seperate the all the windows we got into tiles. there are 9 workspaces.
 // and upon init regrouping there are 4 windows per workspaces. If there
 // is more than 40 total windows that have to be grouped. recalcualte
 // tiles per workspace.
 //
-int prog_loop = 0;
 VOID PerformInitialRegroupring()
 {
 
@@ -1390,8 +1404,6 @@ VOID PerformInitialRegroupring()
 	for (int i = 0; i < NumTiles; i += TilesPerWorkspace)
 	{
 
-		// this is dumb as fuck don't use an array linked-list it because
-		// we're not morons 
 		INT ActualTilesLeft = NumTiles - (i * TilesPerWorkspace);
 		WORKSPACE_INFO* CurrentWorkspace = &WorkspaceList[WorkspaceIndex];
 
@@ -1399,21 +1411,22 @@ VOID PerformInitialRegroupring()
 		int j = 0;
 		for (; j < TilesPerWorkspace && TilesLeft; j++)
 		{
-			//printf("in for loop : %u\n", prog_loop++);
 
 			TILE_INFO* CurrentTileInfo = &WindowOrderList[i + j];
 			TILE_INFO* TileToAdd = (TILE_INFO*)malloc(sizeof(TILE_INFO));
 			RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 			*TileToAdd = *CurrentTileInfo;
-
 			TileToAdd->BranchTile = NULL;
+
+			if (ShouldRemoveTitleBars)
+				RemoveTitleBar(TileToAdd->WindowHandle);
 
 			LinkNode(CurrentWorkspace, TileToAdd);
 			AddTileToWorkspace(CurrentWorkspace, TileToAdd);
+			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
 
 			TilesLeft--;
-			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
 		}
 
 		WorkspaceIndex++;
@@ -2457,6 +2470,9 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	CanSwitch = FALSE;
 
+	if (ShouldRemoveTitleBars)
+		RemoveTitleBar(WindowHandle);
+
 	InstallWindowSizeHook();
 	GetRidOfFade(WindowHandle);
 	SendMessageW(WindowHandle, WM_INSTALL_HOOKS, NULL, (LPARAM)WindowHandle);
@@ -3343,8 +3359,7 @@ VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
 
 		if (Tile->BranchTile)
 			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile);
-
-		if (!IsWindow(Tile->WindowHandle))
+		else if (!IsWindow(Tile->WindowHandle))
 		{
 			Workspace->TileInFocus = UnlinkNode(Workspace, Tile);
 
@@ -3507,6 +3522,19 @@ VOID InitKeyMap()
 
 }
 
+VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName)
+{
+
+	if (UserInput == "y")
+		*Option = TRUE;
+	else if (UserInput == "n")
+		*Option = FALSE;
+	else
+		Fail(MakeFormatString("\"%s\" in configs.json can only be \"y\" or \"n\"", OptionName));
+
+
+}
+
 VOID InitConfig()
 {
 
@@ -3609,23 +3637,9 @@ VOID InitConfig()
 		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
-		std::string AdjustForNc = GetJsonEx("adjust_for_nc");
-
-		if (AdjustForNc == "y")
-			AdjustForNC = TRUE;
-		else if (AdjustForNc == "n")
-			AdjustForNC = FALSE;
-		else
-			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
-
-		std::string gaps_enabled = GetJsonEx("gaps_enabled");
-
-		if (gaps_enabled == "y")
-			IsGapsEnabled = TRUE;
-		else if (gaps_enabled == "n")
-			IsGapsEnabled = FALSE;
-		else
-			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
+		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
+		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
+		ParseBoolOptionEx(GetJsonEx("remove_titlebars"), &ShouldRemoveTitleBars);
 
 		if (IsGapsEnabled)
 		{
