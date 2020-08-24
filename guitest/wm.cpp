@@ -1536,10 +1536,10 @@ VOID AdjustForBorder(TILE_INFO* Tile, RECT* PrintRect)
 		sizeof(FrameRect));
 
 	if (Result != S_OK)
-		FailWithCode(MakeFormatString("Adjust Gaps - Frame Bounds : %lX\n", WindowHandle));
+		return;
 
 	if (!GetWindowRect(WindowHandle, &WindowRect))
-		FailWithCode("Adjust Gaps - GetWindowRect");
+		return;
 
 	//Adjust for NC area of Windows
 	RECT BorderRect;
