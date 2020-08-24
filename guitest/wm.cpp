@@ -195,6 +195,7 @@ const SPECIFIC_WINDOW WeirdWindowsList[] =
 NODE_TYPE UserChosenLayout = VERTICAL_SPLIT;
 MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
+BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 POINT NewOrigin;
 INT OuterGapsVertical;
@@ -1500,7 +1501,27 @@ VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 }
 
-VOID AdjustForGaps(TILE_INFO* Tile, RECT* PrintRect)
+
+VOID AdjustForGaps(RECT* PrintRect)
+{
+
+		//Adjust for OuterGaps
+		PrintRect->left += OuterGapsHorizontal / 2;
+		PrintRect->right += OuterGapsHorizontal / 2;
+
+		PrintRect->top += OuterGapsVertical / 2;
+		PrintRect->bottom += OuterGapsVertical / 2;
+
+		//Adjust for InnerGaps
+		PrintRect->left += InnerGapsHorizontal / 2;
+		PrintRect->right -= InnerGapsHorizontal / 2;
+
+		PrintRect->top += InnerGapsVertical / 2;
+		PrintRect->bottom -= InnerGapsVertical / 2;
+
+}
+
+VOID AdjustForBorder(TILE_INFO* Tile, RECT* PrintRect)
 {
 
 	RECT WindowRect, FrameRect;
@@ -1528,33 +1549,11 @@ VOID AdjustForGaps(TILE_INFO* Tile, RECT* PrintRect)
 	BorderRect.right = WindowRect.right - FrameRect.right;
 	BorderRect.bottom = WindowRect.bottom - FrameRect.bottom;
 
-
 	PrintRect->left -= BorderRect.left;
 	PrintRect->top -= BorderRect.top;
 
 	PrintRect->right += BorderRect.right;
 	PrintRect->bottom += BorderRect.bottom;
-
-	//Adjust for gaps percentage
-
-	INT Width, Height;
-
-	Width = PrintRect->right - PrintRect->left;
-	Height = PrintRect->bottom - PrintRect->top;
-
-	//Adjust for OuterGaps
-	PrintRect->left += OuterGapsHorizontal / 2;
-	PrintRect->right += OuterGapsHorizontal / 2;
-
-	PrintRect->top += OuterGapsVertical / 2;
-	PrintRect->bottom += OuterGapsVertical / 2;
-
-	//Adjust for InnerGaps
-	PrintRect->left += InnerGapsHorizontal / 2;
-	PrintRect->right -= InnerGapsHorizontal / 2;
-
-	PrintRect->top += InnerGapsVertical / 2;
-	PrintRect->bottom -= InnerGapsVertical / 2;
 
 }
 
@@ -1574,8 +1573,11 @@ INT RenderWindows(TILE_INFO* Tile)
 
 		RECT PrintRect = Tile->Placement.rcNormalPosition;
 
+		if (AdjustForNC)
+			AdjustForBorder(Tile, &PrintRect);
+
 		if (IsGapsEnabled)
-			AdjustForGaps(Tile, &PrintRect);
+			AdjustForGaps(&PrintRect);
 
 		INT Width = (PrintRect.right - PrintRect.left);
 		INT Height = (PrintRect.bottom - PrintRect.top);
@@ -1634,7 +1636,21 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 
 	HandleWeirdWindowState(Workspace->TileInFocus->WindowHandle);
 
-	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, 0, 0, RealScreenWidth, RealScreenHeight, 0);
+	RECT PrintRect;
+
+	PrintRect.left = 0;
+	PrintRect.top = 0;
+
+	PrintRect.right = RealScreenWidth;
+	PrintRect.bottom = RealScreenHeight;
+
+	if (AdjustForNC)
+		AdjustForBorder(Workspace->TileInFocus, &PrintRect);
+
+	INT Width = PrintRect.right - PrintRect.left;
+	INT Height = PrintRect.bottom - PrintRect.top;
+
+	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
 
 	if (!RetVal)
 		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->TileInFocus->WindowHandle));
@@ -2063,10 +2079,16 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	}
 
 	RenderWorkspace(WorkspaceNumber);
+
+
 	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
 
 	if (FAILED(Result))
 		Fail("SwitchDesktop");
+
+	if (Workspace->TileInFocus)
+		ForceToForeground(Workspace->TileInFocus->WindowHandle);
+
 }
 
 VOID HandleShutdown()
@@ -3040,6 +3062,19 @@ VOID InitScreenGlobals()
 
 	if (IsGapsEnabled)
 	{
+
+		if (OuterGapsVertical > RealScreenHeight)
+			Fail("outer_gaps_vertical cannot be bigger than screen height");
+
+		if (OuterGapsHorizontal > RealScreenWidth)
+			Fail("outer_gaps_horizontal cannot be bigger than screen height");
+
+		if (InnerGapsVertical > RealScreenHeight)
+			Fail("inner_gaps_vertical cannot be bigger than screen height");
+
+		if (InnerGapsHorizontal > RealScreenWidth)
+			Fail("inner_gaps_horizontal cannot be bigger than screen height");
+
 		ScreenWidth -= OuterGapsHorizontal;
 		ScreenHeight -= OuterGapsVertical;
 	}
@@ -3555,8 +3590,8 @@ VOID InitConfig()
 		ParseConfigEx("move_workspace_8", MoveWorkspaceEx_8);
 		ParseConfigEx("move_workspace_9", MoveWorkspaceEx_9);
 
-		ParseConfigEx("verify_workspace", VerifyWorkspaceEx)
-			ParseConfigEx("fullscreen", GoFullscreenEx);
+		ParseConfigEx("verify_workspace", VerifyWorkspaceEx);
+		ParseConfigEx("fullscreen", GoFullscreenEx);
 		ParseConfigEx("shutdown", ShutdownEx);
 
 		ParseModifier(GetJsonEx("modifier"));
@@ -3574,6 +3609,15 @@ VOID InitConfig()
 		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
+		std::string AdjustForNc = GetJsonEx("adjust_for_nc");
+
+		if (AdjustForNc == "y")
+			AdjustForNC = TRUE;
+		else if (AdjustForNc == "n")
+			AdjustForNC = FALSE;
+		else
+			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
+
 		std::string gaps_enabled = GetJsonEx("gaps_enabled");
 
 		if (gaps_enabled == "y")
@@ -3587,23 +3631,9 @@ VOID InitConfig()
 		{
 			OuterGapsVertical = GetJsonEx("outer_gaps_vertical");
 			OuterGapsHorizontal = GetJsonEx("outer_gaps_horizontal");
-
-			if (OuterGapsVertical > RealScreenHeight)
-				Fail("outer_gaps_vertical cannot be bigger than screen height");
-
-			if (OuterGapsHorizontal > RealScreenWidth)
-				Fail("outer_gaps_vertical cannot be bigger than screen height");
-
 			InnerGapsVertical = GetJsonEx("inner_gaps_vertical");
 			InnerGapsHorizontal = GetJsonEx("inner_gaps_horizontal");
-
-			if (InnerGapsVertical > RealScreenHeight)
-				Fail("outer_gaps_vertical cannot be bigger than screen height");
-
-			if (InnerGapsHorizontal > RealScreenWidth)
-				Fail("outer_gaps_vertical cannot be bigger than screen height");
 		}
-
 
 	}
 	catch (json::type_error& e)

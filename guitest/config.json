@@ -5,12 +5,13 @@
 	"destroy_tile" : "shift+q",
 	"create_tile" : "enter",
 	
-	"gaps_enabled" : "y",
-	"outer_gaps_vertical" : 200,
-	"outer_gaps_horizontal" : 100,
+	"adjust_for_nc" : "n",
+	"gaps_enabled" : "n",
+	"outer_gaps_vertical" : 0,
+	"outer_gaps_horizontal" : 0,
 	
-	"inner_gaps_horizontal" : 50,
-	"inner_gaps_vertical" : 50,
+	"inner_gaps_horizontal" : 0,
+	"inner_gaps_vertical" : 0,
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
@@ -50,7 +51,7 @@
 	"shutdown" : "t",
 
 	"start_command" : "start cmd.exe",
-	"windows_to_ignore" : ["memes", "memes2"]
+	"windows_to_ignore" : []
 	
 
 }
