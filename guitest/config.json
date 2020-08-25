@@ -7,8 +7,8 @@
 	"adjust_for_nc" : "y",
 	"gaps_enabled" : "y",
 	"hide_explorer" : "n",
-	"fullscreen_past_explorer" : "n",
-	"remove_titlebars_experimental" : "y",
+	"fullscreen_past_explorer" : "y",
+	"remove_titlebars_experimental" : "n",
 	"outer_gaps_vertical" : 15,
 	"outer_gaps_horizontal" : 15,
 	
@@ -53,6 +53,7 @@
 	"shutdown" : "t",
 
 	"start_command" : "start cmd.exe",
+	"start_directory" : "C:\\Users\\Admin\\Desktop\\Tech",
 	"windows_to_ignore" : ["keypirinha"]
 	
 

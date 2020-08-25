@@ -198,6 +198,7 @@ const SPECIFIC_WINDOW WeirdWindowsList[] =
 NODE_TYPE UserChosenLayout = VERTICAL_SPLIT;
 MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
+const char* StartDirectory = "";
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
@@ -3690,6 +3691,7 @@ VOID InitConfig()
 		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("hide_explorer"), &ShouldHideExplorer);
 		ParseBoolOptionEx(GetJsonEx("fullscreen_past_explorer"), &IsFullScreenMax);
+		StartDirectory = _strdup(static_cast<std::string>(GetJsonEx("start_directory")).c_str());
 
 		if (IsGapsEnabled)
 		{
@@ -3805,6 +3807,14 @@ BOOL VerifyLicense()
 
 }
 
+VOID SetPWD()
+{
+
+	if (strlen(StartDirectory))
+		SetCurrentDirectory(StartDirectory);
+
+}
+
 
 INT main()
 {
@@ -3842,6 +3852,7 @@ INT main()
 	WorkspaceList[CurrentWorkspaceInFocus].NeedsRendering = TRUE;
 	RenderWorkspace(CurrentWorkspaceInFocus);
 	InitStatusBar();
+	SetPWD();
 
 	MSG Message;
 	while (int RetVal = GetMessageA(&Message, NULL, 0, 0))
