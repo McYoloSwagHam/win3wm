@@ -205,7 +205,6 @@ BOOL ShouldRemoveTitleBars;
 BOOL ShouldHideExplorer;
 BOOL IsFullScreenMax;
 POINT NewOrigin;
-LONG_PTR FullScreenStyle;
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
@@ -1677,8 +1676,8 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 		if (wcscmp(ClassName, L"ConsoleWindowClass"))
 			Height += (ShellRect.bottom - ShellRect.top);
 
-		FullScreenStyle = GetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE);
-		SetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE, FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
+		Workspace->FullScreenStyle = GetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE);
+		SetWindowLongPtrA(Workspace->TileInFocus->WindowHandle, GWL_STYLE, Workspace->FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
 
 
 	}
@@ -3438,10 +3437,10 @@ VOID GoFullscreenEx()
 	else
 		Workspace->IsFullScreen = FALSE;
 
-	if (Workspace->TileInFocus && FullScreenStyle)
+	if (Workspace->TileInFocus && Workspace->FullScreenStyle)
 	{
-		SetWindowLongPtr(Workspace->TileInFocus->WindowHandle, GWL_STYLE, FullScreenStyle);
-		FullScreenStyle = NULL;
+		SetWindowLongPtr(Workspace->TileInFocus->WindowHandle, GWL_STYLE, Workspace->FullScreenStyle);
+		Workspace->FullScreenStyle = NULL;
 	}
 
 

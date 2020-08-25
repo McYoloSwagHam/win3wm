@@ -351,6 +351,7 @@ struct WORKSPACE_INFO
 	TILE_INFO* Tiles;
 	TILE_INFO* TileInFocus;
 	BOOL IsFullScreen;
+	LONG_PTR FullScreenStyle;
 	BOOL NeedsRendering;
 	IVirtualDesktop* VDesktop;
 };
