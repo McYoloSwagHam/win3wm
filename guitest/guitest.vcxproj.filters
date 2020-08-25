@@ -22,6 +22,9 @@
     <Filter Include="Source Files\Utils">
       <UniqueIdentifier>{8cf25967-0236-481e-b98c-fee410db1c17}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Scripting">
+      <UniqueIdentifier>{88ee3835-1556-4e26-a3d9-ee09ec0641f7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="list.cpp">
@@ -70,6 +73,12 @@
     </ClInclude>
     <ClInclude Include="VirtualDesktops.h">
       <Filter>Source Files\VDesktops</Filter>
+    </ClInclude>
+    <ClInclude Include="sol.hpp">
+      <Filter>Source Files\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="lua.hpp">
+      <Filter>Source Files\Scripting</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

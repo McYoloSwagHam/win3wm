@@ -20,6 +20,11 @@
 #include "SG_InputBox.h"
 #include "VDesktops.h"
 
+#define SOL_ALL_SAFETIES_ON 1
+
+#include "lua.hpp"
+#include "sol.hpp"
+
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
@@ -199,6 +204,10 @@ NODE_TYPE UserChosenLayout = VERTICAL_SPLIT;
 MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
 const char* StartDirectory = "";
+const char* LuaScriptPath = "";
+
+BOOL HasLua;
+sol::state LuaState;
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
@@ -3691,6 +3700,7 @@ VOID InitConfig()
 		ParseBoolOptionEx(GetJsonEx("hide_explorer"), &ShouldHideExplorer);
 		ParseBoolOptionEx(GetJsonEx("fullscreen_past_explorer"), &IsFullScreenMax);
 		StartDirectory = _strdup(static_cast<std::string>(GetJsonEx("start_directory")).c_str());
+		LuaScriptPath = _strdup(static_cast<std::string>(GetJsonEx("lua_script_path")).c_str());
 
 		if (IsGapsEnabled)
 		{
@@ -3815,8 +3825,21 @@ VOID SetPWD()
 }
 
 
+VOID InitLua()
+{
+	// no lua script
+	if (!strlen(LuaScriptPath))
+		return;
+
+	HasLua = TRUE;
+
+
+
+}
+
 INT main()
 {
+
 	if (AppRunningCheck())
 		Fail("Only a single instance of Win3m can be run");
 
@@ -3830,6 +3853,7 @@ INT main()
 		TerminateProcess(GetCurrentProcess(), 3069);
 
 	InitConfig();
+	InitLua();
 #else
 	InitConfigFree();
 #endif
