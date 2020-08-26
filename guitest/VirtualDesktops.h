@@ -5,6 +5,7 @@
 #include <hstring.h>
 #include <inspectable.h>
 #include <ObjectArray.h>
+#include <vector>
 #include "lua.hpp"
 #include "sol.hpp"
 
@@ -345,6 +346,12 @@ struct TILE_INFO
 	TILE_INFO *BranchParent;
 	WINDOWPLACEMENT Placement;
 	LAYOUT_STATE Layout;
+};
+
+struct DISPLAY_INFO
+{
+	HMONITOR Handle;
+	RECT Rect;
 };
 
 struct WORKSPACE_INFO

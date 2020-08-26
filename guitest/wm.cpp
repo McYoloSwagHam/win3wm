@@ -77,7 +77,7 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 //------------------------------------------------------------------
 #define ChangeWorkspaceEx(Number) VOID ChangeWorkspaceEx_##Number()\
 	{											\
-		if (Number == CurrentWorkspaceInFocus)	\
+		if (Number == CurWk)	\
 			return;								\
 												\
 		HandleChangeWorkspace(Number);			\
@@ -85,7 +85,7 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 
 #define MoveWorkspaceEx(Number) VOID MoveWorkspaceEx_##Number()\
 	{											\
-		if (Number == CurrentWorkspaceInFocus)	\
+		if (Number == CurWk)	\
 			return;								\
 												\
 		HandleMoveWindowWorkspace(Number);		\
@@ -136,11 +136,13 @@ ATOM StatusBarAtom;
 // change later to more C-ish datastructure (AKA don't use std::vector)
 std::vector<TILE_INFO> WindowOrderList;
 std::vector<WORKSPACE_INFO> WorkspaceList;
+std::vector<DISPLAY_INFO> DisplayList;
+DISPLAY_INFO* PrimaryDisplay;
 HANDLE x86ProcessHandle;
 DWORD x86ProcessId;
 HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
-INT CurrentWorkspaceInFocus = 1;
+INT CurWk = 1;
 #define WM_INSTALL_HOOKS 0x8069
 #define WM_SHUTDOWN 0x806C
 #define WM_MOVE_TILE 0x806b
@@ -1434,7 +1436,7 @@ VOID PerformInitialRegroupring()
 		NumTiles = TilesPerWorkspace * NumWorkspace;
 #endif
 
-	WorkspaceIndex = CurrentWorkspaceInFocus;
+	WorkspaceIndex = CurWk;
 
 	INT TilesLeft = NumTiles;
 
@@ -1734,7 +1736,7 @@ VOID RenderStatusBar()
 	{
 		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
-		if (i == CurrentWorkspaceInFocus)
+		if (i == CurWk)
 		{
 			BtnToColor = StatusBarWindow[SlotCount];
 			ButtonText[0] = '0' + i;
@@ -1775,7 +1777,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 {
 
 	//the window about to be rendered is the window in focus;
-	CurrentWorkspaceInFocus = WorkspaceNumber;
+	CurWk = WorkspaceNumber;
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
@@ -1976,7 +1978,7 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
 			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
@@ -2008,7 +2010,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace, BOOL Swap)
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
 			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
@@ -2039,7 +2041,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
 			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
@@ -2071,7 +2073,7 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
 			Workspace->TileInFocus->WindowHandle = TargetWindow;
 			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
@@ -2157,7 +2159,7 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	if (FAILED(Result))
 		Fail("SwitchDesktop");
 
-	LuaDispatchEx("on_change_workspace", CurrentWorkspaceInFocus);
+	LuaDispatchEx("on_change_workspace", CurWk);
 
 }
 
@@ -2201,7 +2203,7 @@ VOID HandleShutdown()
 
 VOID HandleChangeWorkspace(INT WorkspaceNumber)
 {
-	if (WorkspaceNumber == CurrentWorkspaceInFocus)
+	if (WorkspaceNumber == CurWk)
 		return;
 
 	PostThreadMessageA(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
@@ -2210,7 +2212,7 @@ VOID HandleChangeWorkspace(INT WorkspaceNumber)
 VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	WORKSPACE_INFO* TargetWorkspace = &WorkspaceList[WorkspaceNumber];
 	TILE_INFO* Node = Workspace->TileInFocus;
 	TILE_INFO* NewNode;
@@ -2235,7 +2237,7 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	RemoveTileFromWorkspace(Workspace, Node);
 	LinkNode(TargetWorkspace, NewNode);
 	AddTileToWorkspace(TargetWorkspace, NewNode);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	RenderWorkspace(CurWk);
 
 	if (Workspace->TileInFocus)
 		ForceToForeground(Workspace->TileInFocus->WindowHandle);
@@ -2299,8 +2301,8 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 		WCHAR WindowText[1024] = { 0 };
 		HWND WindowHandle;
 
-//		if (WorkspaceList[CurrentWorkspaceInFocus].TileInFocus)
-//			WindowHandle = WorkspaceList[CurrentWorkspaceInFocus].TileInFocus->WindowHandle;
+//		if (WorkspaceList[CurWk].TileInFocus)
+//			WindowHandle = WorkspaceList[CurWk].TileInFocus->WindowHandle;
 //		else
 //			WindowHandle = NULL;
 //
@@ -2378,7 +2380,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	if (IsIgnoreWindow(WindowHandle) || !IsWindow(WindowHandle))
 		return;
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
 	if (GetWindowCount(Workspace->Tiles) > 2)
 		return;
@@ -2410,7 +2412,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		FailWithCode("realloc Tiles failed\n");
 
 	AddTileToWorkspace(Workspace, TileToAdd);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	RenderWorkspace(CurWk);
 	CanSwitch = TRUE;
 
 	LuaDispatchEx("on_new_window", (PVOID)WindowHandle);
@@ -2445,7 +2447,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 		return;
 
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* Tiles = Workspace->Tiles;
 	TILE_INFO* TileToRemove = NULL;
 
@@ -2459,7 +2461,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	//FailWithCode("Got tile to remove but couldn't find it");
 
 	RemoveTileFromWorkspace(Workspace, TileToRemove);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	RenderWorkspace(CurWk);
 
 	RenderFocusWindowEx(Workspace);
 
@@ -2665,7 +2667,7 @@ LRESULT CALLBACK FocusMessageHandler(
 		{
 		case TIMER_FOCUS:
 
-			Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+			Workspace = &WorkspaceList[CurWk];
 
 
 
@@ -3098,8 +3100,8 @@ VOID InitStatusBar()
 			NULL
 		);
 
-		if (i == CurrentWorkspaceInFocus)
-			BtnToColor = StatusBarWindow[CurrentWorkspaceInFocus];
+		if (i == CurWk)
+			BtnToColor = StatusBarWindow[CurWk];
 
 		if (!StatusBarWindow[i])
 			FailWithCode("Could not create Status Bar Window!");
@@ -3236,7 +3238,7 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 VOID DestroyTileEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->TileInFocus)
 		return;
@@ -3253,7 +3255,7 @@ VOID DestroyTileEx()
 VOID SetLayoutVerticalEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	IsPressed = TRUE;
 	UserChosenLayout = HORIZONTAL_SPLIT;
 	if (IsWorkspaceRootTile(Workspace))
@@ -3318,7 +3320,7 @@ VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::v
 
 VOID VerifyWorkspaceEx()
 {
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* Tile = Workspace->Tiles;
 
 
@@ -3337,14 +3339,14 @@ VOID VerifyWorkspaceEx()
 	}
 
 	ResortTiles(Workspace);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	RenderWorkspace(CurWk);
 
 }
 
 VOID GoFullscreenEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	//Single tile no need to 
 	if (Workspace->Tiles && !Workspace->Tiles->ChildTile && Workspace->Tiles->NodeType == TERMINAL)
 		return;
@@ -3362,7 +3364,7 @@ VOID GoFullscreenEx()
 
 
 	Workspace->NeedsRendering = TRUE;
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	RenderWorkspace(CurWk);
 	PVOID LuaHWND = (PVOID)(Workspace->TileInFocus) ? Workspace->TileInFocus->WindowHandle : NULL;
 	LuaDispatchEx("on_fullscreen", Workspace->IsFullScreen, LuaHWND);
 
@@ -3371,7 +3373,7 @@ VOID GoFullscreenEx()
 VOID SetLayoutHorizontalEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	IsPressed = TRUE;
 	UserChosenLayout = VERTICAL_SPLIT;
 	if (IsWorkspaceRootTile(Workspace))
@@ -3381,7 +3383,7 @@ VOID SetLayoutHorizontalEx()
 
 VOID HandleLeftEx()
 {
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleLeft(Workspace, FALSE);
@@ -3391,7 +3393,7 @@ VOID HandleLeftEx()
 VOID SwapLeftEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleLeft(Workspace, TRUE);
@@ -3401,7 +3403,7 @@ VOID SwapLeftEx()
 VOID HandleRightEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleRight(Workspace, FALSE);
@@ -3411,7 +3413,7 @@ VOID HandleRightEx()
 VOID SwapRightEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleRight(Workspace, TRUE);
@@ -3421,7 +3423,7 @@ VOID SwapRightEx()
 VOID HandleDownEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleBottom(Workspace, FALSE);
@@ -3431,7 +3433,7 @@ VOID HandleDownEx()
 VOID SwapDownEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleBottom(Workspace, TRUE);
@@ -3442,7 +3444,7 @@ VOID SwapDownEx()
 VOID HandleUpEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleTop(Workspace, FALSE);
@@ -3452,7 +3454,7 @@ VOID HandleUpEx()
 VOID SwapUpEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 	if (!Workspace->IsFullScreen)
 		HandleTop(Workspace, TRUE);
@@ -3766,6 +3768,25 @@ VOID InitLua()
 
 }
 
+BOOL DisplayProc(HMONITOR DisplayHandle, HDC DC, LPRECT DisplayRect, LPARAM Context)
+{
+	DisplayList.push_back({ DisplayHandle, *DisplayRect });
+	return TRUE;
+}
+
+VOID GetMonitors()
+{
+	EnumDisplayMonitors(NULL, NULL, DisplayProc, NULL);
+	HMONITOR PrimaryMonitor = MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY);
+
+	for (auto Display : DisplayList)
+	{
+		if (Display.Handle == PrimaryMonitor)
+			PrimaryDisplay = &Display;
+	}
+
+}
+
 INT main()
 {
 
@@ -3773,6 +3794,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
+	GetMonitors();
 	FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
@@ -3801,8 +3823,8 @@ INT main()
 	CreateNotificationWindow();
 	InitIcon();
 	CreateFocusOverlay();
-	WorkspaceList[CurrentWorkspaceInFocus].NeedsRendering = TRUE;
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	WorkspaceList[CurWk].NeedsRendering = TRUE;
+	RenderWorkspace(CurWk);
 	InitStatusBar();
 	SetPWD();
 
