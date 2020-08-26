@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <unordered_map>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -22,8 +23,6 @@
 
 #define SOL_ALL_SAFETIES_ON 1
 
-#include "lua.hpp"
-#include "sol.hpp"
 
 // ------------------------------------------------------------------
 // Defs
@@ -206,6 +205,7 @@ const char* StartCommand = "start cmd.exe";
 const char* StartDirectory = "";
 const char* LuaScriptPath = "";
 
+LUA_OPT LuaOpt;
 BOOL HasLua;
 sol::state LuaState;
 BOOL AdjustForNC;
@@ -218,6 +218,7 @@ INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
 INT InnerGapsHorizontal;
+
 
 
 // ------------------------------------------------------------------
@@ -269,6 +270,28 @@ VOID Fail(const char* ErrorMessage)
 
 	MessageBoxA(NULL, ErrorMessage, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
+}
+
+using sol::lib;
+
+template<class...Args>
+void LuaDispatchEx(const char* functionName, Args &&... args)
+{
+	if (LuaOpt.On && LuaOpt.State[functionName] != sol::nil)
+	{
+		sol::protected_function Func = LuaOpt.State[functionName];
+
+		auto Result = Func(std::forward<Args>(args)...);
+
+		if (!Result.valid())
+		{
+			sol::error err = Result;
+			std::string what = err.what();
+			Fail(what.c_str());
+		}
+
+	}
+
 }
 
 VOID ShowTaskBar(BOOL SetTaskBar)
@@ -1691,7 +1714,7 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
 
 	}
 
-	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, SWP_FRAMECHANGED | SWP_NOREPOSITION);
+	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
 
 	if (!RetVal)
 		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->TileInFocus->WindowHandle));
@@ -1757,7 +1780,6 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
 	RenderStatusBar();
-
 
 	if (!Workspace->NeedsRendering)
 		return;
@@ -1963,6 +1985,7 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 	FocusRoot(Workspace);
 	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
+	ForceToForeground(Workspace->TileInFocus->WindowHandle);
 
 }
 
@@ -1994,6 +2017,7 @@ VOID HandleRight(WORKSPACE_INFO* Workspace, BOOL Swap)
 	FocusRoot(Workspace);
 	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
+	ForceToForeground(Workspace->TileInFocus->WindowHandle);
 
 }
 
@@ -2024,6 +2048,7 @@ VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 	FocusRoot(Workspace);
 	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
+	ForceToForeground(Workspace->TileInFocus->WindowHandle);
 
 }
 
@@ -2059,6 +2084,7 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 	FocusRoot(Workspace);
 	RenderFocusWindow(Workspace->TileInFocus);
 	RenderDebugWindow(Workspace->TileInFocus);
+	ForceToForeground(Workspace->TileInFocus->WindowHandle);
 
 }
 
@@ -2124,11 +2150,14 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 
 	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
 
-	if (FAILED(Result))
-		Fail("SwitchDesktop");
 
 	if (Workspace->TileInFocus)
 		ForceToForeground(Workspace->TileInFocus->WindowHandle);
+
+	if (FAILED(Result))
+		Fail("SwitchDesktop");
+
+	LuaDispatchEx("on_change_workspace", CurrentWorkspaceInFocus);
 
 }
 
@@ -2145,7 +2174,7 @@ VOID HandleShutdown()
 
 	NotifyData.hWnd = NotifWindow;
 	NotifyData.cbSize = sizeof(NotifyData);
-	NotifyData.uID = 1;
+	NotifyData.uID = 69;
 
 	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
 
@@ -2208,6 +2237,9 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	AddTileToWorkspace(TargetWorkspace, NewNode);
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
+	if (Workspace->TileInFocus)
+		ForceToForeground(Workspace->TileInFocus->WindowHandle);
+
 }
 
 
@@ -2248,155 +2280,6 @@ INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 
 }
 
-INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
-{
-
-	BOOL AltDown = (KeyboardLookupTable[KeyboardData->vkCode] == WM_SYSKEYDOWN);
-	INT SkipKey = TRUE;
-	INT WorkspaceNumber = -1;
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-
-
-	if (!AltDown)
-	{
-		SkipKey = FALSE;
-		return SkipKey;
-	}
-
-	switch (KeyboardData->vkCode)
-	{
-	case VK_LMENU:
-		break;
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-
-		WorkspaceNumber = KeyboardData->vkCode - '0';
-
-		logc(5, "Changing  to workspace : %u\n", WorkspaceNumber);
-
-		if (WorkspaceNumber == CurrentWorkspaceInFocus)
-			break;
-
-		if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
-		{
-
-			if (Workspace->IsFullScreen)
-				break;
-
-			HandleMoveWindowWorkspace(WorkspaceNumber);
-		}
-		else
-			HandleChangeWorkspace(WorkspaceNumber);
-
-		break;
-	case 'P':
-		for (int i = 0; i < WorkspaceList.size(); i++)
-		{
-			logc(11, "Showing Button : %X\n", StatusBarWindow[i]);
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
-		}
-		break;
-	case 'T':
-		if (x86ProcessHandle)
-			TerminateProcess(x86ProcessHandle, 369);
-		TerminateProcess(GetCurrentProcess(), 420);
-		break;
-	case 'Y':
-		for (int i = 0; WorkspaceList.size(); i++)
-		{
-			logc(11, "Hiding Button : %X\n", StatusBarWindow[i]);
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
-		}
-		break;
-	case 'F':
-
-		//Single tile no need to 
-		if (Workspace->Tiles && !Workspace->Tiles->ChildTile && Workspace->Tiles->NodeType == TERMINAL)
-			break;
-
-		if (Workspace->TileInFocus)
-			Workspace->IsFullScreen = !Workspace->IsFullScreen;
-		else
-			Workspace->IsFullScreen = FALSE;
-		RenderWorkspace(CurrentWorkspaceInFocus);
-		break;
-	case 'H':
-		IsPressed = TRUE;
-		UserChosenLayout = VERTICAL_SPLIT;
-		if (IsWorkspaceRootTile(Workspace))
-			Workspace->Layout = UserChosenLayout;
-		break;
-	case 'V':
-		IsPressed = TRUE;
-		UserChosenLayout = HORIZONTAL_SPLIT;
-		if (IsWorkspaceRootTile(Workspace))
-			Workspace->Layout = UserChosenLayout;
-		break;
-	case VK_LEFT:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleLeft(Workspace);
-		break;
-	case VK_UP:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleTop(Workspace);
-		break;
-	case VK_DOWN:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleBottom(Workspace);
-		break;
-	case VK_RIGHT:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleRight(Workspace);
-		//RenderDebugWindow(Workspace->TileInFocus);
-		break;
-	case VK_RETURN:
-		system("start cmd.exe");
-		break;
-	case 'Q':
-
-
-		if (!ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
-			SkipKey = FALSE;
-		else
-		{
-
-			Workspace->IsFullScreen = FALSE;
-
-			//WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-			SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
-			//DestroyWindow(Workspace->TileInFocus->WindowHandle);
-			//RemoveTileFromWorkspace(Workspace, Workspace->TileInFocus);
-			//RenderWorkspace(CurrentWorkspaceInFocus);
-		}
-		break;
-	default:
-		SkipKey = FALSE;
-		break;
-	}
-
-	return SkipKey;
-
-}
-
 LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 {
 
@@ -2416,16 +2299,16 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 		WCHAR WindowText[1024] = { 0 };
 		HWND WindowHandle;
 
-		if (WorkspaceList[CurrentWorkspaceInFocus].TileInFocus)
-			WindowHandle = WorkspaceList[CurrentWorkspaceInFocus].TileInFocus->WindowHandle;
-		else
-			WindowHandle = NULL;
-
-		GetWindowTextW(WindowHandle, WindowText, 1024);
-		logc(9, "Focus Text: %ls\n", WindowText);
-		GetClassNameW(WindowHandle, WindowText, 1024);
-		logc(9, "Focus Class: %ls\n", WindowText);
-		logc(9, "Window In Focus : %X\n", WindowHandle);
+//		if (WorkspaceList[CurrentWorkspaceInFocus].TileInFocus)
+//			WindowHandle = WorkspaceList[CurrentWorkspaceInFocus].TileInFocus->WindowHandle;
+//		else
+//			WindowHandle = NULL;
+//
+		//GetWindowTextW(WindowHandle, WindowText, 1024);
+		//logc(9, "Focus Text: %ls\n", WindowText);
+		//GetClassNameW(WindowHandle, WindowText, 1024);
+		//logc(9, "Focus Class: %ls\n", WindowText);
+		//logc(9, "Window In Focus : %X\n", WindowHandle);
 		return DO_NOT_PASS_KEY;
 	}
 
@@ -2455,7 +2338,7 @@ LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
 
-	NotifyData.uID = 1;
+	NotifyData.uID = 69;
 	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
 
 	for (int i = 2; i < WorkspaceList.size(); i++)
@@ -2530,6 +2413,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	RenderWorkspace(CurrentWorkspaceInFocus);
 	CanSwitch = TRUE;
 
+	LuaDispatchEx("on_new_window", (PVOID)WindowHandle);
+
 }
 
 
@@ -2577,6 +2462,8 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
 	RenderFocusWindowEx(Workspace);
+
+	LuaDispatchEx("on_destroy_window", (PVOID)WindowHandle);
 
 }
 
@@ -2791,7 +2678,7 @@ LRESULT CALLBACK FocusMessageHandler(
 
 				//There is a fullscreen window
 				//don't render focus bar
-				if ((TileRect.bottom - TileRect.top) > ScreenHeight)
+				if ((TileRect.bottom - TileRect.top) > RealScreenHeight)
 					return 0;
 			}
 
@@ -3085,7 +2972,7 @@ VOID CreateFocusOverlay()
 	ShowWindow(FocusWindow, SW_SHOW);
 	UpdateWindow(FocusWindow);
 
-	SetTimer(FocusWindow, TIMER_FOCUS, 1500, NULL);
+	SetTimer(FocusWindow, TIMER_FOCUS, 750, NULL);
 
 }
 
@@ -3249,7 +3136,7 @@ VOID InitIcon()
 	NotifyData.cbSize = sizeof(NotifyData);
 	NotifyData.hWnd = NotifWindow;
 	NotifyData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-	NotifyData.uID = 1;
+	NotifyData.uID = 69;
 	NotifyData.uCallbackMessage = WM_APP;
 
 	HICON hIcon = (HICON)LoadImage(GetModuleHandle(0), MAKEINTRESOURCE(TRAY_ICON), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
@@ -3371,6 +3258,7 @@ VOID SetLayoutVerticalEx()
 	UserChosenLayout = HORIZONTAL_SPLIT;
 	if (IsWorkspaceRootTile(Workspace))
 		Workspace->Layout = UserChosenLayout;
+
 }
 
 ChangeWorkspaceEx(1);
@@ -3398,17 +3286,17 @@ VOID ShutdownEx()
 	PostThreadMessageA(GetCurrentThreadId(), WM_SHUTDOWN, 0, 0);
 }
 
-VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
+VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::vector<TILE_INFO*>& HandleList, std::unordered_map<HWND, TILE_INFO*>& DupeMap)
 {
 
 	TILE_INFO* ChildTile = NULL;
 
 	for (; Tile; Tile = ChildTile)
 	{
-		ChildTile = Tile->ChildTile;
+
 
 		if (Tile->BranchTile)
-			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile);
+			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile, HandleList, DupeMap);
 		else if (!IsWindow(Tile->WindowHandle))
 		{
 			Workspace->TileInFocus = UnlinkNode(Workspace, Tile);
@@ -3417,7 +3305,13 @@ VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
 				Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
 
 			free(Tile);
+			continue;
 		}
+
+		TILE_INFO* AlreadyExists = DupeMap[Tile->WindowHandle];
+
+		if (AlreadyExists)
+			HandleList.push_back(Tile);
 	}
 
 }
@@ -3427,7 +3321,21 @@ VOID VerifyWorkspaceEx()
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
 	TILE_INFO* Tile = Workspace->Tiles;
 
-	VerifyWorkspaceRecursive(Workspace, Tile);
+
+	std::unordered_map<HWND, TILE_INFO*> DupeMap;
+	std::vector<TILE_INFO*> TileList;
+	VerifyWorkspaceRecursive(Workspace, Tile, TileList, DupeMap);
+
+	for (auto DupeTile : TileList)
+	{
+			Workspace->TileInFocus = UnlinkNode(Workspace, DupeTile);
+
+			while (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
+				Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
+
+			free(Tile);
+	}
+
 	ResortTiles(Workspace);
 	RenderWorkspace(CurrentWorkspaceInFocus);
 
@@ -3455,6 +3363,8 @@ VOID GoFullscreenEx()
 
 	Workspace->NeedsRendering = TRUE;
 	RenderWorkspace(CurrentWorkspaceInFocus);
+	PVOID LuaHWND = (PVOID)(Workspace->TileInFocus) ? Workspace->TileInFocus->WindowHandle : NULL;
+	LuaDispatchEx("on_fullscreen", Workspace->IsFullScreen, LuaHWND);
 
 }
 
@@ -3466,7 +3376,6 @@ VOID SetLayoutHorizontalEx()
 	UserChosenLayout = VERTICAL_SPLIT;
 	if (IsWorkspaceRootTile(Workspace))
 		Workspace->Layout = UserChosenLayout;
-
 
 }
 
@@ -3698,7 +3607,7 @@ VOID InitConfig()
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
 		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("hide_explorer"), &ShouldHideExplorer);
-		ParseBoolOptionEx(GetJsonEx("fullscreen_past_explorer"), &IsFullScreenMax);
+		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		StartDirectory = _strdup(static_cast<std::string>(GetJsonEx("start_directory")).c_str());
 		LuaScriptPath = _strdup(static_cast<std::string>(GetJsonEx("lua_script_path")).c_str());
 
@@ -3831,9 +3740,29 @@ VOID InitLua()
 	if (!strlen(LuaScriptPath))
 		return;
 
-	HasLua = TRUE;
+	LuaOpt.On = TRUE;
 
+	LuaOpt.State.open_libraries(lib::base,
+		lib::bit32,
+		lib::coroutine,
+		lib::debug,
+		lib::ffi,
+		lib::io,
+		lib::jit,
+		lib::math,
+		lib::os,
+		lib::package,
+		lib::string,
+		lib::table,
+		lib::utf8);
 
+	try {
+		LuaOpt.State.script_file(LuaScriptPath);
+	}
+	catch (const std::exception& LuaException)
+	{
+		Fail(LuaException.what());
+	}
 
 }
 

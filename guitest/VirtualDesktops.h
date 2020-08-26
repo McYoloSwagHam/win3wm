@@ -5,6 +5,8 @@
 #include <hstring.h>
 #include <inspectable.h>
 #include <ObjectArray.h>
+#include "lua.hpp"
+#include "sol.hpp"
 
 const CLSID CLSID_ImmersiveShell = {
 	0xC2F03A33, 0x21F5, 0x47FA, 0xB4, 0xBB, 0x15, 0x63, 0x62, 0xA2, 0xF2, 0x39 };
@@ -354,4 +356,11 @@ struct WORKSPACE_INFO
 	LONG_PTR FullScreenStyle;
 	BOOL NeedsRendering;
 	IVirtualDesktop* VDesktop;
+};
+
+struct LUA_OPT
+{
+	BOOL On;
+	sol::state State;
+	const char* Path;
 };
