@@ -17,6 +17,11 @@
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
+	
+	"go_monitor_left" : "n",
+	"go_monitor_right" : "m",
+	"move_monitor_left" : "shift+n",
+	"move_monitor_right" : "shift+m",
 
 	"change_workspace_1" : "1",
 	"change_workspace_2" : "2",

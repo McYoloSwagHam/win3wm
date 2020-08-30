@@ -6,6 +6,7 @@
 #include <inspectable.h>
 #include <ObjectArray.h>
 #include <vector>
+#include <utility>
 #include "lua.hpp"
 #include "sol.hpp"
 
@@ -346,22 +347,40 @@ struct TILE_INFO
 	TILE_INFO *BranchParent;
 	WINDOWPLACEMENT Placement;
 	LAYOUT_STATE Layout;
+	BOOL IsDisplayChanged;
 };
 
 struct DISPLAY_INFO
 {
+	HWND TrayWindow;
+	RECT TrayRect;
 	HMONITOR Handle;
 	RECT Rect;
+	INT ScreenWidth;
+	INT ScreenHeight;
+	INT RealScreenWidth;
+	INT RealScreenHeight;
+	FLOAT HorizontalScalar;
+	FLOAT VerticalScalar;
+};
+
+struct TILE_TREE
+{
+	TILE_INFO* Focus;
+	TILE_INFO* Root;
+	BOOL IsFullScreen;
+	BOOL NeedsRendering;
+	DISPLAY_INFO* Display;
+	NODE_TYPE Layout;
 };
 
 struct WORKSPACE_INFO
 {
-	NODE_TYPE Layout;
-	TILE_INFO* Tiles;
+	std::unordered_map<HMONITOR, TILE_TREE> Trees;
+	TILE_TREE* Tree;
+	DISPLAY_INFO* Dsp;
 	TILE_INFO* TileInFocus;
-	BOOL IsFullScreen;
 	LONG_PTR FullScreenStyle;
-	BOOL NeedsRendering;
 	IVirtualDesktop* VDesktop;
 };
 
