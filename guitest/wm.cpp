@@ -195,7 +195,7 @@ HWND StatusButtonList[10];
 // ------------------------------------------------------------------
 
 const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow" };
-std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDim", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
+std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDialogProxy", L"Shell_SystemDim", L"The Event Managment Dashboard", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
 	{ L"ConsoleWindowClass", SW_MAXIMIZE }
