@@ -12,6 +12,13 @@
 	"outer_gaps_vertical" : 15,
 	"outer_gaps_horizontal" : 15,
 	
+	"active_workspace_color_button" : [0,0,255],
+	"inactive_workspace_color_button" : [240,240,240],
+	"inactive_monitor_color_button" : [255, 0, 0],
+	
+	"active_text_color_button" : [255,255,255],
+	"inactive_text_color_button" : [0,0,0],
+	
 	"inner_gaps_horizontal" : 20,
 	"inner_gaps_vertical" : 20,
 
@@ -22,6 +29,7 @@
 	"go_monitor_right" : "m",
 	"move_monitor_left" : "shift+n",
 	"move_monitor_right" : "shift+m",
+	"flip_workspace" : "shift+d",
 
 	"change_workspace_1" : "1",
 	"change_workspace_2" : "2",

@@ -326,7 +326,16 @@ enum NODE_TYPE
 	LONG_PTR WS_EX_STYLE;
 	WINDOWPLACEMENT OldPlacement;
 
-} ;
+};
+
+ struct BUTTON_STATE
+ {
+	 BOOL RenderBg;
+	 BOOL RenderTxt;
+	 BOOL IsPrimaryDisplay;
+	 BOOL IsActiveWorkspace;
+	 CHAR ButtonText[2];
+ };
 
 struct SPECIFIC_WINDOW
 {
@@ -362,6 +371,9 @@ struct DISPLAY_INFO
 	INT RealScreenHeight;
 	FLOAT HorizontalScalar;
 	FLOAT VerticalScalar;
+	HWND StatusBar[10];
+	HWND StatusButton[10];
+	HWND BtnToColor;
 };
 
 struct TILE_TREE

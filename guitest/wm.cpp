@@ -51,7 +51,6 @@ BOOL FirstDesktopRender;
 #define INIT_TILES_PER_WORKSPACE 4
 #define MAX_WORKSPACES 10
 #define MAX_INIT_TILES 40
-#define DEFAULT_LAYOUT VERTICAL_LAYOUT
 #define ARRAY_SIZEOF(A) (sizeof(A)/sizeof(*A))
 #define WIN3M_PIPE_NAME "\\\\.\\pipe\\Win3WMPipe"
 #define MINIMUM_CONSIDERED_AREA 10000
@@ -120,11 +119,11 @@ CHAR StatusBarWindowName[] = "Win3wmStatus";
 // ------------------------------------------------------------------
 // Window Globals
 // ------------------------------------------------------------------
+std::unordered_map<HWND, BUTTON_STATE> ButtonMap;
 HWND MainWindow;
 HWND DebugWindow;
 HWND FocusWindow;
 HWND NotifWindow;
-HWND StatusBarWindow[10];
 HWND BtnToColor;
 HWND CurrentFocusChild;
 HWND TrayWindow;
@@ -216,9 +215,21 @@ sol::state LuaState;
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
-BOOL ShouldHideExplorer;
 BOOL IsFullScreenMax;
 POINT NewOrigin;
+
+std::vector<unsigned char> ColorActiveWorkspaceButton;
+std::vector<unsigned char> ColorInactiveWorkspaceButton;
+std::vector<unsigned char> ColorInactiveMonitorButton;
+std::vector<unsigned char> ColorActiveButtonText;
+std::vector<unsigned char> ColorInActiveButtonText;
+
+DWORD ClrActWk;
+DWORD ClrInActWk;
+DWORD ClrInMt;
+DWORD ClrActTxt;
+DWORD ClrInActTxt;
+
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
@@ -1745,45 +1756,75 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 VOID RenderStatusBar()
 {
 
+	static int LastSlotCount = 0;
 	INT SlotCount = 1;
-	CHAR ButtonText[2] = { '0', '\0' };
-
-	BtnToColor = 0;
 
 	for (int i = 1; i < WorkspaceList.size(); i++)
 	{
 		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
-		if (i == CurWk)
+		if (TreeHas(Root) || i == CurWk)
 		{
-			BtnToColor = StatusBarWindow[SlotCount];
-			ButtonText[0] = '0' + i;
-			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
-			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
-			SlotCount++;
-		}
-		else if (TreeHas(Root))
-		{
-			ButtonText[0] = '0' + i;
-			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
-			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
+			for (auto& Display : DisplayList)
+			{
+
+				BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[SlotCount]];
+
+				if (i == CurWk)
+				{
+					PrimaryDisplay->BtnToColor = Display.StatusBar[SlotCount];
+					ButtonState.IsActiveWorkspace = TRUE;
+				}
+
+				ButtonState.ButtonText[0] = '0' + i;
+
+				if (ButtonState.RenderBg)
+				{
+					InvalidateRect(Display.StatusButton[SlotCount], 0, TRUE);
+					ButtonState.RenderBg = FALSE;
+				}
+			}
 			SlotCount++;
 		}
 	}
 
-	for (int i = 1; i < 10; i++)
+	SlotCount--;
+	INT SlotDiff = SlotCount - LastSlotCount;
+	INT Slot;
+	DWORD ShowCmd = -1;
+
+	if (SlotDiff > 0)
 	{
-		if (i < SlotCount)
+		Slot = SlotCount;
+		ShowCmd = SW_SHOW;
+		for (auto& Display : DisplayList)
 		{
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
-			logc(12, "Showing Button : %u : %X\n", i, StatusBarWindow[i]);
-		}
-		else
-		{
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
-			logc(12, "Hiding Button : %u : %X\n", i, StatusBarWindow[i]);
+			ButtonMap[Display.StatusBar[Slot]].RenderBg = TRUE;
+			ButtonMap[Display.StatusBar[Slot]].RenderTxt = TRUE;
 		}
 	}
+	else if (SlotCount < 0)
+	{
+		Slot = SlotCount + 1;
+		ShowCmd = SW_HIDE;
+	}
+	else
+	{
+		for (auto& Display : DisplayList)
+		{
+			ButtonMap[Display.StatusBar[SlotCount]].RenderBg = TRUE;
+			ButtonMap[Display.StatusBar[SlotCount].RenderTxt = TRUE;
+		}
+
+	}
+
+	for (auto& Display : DisplayList)
+	{
+		ButtonMap[Display.StatusBar[Slot]].RenderBg = TRUE;
+		ShowWindow(Display.StatusBar[Slot], ShowCmd);
+	}
+
+	LastSlotCount = SlotCount;
 }
 
 VOID RenderNoWindow()
@@ -2182,7 +2223,8 @@ VOID HandleShutdown()
 			WorkspaceList[i].VDesktop->Release();
 		}
 
-	WorkspaceList[1].VDesktop->Release();
+	if (WorkspaceList[1].VDesktop)
+		WorkspaceList[1].VDesktop->Release();
 
 	ViewCollection->Release();
 	VDesktopManagerInternal->Release();
@@ -2456,12 +2498,12 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 }
 
 
-VOID CreateStatusButton(HWND ParentHandle, INT Slot, const char* ButtonText)
+VOID CreateStatusButton(DISPLAY_INFO* Display, HWND ParentHandle, INT Slot, const char* ButtonText)
 {
 
 	INT ButtonStyle = WS_CHILD | WS_VISIBLE | BS_OWNERDRAW;
 
-	StatusButtonList[Slot] = CreateWindowExA(
+	Display->StatusButton[Slot] = CreateWindowExA(
 		NULL,
 		"BUTTON",  // Predefined class; Unicode assumed 
 		ButtonText,      // Button text 
@@ -2475,13 +2517,14 @@ VOID CreateStatusButton(HWND ParentHandle, INT Slot, const char* ButtonText)
 		NULL,
 		NULL);      // Pointer not needed.
 
-	if (!StatusButtonList[Slot])
+	if (!Display->StatusButton[Slot])
 		FailWithCode("Couldn't Create Status Bar Button");
 
 }
 
 INT ButtonIdx = 1;
 HBRUSH ButtonBrush;
+HBRUSH ButtonMonBrush;
 HBRUSH DefaultBrush;
 CHAR GlobalButtonText[2] = { '?', '\0' };
 
@@ -2497,8 +2540,12 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	switch (Message)
 	{
 	case WM_CREATE:
-		CreateStatusButton(WindowHandle, ButtonIdx, GlobalButtonText);
+	{
+		LPCREATESTRUCTA CreateStruct = (LPCREATESTRUCTA)LParam;
+		DISPLAY_INFO* Display = (DISPLAY_INFO*)CreateStruct->lpCreateParams;
+		CreateStatusButton(Display, WindowHandle, ButtonIdx, GlobalButtonText);
 		ButtonIdx++;
+	}
 
 		//IApplicationView* ApplicationView;
 		//if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
@@ -2510,36 +2557,46 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	case WM_DRAWITEM:
 	{
 		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
-		WCHAR BtnCaption[3] = { 0 };
-		GetWindowTextW(DrawItem->hwndItem, BtnCaption, 6);
+		BOOL IsActiveButton = FALSE;
+		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
 
-		if (BtnToColor == WindowHandle)
+		if (ButtonState.IsActiveWorkspace)
 		{
-			SetBkColor(DrawItem->hDC, RGB(0, 0, 255));
-			SetTextColor(DrawItem->hDC, RGB(255, 255, 255));
+			DWORD ClrButton = ClrInMt;
+
+			if (WindowHandle == PrimaryDisplay->BtnToColor)
+				ClrButton = ClrActWk;
+
+			SetBkColor(DrawItem->hDC, ClrButton);
+			SetTextColor(DrawItem->hDC, ClrActTxt);
 		}
 		else
 		{
-			SetBkColor(DrawItem->hDC, GetSysColor(COLOR_BTNFACE));
-			SetTextColor(DrawItem->hDC, RGB(0, 0, 0));
+			SetBkColor(DrawItem->hDC, ClrInActWk);
+			SetTextColor(DrawItem->hDC, ClrInActTxt);
 		}
 
-		DrawTextW(DrawItem->hDC, BtnCaption, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		DrawTextA(DrawItem->hDC, ButtonState.ButtonText, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 		return TRUE;
 		break;
 	}
 	case WM_CTLCOLORBTN:
-		if (BtnToColor == WindowHandle)
+	{
+		BOOL IsActiveWindow = FALSE;
+		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
+
+		if (ButtonState.IsActiveWorkspace)
 		{
-			//Blue Brush.
-			return (LRESULT)ButtonBrush;
+			if (WindowHandle == PrimaryDisplay->BtnToColor)
+				return (LRESULT)ButtonBrush;
+			return (LRESULT)ButtonMonBrush;
 		}
 		else
 		{
 			//Red Brush.
-			//ButtonBrush = CreateSolidBrush(RGB(rand() % 252, rand() % 255, rand() % 255));
 			return (LRESULT)DefaultBrush;
 		}
+	}
 		break;
 	default:
 		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
@@ -3005,23 +3062,34 @@ VOID InitScreenGlobals()
 		}
 	}
 
+	ClrActWk = RGB(ColorActiveWorkspaceButton[0],
+		ColorActiveWorkspaceButton[1],
+		ColorActiveWorkspaceButton[2]);
 
-	ButtonBrush = CreateSolidBrush(RGB(0, 0, 255));
-	DefaultBrush = GetSysColorBrush(COLOR_BTNFACE);
+	ClrInActWk = RGB(ColorInactiveWorkspaceButton[0],
+		ColorInactiveWorkspaceButton[1],
+		ColorInactiveWorkspaceButton[2]);
+
+	ClrInMt = RGB(ColorInactiveMonitorButton[0],
+		ColorInactiveMonitorButton[1],
+		ColorInactiveMonitorButton[2]);
+
+	ClrActTxt = RGB(ColorActiveButtonText[0],
+		ColorActiveButtonText[1],
+		ColorActiveButtonText[2]);
+
+	ClrInActTxt = RGB(ColorInActiveButtonText[0],
+		ColorInActiveButtonText[1],
+		ColorInActiveButtonText[2]);
+
+	ButtonBrush = CreateSolidBrush(ClrActWk);
+	ButtonMonBrush = CreateSolidBrush(ClrInMt);
+	DefaultBrush = CreateSolidBrush(ClrInActWk);
 
 	logc(9, "ScreenHeight: %lu - ScreenWidth : %lu\n", ScreenHeight, ScreenWidth);
 
 }
 
-
-VOID MoveButtonToPosition(INT Slot, INT Position, const char* ButtonText)
-{
-	assert(StatusButtonList[Slot]);
-
-	if (!SetWindowPos(StatusButtonList[Slot], HWND_TOPMOST, 10 + 40 * Position, 10, 0, 0, SWP_NOSIZE))
-		FailWithCode("SetWindowPos Status Button");
-
-}
 
 VOID InitStatusBar()
 {
@@ -3045,68 +3113,86 @@ VOID InitStatusBar()
 
 	StatusBarAtom = RegisterClassExA(&WindowClass);
 
-	HWND SearchBarWindow = FindWindowExW(TrayWindow, NULL, L"TrayDummySearchControl", NULL);
-	assert(SearchBarWindow);
-
-	POINT StatusBarPosition;
-
-	if (ShouldHideExplorer)
+	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
 	{
-		ShowWindow(TrayWindow, SW_HIDE);
-		StatusBarPosition.x = 0;
-		StatusBarPosition.y = RealScreenHeight + (ShellRect.bottom - ShellRect.top);
-	}
-	else
-	{
-		ShowWindow(TrayWindow, SW_SHOW);
+
+		HWND SearchBarWindow;
+		POINT StatusBarPosition;
 		RECT SearchBarRect;
-		GetWindowRect(SearchBarWindow, &SearchBarRect);
+		DISPLAY_INFO* Display = &DisplayList[Idx];
+
+		if (Display->Handle == PrimaryDisplay->Handle)
+		{
+			SearchBarWindow = FindWindowExW(TrayWindow, NULL, L"TrayDummySearchControl", NULL);
+			assert(SearchBarWindow);
+			GetWindowRect(SearchBarWindow, &SearchBarRect);
+		}
+		else
+		{
+			SearchBarWindow = Display->TrayWindow;
+			assert(SearchBarWindow);
+			GetWindowRect(SearchBarWindow, &SearchBarRect);
+
+		}
 
 		StatusBarPosition.x = SearchBarRect.left;
 		StatusBarPosition.y = SearchBarRect.top;
 
-	}
+		StatusBarPosition.x -= 25;
+		StatusBarPosition.y -= 25;
 
-	StatusBarPosition.x -= 25;
-	StatusBarPosition.y -= 25;
-
-	for (int i = 1; i < 10; i++)
-	{
-
-		GlobalButtonText[0] = '0' + i;
-
-		StatusBarWindow[i] = CreateWindowExA(
-			WS_EX_TOOLWINDOW,
-			StatusBarWindowName,
-			"Win3wmStatusBar",
-			WS_POPUP,
-			StatusBarPosition.x + i * 25,
-			StatusBarPosition.y,
-			25,
-			25,
-			NULL,
-			NULL,
-			NULL,
-			NULL
-		);
-
-		if (i == CurWk)
-			BtnToColor = StatusBarWindow[CurWk];
-
-		if (!StatusBarWindow[i])
-			FailWithCode("Could not create Status Bar Window!");
-
-		SetWindowLongPtrA(StatusBarWindow[i], GWL_EXSTYLE, WS_EX_TOOLWINDOW);
-		SetWindowLongPtrA(StatusBarWindow[i], GWL_STYLE, WS_POPUP);
-		SetWindowPos(StatusBarWindow[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-		UpdateWindow(StatusBarWindow[i]);
-
-		if (i - 1 < WorkspaceCount)
+		for (int i = 1; i < 10; i++)
 		{
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
+
+			GlobalButtonText[0] = '0' + i;
+
+			Display->StatusBar[i] = CreateWindowExA(
+				WS_EX_TOOLWINDOW,
+				StatusBarWindowName,
+				"Win3wmStatusBar",
+				WS_POPUP,
+				StatusBarPosition.x + i * 25,
+				StatusBarPosition.y,
+				25,
+				25,
+				NULL,
+				NULL,
+				NULL,
+				(PVOID)Display
+			);
+
+			BUTTON_STATE& ButtonState = ButtonMap[Display->StatusBar[i]];
+
+			if (i == CurWk)
+			{
+				Display->BtnToColor = Display->StatusBar[CurWk];
+				ButtonState.IsPrimaryDisplay = TRUE;
+			}
+
+			if (!Display->StatusBar[i])
+				FailWithCode("Could not create Status Bar Window!");
+
+			SetWindowLongPtrA(Display->StatusBar[i], GWL_EXSTYLE, WS_EX_TOOLWINDOW);
+			SetWindowLongPtrA(Display->StatusBar[i], GWL_STYLE, WS_POPUP);
+			SetWindowPos(Display->StatusBar[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+			UpdateWindow(Display->StatusBar[i]);
+
+			if (i - 1 < WorkspaceCount)
+			{
+				ButtonState.RenderBg = TRUE;
+				ButtonState.RenderTxt = TRUE;
+				ShowWindow(Display->StatusBar[i], SW_SHOW);
+			}
+			else
+			{
+				ButtonState.RenderBg = TRUE;
+				ButtonState.RenderTxt = TRUE;
+				ShowWindow(Display->StatusBar[i], SW_HIDE);
+			}
+
+
+
 		}
-		else
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
 
 	}
 
@@ -3285,6 +3371,8 @@ VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::v
 	for (; Tile; Tile = ChildTile)
 	{
 
+		ChildTile = Tile->ChildTile;
+
 		if (Tile->BranchTile)
 			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile, HandleList, DupeMap);
 		else if (!IsWindow(Tile->WindowHandle))
@@ -3306,6 +3394,63 @@ VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::v
 
 }
 
+BOOL FlipRecursive(TILE_INFO* Tile)
+{
+	BOOL Changed = FALSE;
+
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+		{
+
+			if (Tile->NodeType == VERTICAL_SPLIT)
+				Tile->NodeType = HORIZONTAL_SPLIT;
+			else
+				Tile->NodeType = VERTICAL_SPLIT;
+
+			Changed |= FlipRecursive(Tile->BranchTile);
+		}
+	}
+
+	return Changed;
+	
+}
+
+VOID FlipEx()
+{
+
+	BOOL Changed = FALSE;
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	if (!TreeHas(Root) || IsWorkspaceRootTile(Workspace->Tree))
+		return;
+
+	if (Workspace->Tree->Layout == HORIZONTAL_SPLIT)
+		Workspace->Tree->Layout = VERTICAL_SPLIT;
+	else
+		Workspace->Tree->Layout = HORIZONTAL_SPLIT;
+
+	for (TILE_INFO* Tile = Workspace->Tree->Root; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+		{
+
+			if (Tile->NodeType == VERTICAL_SPLIT)
+				Tile->NodeType = HORIZONTAL_SPLIT;
+			else
+				Tile->NodeType = VERTICAL_SPLIT;
+
+			FlipRecursive(Tile->BranchTile);
+
+		}
+	}
+
+	ResortTiles(Workspace->Tree);
+	RenderWorkspace(CurWk);
+
+}
+
+
 VOID VerifyWorkspaceEx()
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
@@ -3314,7 +3459,7 @@ VOID VerifyWorkspaceEx()
 	std::unordered_map<HWND, TILE_INFO*> DupeMap;
 	std::vector<TILE_INFO*> TileList;
 
- VerifyWorkspaceRecursive(Workspace, Tiles, TileList, DupeMap);
+ VerifyWorkspaceRecursive(Workspace, Tiles, TileList, DupeMap);
 
 	for (auto DupeTile : TileList)
 	{
@@ -3709,6 +3854,7 @@ VOID InitConfig()
 		ParseConfigEx("move_workspace_8", MoveWorkspaceEx_8);
 		ParseConfigEx("move_workspace_9", MoveWorkspaceEx_9);
 
+		ParseConfigEx("flip_workspace", FlipEx);
 		ParseConfigEx("verify_workspace", VerifyWorkspaceEx);
 		ParseConfigEx("fullscreen", GoFullscreenEx);
 		ParseConfigEx("shutdown", ShutdownEx);
@@ -3737,7 +3883,6 @@ VOID InitConfig()
 		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
 		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
-		ParseBoolOptionEx(GetJsonEx("hide_explorer"), &ShouldHideExplorer);
 		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		StartDirectory = _strdup(static_cast<std::string>(GetJsonEx("start_directory")).c_str());
 		LuaScriptPath = _strdup(static_cast<std::string>(GetJsonEx("lua_script_path")).c_str());
@@ -3749,6 +3894,37 @@ VOID InitConfig()
 			InnerGapsVertical = GetJsonEx("inner_gaps_vertical");
 			InnerGapsHorizontal = GetJsonEx("inner_gaps_horizontal");
 		}
+
+		CurrentKey = "active_workspace_color_button";
+		ColorActiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
+		//ColorActiveWorkspaceButton = GetJsonEx("active_workspace_color_button");
+
+		if (ColorActiveWorkspaceButton.size() != 3)
+			Fail("active_workspace_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_workspace_color_button";
+		ColorInactiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
+
+		if (ColorInactiveWorkspaceButton.size() != 3)
+			Fail("inactive_workspace_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_monitor_color_button";
+		ColorInactiveMonitorButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorInactiveMonitorButton.size() != 3)
+			Fail("inactive_monitor_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "active_text_color_button";
+		ColorActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorActiveButtonText.size() != 3)
+			Fail("active_text_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_text_color_button";
+		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorInActiveButtonText.size() != 3)
+			Fail("active_text_color_button should be an array of 3 unsigned chars");
 
 	}
 	catch (json::type_error& e)
@@ -4002,8 +4178,8 @@ INT main()
 	InitIcon();
 	CreateFocusOverlay();
 	WorkspaceList[CurWk].Tree->NeedsRendering = TRUE;
-	RenderWorkspace(CurWk);
 	InitStatusBar();
+	RenderWorkspace(CurWk);
 	SetPWD();
 
 	MSG Message;
@@ -4042,5 +4218,6 @@ INT main()
 	return 0;
 
 }
+
 
 
