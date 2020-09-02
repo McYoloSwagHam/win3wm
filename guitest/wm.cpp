@@ -1472,6 +1472,9 @@ VOID PerformInitialRegroupring()
 			*TileToAdd = *CurrentTileInfo;
 			TileToAdd->BranchTile = NULL;
 
+			TileToAdd->PreWMInfo.WS_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+			TileToAdd->PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
+
 			if (ShouldRemoveTitleBars)
 				RemoveTitleBar(TileToAdd->WindowHandle);
 
@@ -1842,9 +1845,11 @@ VOID RenderStatusBar()
 
 	for (auto& Display : DisplayList)
 	{
+		BOOL IsChanged = FALSE;
 		for (int i = 1; i < WorkspaceList.size(); i++)
 		{
 			BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[i]];
+			WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
 			if (ButtonState.IsActiveWorkspace)
 			{
@@ -1853,17 +1858,19 @@ VOID RenderStatusBar()
 					ButtonState.IsActiveWorkspace = FALSE;
 					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
 				}
-				else
+				else if (!IsChanged)
 				{
 					Display.BtnToColor = Display.StatusBar[i];
+					IsChanged = TRUE;
 					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
 				}
 			}
-			else if (ButtonState.ButtonText[0] - '0' == CurWk)
+			else if (!IsChanged && (ButtonState.ButtonText[0] - '0' == CurWk))
 			{
 
 				ButtonState.IsActiveWorkspace = TRUE;
-					Display.BtnToColor = Display.StatusBar[i];
+				IsChanged = TRUE;
+				Display.BtnToColor = Display.StatusBar[i];
 				InvalidateRect(Display.StatusBar[i], NULL, FALSE);
 			}
 		}
@@ -1880,6 +1887,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 	//the window about to be rendered is the window in focus;
 	CurWk = WorkspaceNumber;
+	RenderStatusBar();
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
@@ -1905,7 +1913,6 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 	}
 
 
-	RenderStatusBar();
 	RenderFocusWindowEx(Workspace);
 
 
@@ -1956,7 +1963,6 @@ VOID FocusLeft(WORKSPACE_INFO* Workspace)
 				break;
 			}
 		}
-
 	}
 
 	FollowFocusToTerminal(Workspace);
@@ -2239,13 +2245,48 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 
 }
 
+VOID Restore(TILE_INFO* Tile)
+{
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+			Restore(Tile->BranchTile);
+
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.WS_STYLE);
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.WS_EX_STYLE);
+	}
+}
+
+VOID RestoreEx()
+{
+
+	for (int i = 1; i < WorkspaceList.size(); i++)
+	{
+
+		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+		for (auto KeyValue : Workspace->Trees)
+		{
+			TILE_TREE* CurrentTree = &KeyValue.second;
+			for (TILE_INFO* Tile = CurrentTree->Root; Tile; Tile = Tile->ChildTile)
+			{
+				if (Tile->BranchTile)
+					Restore(Tile->BranchTile);
+
+				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.WS_STYLE);
+				SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.WS_EX_STYLE);
+			}
+		}
+	}
+
+}
+
 VOID HandleShutdown()
 {
 
-	ShowWindow(TrayWindow, SW_SHOW);
-
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
+
+	RestoreEx();
 
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
@@ -2469,6 +2510,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 	TileToAdd->WindowHandle = WindowHandle;
+	TileToAdd->PreWMInfo.WS_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+	TileToAdd->PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
 	if (Workspace->Tree->Display->Handle != PrimaryDisplay->Handle)
 		TileToAdd->IsDisplayChanged = TRUE;
