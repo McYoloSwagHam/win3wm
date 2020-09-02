@@ -337,6 +337,13 @@ enum NODE_TYPE
 	 CHAR ButtonText[2];
  };
 
+ struct DIFF_STATE
+ {
+	 INT NewTxt;
+	 INT PrevTxt;
+	 INT Slot;
+ };
+
 struct SPECIFIC_WINDOW
 {
 

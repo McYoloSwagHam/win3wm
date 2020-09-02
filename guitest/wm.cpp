@@ -1755,76 +1755,119 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 
 VOID RenderStatusBar()
 {
+	unsigned char Idx = 1;
+	static char LastWorkspaces[10] = { 0 };
+	char Workspaces[10] = { 0 };
+	std::vector<DIFF_STATE> DiffVector;
+	DiffVector.reserve(10);
 
-	static int LastSlotCount = 0;
-	INT SlotCount = 1;
+	BOOL IsActiveWorkspace = FALSE;
 
 	for (int i = 1; i < WorkspaceList.size(); i++)
 	{
 		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+		BUTTON_STATE& ButtonState = ButtonMap[PrimaryDisplay->StatusBar[i]];
 
 		if (TreeHas(Root) || i == CurWk)
 		{
-			for (auto& Display : DisplayList)
+			Workspaces[Idx] = i;
+			Idx++;
+		}
+	}
+
+	for (int i = Idx; i < WorkspaceList.size(); i++)
+		Workspaces[i] = -1;
+
+	for (int Idx = 0; Idx < WorkspaceList.size(); Idx++)
+	{
+
+		BUTTON_STATE& ButtonState = ButtonMap[PrimaryDisplay->StatusBar[Idx]];
+		if (Workspaces[Idx] != LastWorkspaces[Idx])
+		{
+			DiffVector.push_back({ Workspaces[Idx], LastWorkspaces[Idx], Idx});
+			LastWorkspaces[Idx] = Workspaces[Idx];
+		}
+	}
+
+	BOOL RenderTxt = FALSE;
+	BOOL RenderBg = FALSE;
+	BOOL HideWindow = FALSE;
+
+	for (int i = 0; i < DiffVector.size(); i++)
+	{
+
+		DIFF_STATE* Diff = &DiffVector[i];
+
+		// First time Rendering
+		if (!Diff->PrevTxt)
+			continue;
+
+
+		if (Diff->NewTxt == -1)
+		{
+			HideWindow = TRUE;
+		}
+		else if (Diff->NewTxt > 0 && Diff->PrevTxt > 0)
+		{
+			RenderTxt = TRUE;
+		}
+		else if (Diff->PrevTxt == -1)
+		{
+			RenderTxt = TRUE;
+			RenderBg = TRUE;
+		}
+
+		for (auto& Display : DisplayList)
+		{
+			if (HideWindow)
+				ShowWindow(Display.StatusBar[Diff->Slot], SW_HIDE);
+
+			BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[Diff->Slot]];
+			ButtonState.RenderBg = RenderBg;
+			ButtonState.RenderTxt = RenderTxt;
+
+			if (RenderTxt || RenderBg)
 			{
 
-				BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[SlotCount]];
+				if (RenderTxt)
+					ButtonState.ButtonText[0] = Diff->NewTxt + '0';
 
-				if (i == CurWk)
-				{
-					PrimaryDisplay->BtnToColor = Display.StatusBar[SlotCount];
-					ButtonState.IsActiveWorkspace = TRUE;
-				}
+				InvalidateRect(Display.StatusBar[Diff->Slot], NULL, FALSE);
 
-				ButtonState.ButtonText[0] = '0' + i;
-
-				if (ButtonState.RenderBg)
-				{
-					InvalidateRect(Display.StatusButton[SlotCount], 0, TRUE);
-					ButtonState.RenderBg = FALSE;
-				}
+				if (RenderBg)
+					ShowWindow(Display.StatusBar[Diff->Slot], SW_SHOW);
 			}
-			SlotCount++;
 		}
-	}
-
-	SlotCount--;
-	INT SlotDiff = SlotCount - LastSlotCount;
-	INT Slot;
-	DWORD ShowCmd = -1;
-
-	if (SlotDiff > 0)
-	{
-		Slot = SlotCount;
-		ShowCmd = SW_SHOW;
-		for (auto& Display : DisplayList)
-		{
-			ButtonMap[Display.StatusBar[Slot]].RenderBg = TRUE;
-			ButtonMap[Display.StatusBar[Slot]].RenderTxt = TRUE;
-		}
-	}
-	else if (SlotCount < 0)
-	{
-		Slot = SlotCount + 1;
-		ShowCmd = SW_HIDE;
-	}
-	else
-	{
-		for (auto& Display : DisplayList)
-		{
-			ButtonMap[Display.StatusBar[SlotCount]].RenderBg = TRUE;
-			ButtonMap[Display.StatusBar[SlotCount].RenderTxt = TRUE;
-		}
-
 	}
 
 	for (auto& Display : DisplayList)
 	{
-		ButtonMap[Display.StatusBar[Slot]].RenderBg = TRUE;
-		ShowWindow(Display.StatusBar[Slot], ShowCmd);
-	}
+		for (int i = 1; i < WorkspaceList.size(); i++)
+		{
+			BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[i]];
 
-	LastSlotCount = SlotCount;
+			if (ButtonState.IsActiveWorkspace)
+			{
+				if (ButtonState.ButtonText[0] - '0' != CurWk)
+				{
+					ButtonState.IsActiveWorkspace = FALSE;
+					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
+				}
+				else
+				{
+					Display.BtnToColor = Display.StatusBar[i];
+					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
+				}
+			}
+			else if (ButtonState.ButtonText[0] - '0' == CurWk)
+			{
+
+				ButtonState.IsActiveWorkspace = TRUE;
+					Display.BtnToColor = Display.StatusBar[i];
+				InvalidateRect(Display.StatusBar[i], NULL, FALSE);
+			}
+		}
+	}
 }
 
 VOID RenderNoWindow()
@@ -2557,7 +2600,6 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	case WM_DRAWITEM:
 	{
 		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
-		BOOL IsActiveButton = FALSE;
 		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
 
 		if (ButtonState.IsActiveWorkspace)
@@ -2576,7 +2618,9 @@ LRESULT CALLBACK StatusBarMsgHandler(
 			SetTextColor(DrawItem->hDC, ClrInActTxt);
 		}
 
-		DrawTextA(DrawItem->hDC, ButtonState.ButtonText, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (ButtonState.RenderTxt)
+			DrawTextA(DrawItem->hDC, ButtonState.ButtonText, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
 		return TRUE;
 		break;
 	}
@@ -3163,6 +3207,10 @@ VOID InitStatusBar()
 
 			BUTTON_STATE& ButtonState = ButtonMap[Display->StatusBar[i]];
 
+			ButtonState.ButtonText[0] = '0' + i;
+
+			//INT What = ButtonMap[Display->StatusBar[i]].ButtonText[0];
+
 			if (i == CurWk)
 			{
 				Display->BtnToColor = Display->StatusBar[CurWk];
@@ -3185,17 +3233,12 @@ VOID InitStatusBar()
 			}
 			else
 			{
-				ButtonState.RenderBg = TRUE;
-				ButtonState.RenderTxt = TRUE;
+				ButtonState.RenderBg = FALSE;
+				ButtonState.RenderTxt = FALSE;
 				ShowWindow(Display->StatusBar[i], SW_HIDE);
 			}
-
-
-
 		}
-
 	}
-
 }
 
 VOID DpiSet()
