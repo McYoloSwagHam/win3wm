@@ -2644,12 +2644,13 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	{
 		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
 		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
+		WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 		if (ButtonState.IsActiveWorkspace)
 		{
 			DWORD ClrButton = ClrInMt;
 
-			if (WindowHandle == PrimaryDisplay->BtnToColor)
+			if (WindowHandle == Workspace->Tree->Display->BtnToColor)
 				ClrButton = ClrActWk;
 
 			SetBkColor(DrawItem->hDC, ClrButton);
@@ -2671,10 +2672,11 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	{
 		BOOL IsActiveWindow = FALSE;
 		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
+		WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
 		if (ButtonState.IsActiveWorkspace)
 		{
-			if (WindowHandle == PrimaryDisplay->BtnToColor)
+			if (WindowHandle == Workspace->Tree->Display->BtnToColor)
 				return (LRESULT)ButtonBrush;
 			return (LRESULT)ButtonMonBrush;
 		}
@@ -3748,6 +3750,7 @@ VOID MoveMonitorLeft(BOOL ShouldMove)
 	{
 		Workspace->Dsp = &DisplayList[--DispIdx];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
+		RenderStatusBar();
 		RenderFocusWindowEx(Workspace);
 		return;
 	}
@@ -3806,6 +3809,7 @@ VOID MoveMonitorRight(BOOL ShouldMove)
 	{
 		Workspace->Dsp = &DisplayList[++DispIdx];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
+		RenderStatusBar();
 		RenderFocusWindowEx(Workspace);
 		return;
 	}
@@ -4010,7 +4014,7 @@ VOID InitConfig()
 		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
 
 		if (ColorInActiveButtonText.size() != 3)
-			Fail("active_text_color_button should be an array of 3 unsigned chars");
+			Fail("inactive_text_color_button should be an array of 3 unsigned chars");
 
 	}
 	catch (json::type_error& e)
