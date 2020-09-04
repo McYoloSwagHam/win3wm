@@ -27,7 +27,7 @@
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
-#define COMMERCIAL
+//#define COMMERCIAL
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -2466,8 +2466,9 @@ VOID InstallKeyboardHooks()
 
 LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 {
-
 	HandleShutdown();
+
+	return EXCEPTION_CONTINUE_SEARCH;
 }
 
 VOID SetCrashRoutine()
@@ -3151,6 +3152,9 @@ VOID InitScreenGlobals()
 		}
 	}
 
+
+#ifdef COMMMERICIAL
+
 	ClrActWk = RGB(ColorActiveWorkspaceButton[0],
 		ColorActiveWorkspaceButton[1],
 		ColorActiveWorkspaceButton[2]);
@@ -3170,6 +3174,15 @@ VOID InitScreenGlobals()
 	ClrInActTxt = RGB(ColorInActiveButtonText[0],
 		ColorInActiveButtonText[1],
 		ColorInActiveButtonText[2]);
+
+#else
+	ClrActWk = 0xff0000;
+	ClrInActWk = 0xf0f0f0;
+	ClrInMt = 0xff;
+	ClrActTxt = 0xffffff;
+	ClrInActTxt = 0x0;
+
+#endif
 
 	ButtonBrush = CreateSolidBrush(ClrActWk);
 	ButtonMonBrush = CreateSolidBrush(ClrInMt);
@@ -4237,7 +4250,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-	//FreeConsole();
+	FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
 	InitWorkspaceList();
