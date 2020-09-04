@@ -733,7 +733,7 @@ INT GetActiveWorkspace()
 	return Count;
 }
 
-INT GetWindowCount(TILE_INFO* Tile)
+INT GetWindowCountRecursive(TILE_INFO* Tile)
 {
 
 	INT Count = 0;
@@ -741,9 +741,33 @@ INT GetWindowCount(TILE_INFO* Tile)
 	for (; Tile; Tile = Tile->ChildTile)
 	{
 		if (Tile->NodeType != TERMINAL)
-			Count += GetWindowCount(Tile->BranchTile);
+			Count += GetWindowCountRecursive(Tile->BranchTile);
 
 		Count++;
+	}
+
+	return Count;
+
+}
+
+
+INT GetWindowCount(WORKSPACE_INFO* Workspace)
+{
+
+	INT Count = 0;
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+		TILE_TREE* CurrentTree = &KeyValue.second;
+		TILE_INFO* Tile = CurrentTree->Root;
+
+		for (; Tile; Tile = Tile->ChildTile)
+		{
+			if (Tile->NodeType != TERMINAL)
+				Count += GetWindowCountRecursive(Tile->BranchTile);
+
+			Count++;
+		}
 	}
 
 	return Count;
@@ -2467,7 +2491,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
-	if (GetWindowCount(Workspace->Tree->Root) > 2)
+	if (GetWindowCount(Workspace) > 2)
 		return;
 #endif
 
