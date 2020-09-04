@@ -2283,6 +2283,8 @@ VOID RestoreEx()
 VOID HandleShutdown()
 {
 
+	LuaDispatchEx("on_exit");
+
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
 
@@ -2441,33 +2443,7 @@ VOID InstallKeyboardHooks()
 LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 {
 
-	ShowWindow(TrayWindow, SW_SHOW);
-
-	if (x86ProcessHandle)
-		TerminateProcess(x86ProcessHandle, 369);
-
-	NOTIFYICONDATA NotifyData;
-	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
-
-	NotifyData.uID = 69;
-	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
-
-	for (int i = 2; i < WorkspaceList.size(); i++)
-		if (WorkspaceList[i].VDesktop)
-		{
-			VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
-			WorkspaceList[i].VDesktop->Release();
-		}
-
-	WorkspaceList[1].VDesktop->Release();
-
-	ViewCollection->Release();
-	VDesktopManagerInternal->Release();
-	VDesktopManager->Release();
-	ServiceProvider->Release();
-
-	return EXCEPTION_CONTINUE_SEARCH;
-
+	HandleShutdown();
 }
 
 VOID SetCrashRoutine()
@@ -4237,7 +4213,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-	FreeConsole();
+	//FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
 	InitWorkspaceList();

@@ -338,3 +338,9 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/GPATH
+/GRTAGS
+/GTAGS
+/tags
+/guitest/modules
+/guitest/luatest

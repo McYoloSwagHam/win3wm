@@ -66,7 +66,7 @@
 	"shutdown" : "t",
 
 	"start_command" : "start cmd.exe",
-	"start_directory" : "C:\\Users\\Admin\\Desktop\\Tech",
+	"start_directory" : "C:\\Users\\Ayaz",
 	"lua_script_path" : "",
 	"windows_to_ignore" : ["keypirinha"]
 	
