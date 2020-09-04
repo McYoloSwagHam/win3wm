@@ -1909,7 +1909,6 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 	//the window about to be rendered is the window in focus;
 	CurWk = WorkspaceNumber;
-	RenderStatusBar();
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
@@ -1934,9 +1933,8 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		//logc(12, "Total Length Of Workspace : %u\n", Count);
 	}
 
-
+	RenderStatusBar();
 	RenderFocusWindowEx(Workspace);
-
 
 }
 
@@ -2310,7 +2308,7 @@ VOID HandleShutdown()
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
 
-	RestoreEx();
+	//RestoreEx();
 
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
