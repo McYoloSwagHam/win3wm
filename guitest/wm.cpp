@@ -1683,8 +1683,6 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
 
-		RECT DpiRect;
-
 		DWORD RetVal = SetWindowPlacement(Tile->WindowHandle, &WndPlacement);
 
 		if (!RetVal)
@@ -2443,9 +2441,6 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 
 	if (HandleKeyStatesConfig(KeyboardData, KeyState))
 	{
-		WCHAR WindowText[1024] = { 0 };
-		HWND WindowHandle;
-
 		return DO_NOT_PASS_KEY;
 	}
 
