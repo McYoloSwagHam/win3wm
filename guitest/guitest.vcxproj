@@ -165,7 +165,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="list.cpp" />
-    <ClCompile Include="loguru.cpp" />
     <ClCompile Include="SG_InputBox.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="tracy\TracyClient.cpp" />
@@ -175,7 +174,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="json.hpp" />
-    <ClInclude Include="loguru.hpp" />
     <ClInclude Include="lua.hpp" />
     <ClInclude Include="resource3.h" />
     <ClInclude Include="SG_InputBox.h" />

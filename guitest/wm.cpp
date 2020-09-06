@@ -20,10 +20,8 @@
 #include "resource3.h"
 #include "SG_InputBox.h"
 #include "VDesktops.h"
-#include "loguru.hpp"
 
 #define SOL_ALL_SAFETIES_ON 1
-
 
 // ------------------------------------------------------------------
 // Defs
@@ -36,6 +34,7 @@
 #define RtlFormatPrint snprintf
 #define RtlAlloc malloc
 #define ForegroundClass 25
+FILE* FilePointer;
 
 //------------------------------------------------------------------
 // COM Variables
@@ -98,10 +97,6 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 
 #define TreeHas(Member) (Workspace->Tree && Workspace->Tree->##Member)
 
-#define RAW_LOG_IF_F(Cond, ...) if (Cond) \
-{ \
- RAW_LOG_F(INFO, __VA_ARGS__); \
-} \
 
 
 
@@ -316,6 +311,23 @@ void LuaDispatchEx(const char* functionName, Args &&... args)
 
 }
 
+void LogEx(const char* Format, ...) {
+	
+	if (!ShouldLog)
+		return;
+
+	if (!FilePointer)
+		Fail("Error, No File Pointer!");
+
+	va_list args;
+	va_start(args, Format);
+	vfprintf(FilePointer, Format, args);
+	fflush(FilePointer);
+	va_end(args);
+
+}
+
+
 VOID ShowTaskBar(BOOL SetTaskBar)
 {
 	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
@@ -476,7 +488,7 @@ BOOL IsIgnoreWindowEx(HWND WindowHandle)
 {
 	if (IsIgnoreWindow(WindowHandle))
 	{
-		LOG_IF_F(INFO, ShouldLog, "OnNewWindow : %X", WindowHandle);
+		LogEx("OnNewWindow : %X\n", WindowHandle);
 		return TRUE;
 	}
 
@@ -715,11 +727,11 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 		if (ShouldLog)
 		{
-			WCHAR WindowText[1024];
-			WCHAR WindowClass[1024];
+			WCHAR WindowText[1024] = { 0 };
+			WCHAR WindowClass[1024] = { 0 };
 			GetClassNameW(WindowHandle, WindowClass, 1024);
 			GetWindowTextW(WindowHandle, WindowText, 1024);
-			RAW_LOG_F(INFO, "Gathered Window :\n\t[WindowClass] : %ls\n\t[WindowText] : %ls", WindowClass, WindowText);
+			LogEx("Gathered Window :\n\t[WindowClass] : %ls\n\t[WindowText] : %ls\n", WindowClass, WindowText);
 		}
 		WindowOrderList.push_back(TileInfo);
 	}
@@ -729,9 +741,9 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 VOID GetOtherApplicationWindows()
 {
-	LOG_IF_F(INFO, ShouldLog, "Gathering Initial Windows");
+	LogEx("Gathering Initial Windows\n");
 	EnumWindows(EnumWndProc, NULL);
-	LOG_IF_F(INFO, ShouldLog, "Gathered %u Windows", WindowOrderList.size());
+	LogEx("Gathered %u Windows\n", WindowOrderList.size());
 
 }
 
@@ -1691,7 +1703,7 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
 
-		RAW_LOG_IF_F(ShouldLog, "\t\tRectangle : [%d %d %d %d]", PrintRect.left, PrintRect.right, PrintRect.top, PrintRect.bottom);
+		LogEx("\t\tRectangle : [%d %d %d %d]\n", PrintRect.left, PrintRect.right, PrintRect.top, PrintRect.bottom);
 
 		DWORD RetVal = SetWindowPlacement(Tile->WindowHandle, &WndPlacement);
 
@@ -1699,7 +1711,7 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 		{
 			if (GetLastError() == ERROR_INVALID_WINDOW_HANDLE)
 			{
-				LOG_IF_F(WARNING, ShouldLog, "Invalid Window Handle (1400)");
+				LogEx("Invalid Window Handle (1400)\n");
 				return ++Count;
 			}
 
@@ -1750,7 +1762,7 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 
 	if (IsFullScreenMax)
 	{
-		WCHAR ClassName[1024];
+		WCHAR ClassName[1024] = { 0 };
 		GetClassNameW(Workspace->Tree->Focus->WindowHandle, ClassName, 1024);
 		
 		//If not Console Window
@@ -1899,7 +1911,7 @@ VOID RenderNoWindow()
 
 VOID RenderWorkspace(INT WorkspaceNumber)
 {
-	LOG_IF_F(INFO, ShouldLog, "Rendering Workspace : %u", WorkspaceNumber);
+	LogEx("Rendering Workspace : %u\n", WorkspaceNumber);
 
 	//the window about to be rendered is the window in focus;
 	CurWk = WorkspaceNumber;
@@ -1909,13 +1921,13 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 	for (auto KeyValue : Workspace->Trees)
 	{
 
-		RAW_LOG_IF_F(ShouldLog, "\tTree");
+		LogEx("\tTree\n");
 
 		TILE_TREE* CurrentTree = &KeyValue.second;
 
 		if (!CurrentTree->NeedsRendering)
 		{
-			RAW_LOG_IF_F(ShouldLog, "\tTree Doesn't Need rendering");
+			LogEx("\tTree Doesn't Need rendering\n");
 			continue;
 		}
 
@@ -1932,7 +1944,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 	RenderStatusBar();
 	RenderFocusWindowEx(Workspace);
-	RAW_LOG_IF_F(ShouldLog, "Finished Rendering Workspace : %u", WorkspaceNumber);
+	LogEx("Finished Rendering Workspace : %u\n", WorkspaceNumber);
 
 
 }
@@ -2298,7 +2310,9 @@ VOID RestoreEx()
 VOID HandleShutdown()
 {
 
-	LOG_IF_F(INFO, ShouldLog, "Shutting Down");
+	LogEx("Shutting Down\n");
+
+	fclose(FilePointer);
 
 	LuaDispatchEx("on_exit");
 
@@ -2343,7 +2357,7 @@ VOID HandleChangeWorkspace(INT WorkspaceNumber)
 	if (WorkspaceNumber == CurWk)
 		return;
 
-	LOG_IF_F(INFO, ShouldLog, "Change to Workspace : %u", CurWk);
+	LogEx("Change to Workspace : %u\n", CurWk);
 	PostThreadMessageA(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
 }
 
@@ -2562,7 +2576,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 	//FailWithCode("Got tile to remove but couldn't find it");
 
-	LOG_IF_F(INFO, ShouldLog, "DestroyWindow");
+	LogEx("DestroyWindow\n");
 
 	RemoveTileFromTree(Workspace, TileToRemove);
 	RenderWorkspace(CurWk);
@@ -3681,7 +3695,7 @@ VOID SwapUpEx()
 
 VOID CreateTileEx()
 {
-	LOG_IF_F(INFO, ShouldLog, "CreateTileEx Triggered");
+	LogEx("CreateTileEx Triggered\n");
 	system(StartCommand);
 }
 
@@ -3862,12 +3876,10 @@ VOID MoveWindowMonitorRightEx()
 VOID InitLogger()
 {
 
-	loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-	loguru::g_preamble_file = FALSE;
-	loguru::g_preamble_thread = FALSE;
+	FilePointer = fopen("log.txt", "a");
 
-	if (!loguru::add_file("log.txt", loguru::Truncate, loguru::Verbosity_MAX))
-		Fail("Couldn't create log_file");
+	if (!FilePointer)
+		Fail("Couldn't create log.txt");
 
 }
 
