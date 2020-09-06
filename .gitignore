@@ -344,3 +344,5 @@ healthchecksdb
 /tags
 /guitest/modules
 /guitest/luatest
+/guitest/VTune Profiler Results/guitest
+/guitest/VTune Profiler Results/sample (matrix)
