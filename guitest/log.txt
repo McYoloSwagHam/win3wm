@@ -1,0 +1,147 @@
+File verbosity level: 9
+date       time         ( uptime  )    v| 
+2020-09-06 01:54:47.932 (   0.049s) INFO| Logging to 'log.txt', mode: 'w', verbosity: 9
+2020-09-06 01:54:48.019 (   0.134s) INFO| Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : C:\Users\Admin\source\repos\win3wm\x64\Release\guitest.exe
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;ecdcf165-7841-45e5-b8d8-c68b2ad8e413]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : WINDOWPLACEMENT (winuser.h) - Win32 apps | Microsoft Docs - Google Chrome
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Administrator: C:\Windows\system32\cmd.exe
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Administrator: C:\Windows\system32\cmd.exe
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Administrator: C:\Windows\system32\cmd.exe
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Administrator: C:\Windows\system32\cmd.exe
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Command Prompt
+Gathered Window :
+	[WindowClass] : TScpCommanderForm
+	[WindowText] : Desktop - root@116.203.224.241 - WinSCP
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Command Prompt
+2020-09-06 01:54:48.127 (   0.242s) INFO| Gathered 10 Windows
+2020-09-06 01:54:48.622 (   0.738s) INFO| Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+2020-09-06 01:54:48.692 (   0.808s) INFO| DestroyWindow
+2020-09-06 01:54:48.692 (   0.808s) INFO| Rendering Workspace : 1
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 1
+2020-09-06 01:54:48.740 (   0.856s) INFO| DestroyWindow
+2020-09-06 01:54:48.740 (   0.856s) INFO| Rendering Workspace : 1
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 1
+2020-09-06 01:54:48.797 (   0.913s) INFO| DestroyWindow
+2020-09-06 01:54:48.797 (   0.913s) INFO| Rendering Workspace : 1
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 1
+2020-09-06 01:54:48.867 (   0.982s) INFO| DestroyWindow
+2020-09-06 01:54:48.867 (   0.982s) INFO| Rendering Workspace : 1
+	Tree
+Finished Rendering Workspace : 1
+2020-09-06 01:54:50.131 (   2.247s) INFO| Change to Workspace : 1
+2020-09-06 01:54:50.144 (   2.259s) INFO| Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+2020-09-06 01:54:50.240 (   2.355s) INFO| DestroyWindow
+2020-09-06 01:54:50.240 (   2.355s) INFO| Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+2020-09-06 01:54:50.360 (   2.475s) INFO| DestroyWindow
+2020-09-06 01:54:50.360 (   2.475s) INFO| Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+2020-09-06 01:54:50.438 (   2.554s) INFO| DestroyWindow
+2020-09-06 01:54:50.438 (   2.554s) INFO| Rendering Workspace : 2
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 2
+2020-09-06 01:54:50.524 (   2.640s) INFO| DestroyWindow
+2020-09-06 01:54:50.524 (   2.640s) INFO| Rendering Workspace : 2
+	Tree
+Finished Rendering Workspace : 2
+2020-09-06 01:54:51.050 (   3.165s) INFO| Change to Workspace : 2
+2020-09-06 01:54:51.051 (   3.167s) INFO| Rendering Workspace : 1
+	Tree
+Finished Rendering Workspace : 1
+2020-09-06 01:54:51.746 (   3.862s) INFO| Rendering Workspace : 1
+	Tree
+Finished Rendering Workspace : 1
+2020-09-06 01:54:52.888 (   5.004s) INFO| Change to Workspace : 1
+2020-09-06 01:54:52.906 (   5.022s) INFO| Rendering Workspace : 3
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 3
+2020-09-06 01:54:53.124 (   5.239s) INFO| DestroyWindow
+2020-09-06 01:54:53.124 (   5.240s) INFO| Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+2020-09-06 01:54:53.167 (   5.283s) INFO| DestroyWindow
+2020-09-06 01:54:53.168 (   5.283s) INFO| Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+2020-09-06 01:54:53.318 (   5.433s) INFO| Change to Workspace : 3
+2020-09-06 01:54:53.319 (   5.435s) INFO| Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+2020-09-06 01:54:54.597 (   6.713s) INFO| Change to Workspace : 1
+2020-09-06 01:54:54.599 (   6.714s) INFO| Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+2020-09-06 01:54:54.932 (   7.048s) INFO| Change to Workspace : 2
+2020-09-06 01:54:54.934 (   7.049s) INFO| Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+2020-09-06 01:54:55.474 (   7.589s) INFO| Change to Workspace : 3
+2020-09-06 01:54:55.476 (   7.591s) INFO| Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+2020-09-06 01:54:55.824 (   7.940s) INFO| Change to Workspace : 1
+2020-09-06 01:54:55.826 (   7.942s) INFO| Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+2020-09-06 01:54:56.150 (   8.266s) INFO| Change to Workspace : 2
+2020-09-06 01:54:56.151 (   8.267s) INFO| Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+2020-09-06 01:54:57.247 (   9.362s) INFO| Shutting Down

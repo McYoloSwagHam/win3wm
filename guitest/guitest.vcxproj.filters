@@ -48,6 +48,9 @@
     <ClCompile Include="wm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="loguru.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource3.h">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="lua.hpp">
       <Filter>Source Files\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="loguru.hpp">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

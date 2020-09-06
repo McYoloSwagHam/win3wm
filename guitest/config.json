@@ -51,6 +51,7 @@
 	"adjust_for_nc" : "n",
 	"true_fullscreen" : "n",
 	"remove_titlebars_experimental" : "n",
+	"enable_logs" : "y",
 	
 	"gaps_enabled" : "n",
 	"outer_gaps_vertical" : 0,
@@ -65,11 +66,11 @@
 	"active_text_color_button" : [255,255,255],
 	"inactive_text_color_button" : [0,0,0],
 	
-	"windows_to_ignore" : []
+	"windows_to_ignore" : [],
 
 	"start_command" : "start cmd.exe",
 	"start_directory" : "",
-	"lua_script_path" : "",
+	"lua_script_path" : ""
 	
 
 }
