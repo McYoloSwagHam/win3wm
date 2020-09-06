@@ -4270,7 +4270,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-	//FreeConsole();
+	FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
 	InitWorkspaceList();

@@ -7096,3 +7096,694 @@ Rendering Workspace : 1
 	Tree
 Finished Rendering Workspace : 1
 Shutting Down
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : C:\Users\Admin\source\repos\win3wm\x64\Release\guitest.exe
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;3c9ca957-c6fb-4963-98d5-9eaf73b09666]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : Administrator: C:\Windows\system32\cmd.exe
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : Instagram - Google Chrome
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : ipc.c (~\source\repos\win3wm\x86ipc) - GVIM1
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered 7 Windows
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 320 0 1020]
+		Rectangle : [320 640 0 1020]
+		Rectangle : [640 960 0 1020]
+		Rectangle : [960 1280 0 1020]
+		Rectangle : [1280 1600 0 1020]
+		Rectangle : [1600 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 274 0 1020]
+		Rectangle : [274 548 0 1020]
+		Rectangle : [548 822 0 1020]
+		Rectangle : [822 1096 0 1020]
+		Rectangle : [1096 1370 0 1020]
+		Rectangle : [1370 1644 0 1020]
+		Rectangle : [1644 1918 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 240 0 1020]
+		Rectangle : [240 480 0 1020]
+		Rectangle : [480 720 0 1020]
+		Rectangle : [720 960 0 1020]
+		Rectangle : [960 1200 0 1020]
+		Rectangle : [1200 1440 0 1020]
+		Rectangle : [1440 1680 0 1020]
+		Rectangle : [1680 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 274 0 1020]
+		Rectangle : [274 548 0 1020]
+		Rectangle : [548 822 0 1020]
+		Rectangle : [822 1096 0 1020]
+		Rectangle : [1096 1370 0 1020]
+		Rectangle : [1370 1644 0 1020]
+		Rectangle : [1644 1918 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 320 0 1020]
+		Rectangle : [320 640 0 1020]
+		Rectangle : [640 960 0 1020]
+		Rectangle : [960 1280 0 1020]
+		Rectangle : [1280 1600 0 1020]
+		Rectangle : [1600 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 320 0 1020]
+		Rectangle : [320 640 0 1020]
+		Rectangle : [640 960 0 1020]
+		Rectangle : [960 1280 0 1020]
+		Rectangle : [1280 1600 0 1020]
+		Rectangle : [1600 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 274 0 1020]
+		Rectangle : [274 548 0 1020]
+		Rectangle : [548 822 0 1020]
+		Rectangle : [822 1096 0 1020]
+		Rectangle : [1096 1370 0 1020]
+		Rectangle : [1370 1644 0 1020]
+		Rectangle : [1644 1918 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 320 0 1020]
+		Rectangle : [320 640 0 1020]
+		Rectangle : [640 960 0 1020]
+		Rectangle : [960 1280 0 1020]
+		Rectangle : [1280 1600 0 1020]
+		Rectangle : [1600 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+CreateTileEx Triggered
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+CreateTileEx Triggered
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 4
+	Tree
+Finished Rendering Workspace : 4
+Change to Workspace : 4
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Shutting Down
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : C:\Users\Admin\source\repos\win3wm\x64\Release\guitest.exe
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;3c9ca957-c6fb-4963-98d5-9eaf73b09666]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : ipc.c (~\sourc...x86ipc) - GVIM1
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : Instagram - Google Chrome
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered 6 Windows
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+CreateTileEx Triggered
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+DestroyWindow
+Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Change to Workspace : 2
+Finished Rendering Workspace : 2
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+CreateTileEx Triggered
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 640 0 1020]
+		Rectangle : [640 1280 0 1020]
+		Rectangle : [1280 1920 0 1020]
+Finished Rendering Workspace : 2
+DestroyWindow
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 384 0 1020]
+		Rectangle : [384 768 0 1020]
+		Rectangle : [768 1152 0 1020]
+		Rectangle : [1152 1536 0 1020]
+		Rectangle : [1536 1920 0 1020]
+Finished Rendering Workspace : 1
+DestroyWindow
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+		Rectangle : [1440 1920 0 1020]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+CreateTileEx Triggered
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+DestroyWindow
+Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+CreateTileEx Triggered
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+CreateTileEx Triggered
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 3
+DestroyWindow
+Rendering Workspace : 3
+	Tree
+		Rectangle : [0 1920 0 1020]
+Finished Rendering Workspace : 3
+DestroyWindow
+Rendering Workspace : 3
+	Tree
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+Finished Rendering Workspace : 2
+Rendering Workspace : 2
+	Tree
+		Rectangle : [0 960 0 1020]
+		Rectangle : [960 1920 0 1020]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Shutting Down
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : ConsoleWindowClass
+	[WindowText] : C:\Users\Admin\source\repos\win3wm\x64\Release\guitest.exe
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;3c9ca957-c6fb-4963-98d5-9eaf73b09666]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : 
+	[WindowText] : 
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : Instagram - Google Chrome
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : ipc.c (~\sourc...x86ipc) - GVIM1
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered 7 Windows
+Rendering Workspace : 1
+	Tree
+		Rectangle : [0 480 0 1020]
+		Rectangle : [480 960 0 1020]
+		Rectangle : [960 1440 0 1020]
+Invalid Window Handle (1400)
+Finished Rendering Workspace : 1
+Shutting Down
