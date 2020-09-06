@@ -51,7 +51,7 @@
 	"adjust_for_nc" : "n",
 	"true_fullscreen" : "n",
 	"remove_titlebars_experimental" : "n",
-	"enable_logs" : "y",
+	"enable_logs" : "n",
 	
 	"gaps_enabled" : "n",
 	"outer_gaps_vertical" : 0,
