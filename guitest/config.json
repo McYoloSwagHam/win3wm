@@ -48,16 +48,16 @@
 	"shutdown" : "t",
 
 	
-	"adjust_for_nc" : "n",
-	"true_fullscreen" : "n",
+	"adjust_for_nc" : "y",
+	"true_fullscreen" : "y",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
 	
-	"gaps_enabled" : "n",
-	"outer_gaps_vertical" : 0,
-	"outer_gaps_horizontal" : 0,
-	"inner_gaps_horizontal" : 0,
-	"inner_gaps_vertical" : 0,
+	"gaps_enabled" : "y",
+	"outer_gaps_vertical" : 10,
+	"outer_gaps_horizontal" : 10,
+	"inner_gaps_horizontal" : 10,
+	"inner_gaps_vertical" : 10,
 	
 	"active_workspace_color_button" : [0,0,255],
 	"inactive_workspace_color_button" : [240,240,240],
