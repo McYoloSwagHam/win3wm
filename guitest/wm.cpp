@@ -1700,7 +1700,7 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 
 		WndPlacement.length = sizeof(WINDOWPLACEMENT);
 		WndPlacement.flags = 0;
-		WndPlacement.showCmd = SW_SHOWNA;
+		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
 
 		LogEx("\t\tRectangle : [%d %d %d %d]\n", PrintRect.left, PrintRect.right, PrintRect.top, PrintRect.bottom);
