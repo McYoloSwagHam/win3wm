@@ -15,6 +15,7 @@
 #include <shlobj.h>
 #include <locale>
 #include <codecvt>
+#include <chrono>
 
 #include "json.hpp"
 #include "resource3.h"
@@ -1799,6 +1800,7 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 
 VOID RenderStatusBar()
 {
+	return;
 	unsigned char Idx = 1;
 	static char LastWorkspaces[10] = { 0 };
 	char Workspaces[10] = { 0 };
@@ -1924,6 +1926,19 @@ VOID RenderNoWindow()
 	SendMessage(TrayWindow, WM_COMMAND, MIN_ALL, 0);
 }
 
+template <typename F, typename ...Args>
+auto benchmark(const char* Format, F f, Args&& ...args)
+{
+	const auto start = std::chrono::high_resolution_clock::now();
+
+	auto value = f(std::forward<Args>(args)...);
+
+	std::chrono::duration<float, std::ratio<1>> Time = (std::chrono::high_resolution_clock::now() - start);
+
+	printf(Format, Time.count());
+	return value;
+}
+
 VOID RenderWorkspace(INT WorkspaceNumber)
 {
 	LogEx("Rendering Workspace : %u\n", WorkspaceNumber);
@@ -1956,7 +1971,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		else if (CurrentTree->Root)
 		{
 			LogEx("\tRenderingMode: Has Tiles\n");
-			Count = Benchmark(RenderWindows(CurrentTree->Root, CurrentTree->Display);
+			Count = benchmark("Rendering Speed : %f\n", RenderWindows,CurrentTree->Root, CurrentTree->Display);
 		}
 		else
 		{
@@ -3237,6 +3252,7 @@ VOID InitScreenGlobals()
 
 VOID InitStatusBar()
 {
+	return;
 
 	INT WorkspaceCount = GetActiveWorkspace();
 
@@ -4325,7 +4341,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-	FreeConsole();
+	//FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
 	InitWorkspaceList();
