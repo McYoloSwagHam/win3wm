@@ -48,8 +48,8 @@
 	"shutdown" : "t",
 
 	
-	"adjust_for_nc" : "y",
-	"true_fullscreen" : "y",
+	"adjust_for_nc" : "n",
+	"true_fullscreen" : "n",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
 	

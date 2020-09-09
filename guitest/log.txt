@@ -1,0 +1,693 @@
+Display (20038) RSW : 1920 RSH : 1020
+Display (20001) RSW : 1600 RSH : 1160
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;42ab838b-dce8-4832-a0a6-73ca88b6f5fe]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : Code and Text Editor | Microsoft Docs - Google Chrome
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered 4 Windows
+LinkNode : Tree->Display->Handle = 20038
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 20038
+Only Root Node
+LinkNode : Tree->Display->Handle = 20038
+Only Root Node
+LinkNode : Tree->Display->Handle = 20038
+Only Root Node
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 7D002C
+Ignoring Window : 7D002C
+OnNewWindow : 1409AE
+LinkNode : Tree->Display->Handle = 20038
+Only Root Node
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (1409AE)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 382 10 1010]
+		Rectangle : [392 764 10 1010]
+		Rectangle : [774 1146 10 1010]
+		Rectangle : [1156 1528 10 1010]
+		Rectangle : [1538 1910 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : BD0A36
+Ignoring Window : BD0A36
+OnNewWindow : BE0A36
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (BE0A36)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 505]
+		Rectangle : [964 1431 515 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 5505C4
+Ignoring Window : 5505C4
+OnNewWindow : 5605C4
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (5605C4)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 505]
+		Rectangle : [964 1192 515 1010]
+		Rectangle : [1202 1430 515 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 505]
+		Rectangle : [964 1431 515 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : BF0A36
+Ignoring Window : BF0A36
+OnNewWindow : C00A36
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (C00A36)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 505]
+		Rectangle : [1441 1908 515 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 5705C4
+Ignoring Window : 5705C4
+OnNewWindow : 5805C4
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (5805C4)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 505]
+		Rectangle : [1441 1669 515 1010]
+		Rectangle : [1679 1907 515 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 505]
+		Rectangle : [1441 1908 515 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 7E05A0
+Ignoring Window : 7E05A0
+OnNewWindow : C20A36
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (C20A36)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 505]
+		Rectangle : [487 954 515 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+Change to Workspace : 1
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+Rendering Workspace : 2
+	Tree
+RenderingMode: Empty Workspace
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 2
+Ignoring Window : 7B01EA
+Change to Workspace : 2
+Rendering Workspace : 3
+	Tree
+RenderingMode: Empty Workspace
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+First Time VDesktop Re-render done
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 750644
+Ignoring Window : 750644
+OnNewWindow : 38071E
+LinkNode : Tree->Display->Handle = 20038
+Only Root Node
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (38071E)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 382 10 1010]
+		Rectangle : [392 764 10 1010]
+		Rectangle : [774 1146 10 1010]
+		Rectangle : [1156 1528 10 1010]
+		Rectangle : [1538 1910 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+CreateTileEx Triggered
+OnNewWindow : 39071E
+Ignoring Window : 39071E
+OnNewWindow : 3A071E
+LinkNode : Tree->Display->Handle = 20038
+Is normal workspace
+Adding Tile To Tree (20038)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (3A071E)
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 505]
+		Rectangle : [487 954 515 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+DestroyWindow
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+	Tree
+RenderingMode: Empty Workspace
+Finished Rendering Workspace : 1
+Shutting Down
+Display (10504C7) RSW : 1920 RSH : 1020
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;42ab838b-dce8-4832-a0a6-73ca88b6f5fe]
+	[WindowText] : guitest - Microsoft Visual Studio (Administrator)
+Gathered Window :
+	[WindowClass] : TScpCommanderForm
+	[WindowText] : Desktop - root@116.203.224.241 - WinSCP
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : New Tab - Google Chrome
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : Release
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered 7 Windows
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 3
+	Tree
+	RenderingMode: Empty Workspace
+Finished Rendering Workspace : 3
+Ignoring Window : B0376
+Change to Workspace : 3
+First Time VDesktop Re-render done
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 636 10 1010]
+		Rectangle : [646 1272 10 1010]
+		Rectangle : [1282 1908 10 1010]
+Finished Rendering Workspace : 2
+Ignoring Window : B0376
+Change to Workspace : 2
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+Ignoring Window : B0376
+OnNewWindow : 40B78
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (40B78)
+Rendering Workspace : 2
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+Finished Rendering Workspace : 2
+Change to Workspace : 2
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Ignoring Window : 1B026A
+Change to Workspace : 1
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+Ignoring Window : B0376
+OnNewWindow : 4F066C
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace for New Window (4F066C)
+Rendering Workspace : 3
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 1910 10 1010]
+Finished Rendering Workspace : 3
+Change to Workspace : 3
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+Ignoring Window : B0376
+Change to Workspace : 2
+Rendering Workspace : 3
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 3
+Ignoring Window : 1B026A
+Change to Workspace : 3
+Rendering Workspace : 1
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Rendering Workspace : 1
+	Tree
+	RenderingMode: FullScreen
+Finished Rendering Workspace : 1
+Shutting Down
+Display (10504C7) RSW : 1920 RSH : 1020
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;58d8bc4a-3932-45cb-bd64-424764cf634d]
+	[WindowText] : guitest - Microsoft Visual Studio
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : Notepad
+	[WindowText] : log - Notepad
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : #general - Google Chrome
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : New Tab - Google Chrome
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered 7 Windows
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+Finished Rendering Workspace : 1
+Shutting Down
+Display (10504C7) RSW : 1920 RSH : 1020
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;58d8bc4a-3932-45cb-bd64-424764cf634d]
+	[WindowText] : guitest (Debugging) - Microsoft Visual Studio
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : #general - Google Chrome
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : Notepad
+	[WindowText] : log - Notepad
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : New Tab - Google Chrome
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered 7 Windows
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+LinkNode : Tree->Display->Handle = 10504C7
+No Tree Root node, setting Tree root.
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+LinkNode : Tree->Display->Handle = 10504C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10504C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Has Tiles
+		Rectangle : [10 477 10 1010]
+		Rectangle : [487 954 10 1010]
+		Rectangle : [964 1431 10 1010]
+		Rectangle : [1441 1908 10 1010]
+Finished Rendering Workspace : 1
+Shutting Down
+Display (97D0043) RSW : 1920 RSH : 1020
+Display (10604C7) RSW : 1600 RSH : 1160
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;58d8bc4a-3932-45cb-bd64-424764cf634d]
+	[WindowText] : guitest - Microsoft Visual Studio
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : (17) My New Favorite - YouTube - Google Chrome
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : Notepad
+	[WindowText] : log - Notepad
+Gathered Window :
+	[WindowClass] : HwndWrapper[DbgX.Shell.exe;;572ce7b2-b349-4317-a4a2-e5e260d0b835]
+	[WindowText] : C:\Users\Admin\Downloads\WinWM.DMP - WinDbg 1.0.2007.06001
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered 7 Windows
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+No Tree Root node, setting Tree root.
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10604C7)
+ResortTiles ---> Tree Root, Sorting
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+No Tree Root node, setting Tree root.
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10604C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Empty Workspace
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 1
+Change to Workspace : 1
+Rendering Workspace : 2
+	Tree
+	RenderingMode: Empty Workspace
+	Tree
+	Tree Doesn't Need rendering
+Finished Rendering Workspace : 2
+Ignoring Window : B0376
+Display (97D0043) RSW : 1920 RSH : 1020
+Display (10604C7) RSW : 1600 RSH : 1160
+Gathering Initial Windows
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;f8a96c87-13ba-475c-975f-41b110ce3c0b]
+	[WindowText] : guitest (Running) - Microsoft Visual Studio
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : (17) Is Dust Mostly Dead Skin? - YouTube - Google Chrome
+Gathered Window :
+	[WindowClass] : TaskManagerWindow
+	[WindowText] : Task Manager
+Gathered Window :
+	[WindowClass] : Notepad
+	[WindowText] : log - Notepad
+Gathered Window :
+	[WindowClass] : HwndWrapper[DefaultDomain;;58d8bc4a-3932-45cb-bd64-424764cf634d]
+	[WindowText] : guitest - Microsoft Visual Studio
+Gathered Window :
+	[WindowClass] : Chrome_WidgetWin_1
+	[WindowText] : (17) My New Favorite - YouTube - Google Chrome
+Gathered Window :
+	[WindowClass] : CabinetWClass
+	[WindowText] : guitest
+Gathered Window :
+	[WindowClass] : Vim
+	[WindowText] : main.rs (~\Des...OOP\src) - GVIM
+Gathered Window :
+	[WindowClass] : HwndWrapper[DbgX.Shell.exe;;572ce7b2-b349-4317-a4a2-e5e260d0b835]
+	[WindowText] : C:\Users\Admin\Downloads\WinWM.DMP - WinDbg 1.0.2007.06001
+Gathered 9 Windows
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+No Tree Root node, setting Tree root.
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10604C7)
+ResortTiles ---> Tree Root, Sorting
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+No Tree Root node, setting Tree root.
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+Current Link is FOLLOW LAYOUT
+Adding Tile To Tree (10604C7)
+ResortTiles ---> Tree Root, Sorting
+New Tile is not on primary display.LinkNode : Tree->Display->Handle = 10604C7
+No Tree Root node, setting Tree root.
+Adding Tile To Tree (10604C7)
+ResortTiles ---> Tree Root, Sorting
+Rendering Workspace : 1
+	Tree
+	RenderingMode: Empty Workspace
+	Tree
+	Tree Doesn't Need rendering

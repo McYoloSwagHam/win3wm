@@ -488,10 +488,10 @@ BOOL IsIgnoreWindowEx(HWND WindowHandle)
 {
 	if (IsIgnoreWindow(WindowHandle))
 	{
-		LogEx("OnNewWindow : %X\n", WindowHandle);
 		return TRUE;
 	}
 
+	LogEx("OnNewWindow : %X\n", WindowHandle);
 	return FALSE;
 }
 
@@ -1106,7 +1106,12 @@ VOID ResortTiles(TILE_TREE* Tree)
 	Tree->NeedsRendering = TRUE;
 
 	if (!Tree->Root)
+	{
+		LogEx("ResortTiles ---> No Tree Root, Not Resorting\n");
 		return;
+	}
+
+	LogEx("ResortTiles ---> Tree Root, Sorting\n");
 
 	DISPLAY_INFO* Display = Tree->Display;
 	TILE_INFO* Ancestor = Tree->Root;
@@ -1176,6 +1181,8 @@ VOID ResortTiles(TILE_TREE* Tree)
 // call RenderWorkspace to render the workspace after adding a tile.
 VOID AddTileToWorkspace(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
+
+	LogEx("Adding Tile To Tree (%X)\n", Tree->Display->Handle);
 
 	ResortTiles(Tree);
 
@@ -1372,10 +1379,13 @@ VOID RemoveTileFromTree(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRemove)
 VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
 
+	LogEx("LinkNode : Tree->Display->Handle = %X\n", Tree->Display->Handle);
+
 	DISPLAY_INFO* Display = Tree->Display;
 
 	if (!Tree->Root)
 	{
+		LogEx("No Tree Root node, setting Tree root.\n");
 		TileToAdd->NodeType = TERMINAL;
 		Tree->Root = TileToAdd;
 		Tree->Layout = UserChosenLayout;
@@ -1383,6 +1393,7 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 	else if (!IsPressed || IsWorkspaceRootTile(Tree))
 	{
 
+		LogEx("Current Link is FOLLOW LAYOUT\n");
 		TileToAdd->NodeType = TERMINAL;
 
 		if (Tree->Focus->ChildTile)
@@ -1401,6 +1412,7 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 	else
 	{
 
+		LogEx("Current Link is SPLIT\n");
 		TILE_INFO* NodeTile = (TILE_INFO*)malloc(sizeof(TILE_INFO));
 		RtlZeroMemory(NodeTile, sizeof(TILE_INFO));
 
@@ -1529,7 +1541,10 @@ VOID PerformInitialRegroupring()
 				RemoveTitleBar(TileToAdd->WindowHandle);
 
 			if (!IsOnPrimaryDisplay(TileToAdd))
+			{
 				TileToAdd->IsDisplayChanged = TRUE;
+				LogEx("New Tile is not on primary display.");
+			}
 
 			LinkNode(CurrentWorkspace->Tree, TileToAdd);
 			CurrentWorkspace->Tree->Focus = TileToAdd;
@@ -1934,18 +1949,28 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		INT Count = 1;
 
 		if (CurrentTree->IsFullScreen)
+		{
+			LogEx("\tRenderingMode: FullScreen\n");
 			RenderFullscreenWindow(Workspace, CurrentTree->Display);
+		}
 		else if (CurrentTree->Root)
-			Count = RenderWindows(CurrentTree->Root, CurrentTree->Display);
+		{
+			LogEx("\tRenderingMode: Has Tiles\n");
+			Count = Benchmark(RenderWindows(CurrentTree->Root, CurrentTree->Display);
+		}
+		else
+		{
+			LogEx("\tRenderingMode: Empty Workspace\n");
+		}
 
-		Workspace->Tree->NeedsRendering = FALSE;
+
+		CurrentTree->NeedsRendering = FALSE;
 
 	}
 
 	RenderStatusBar();
 	RenderFocusWindowEx(Workspace);
 	LogEx("Finished Rendering Workspace : %u\n", WorkspaceNumber);
-
 
 }
 
@@ -2254,6 +2279,7 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	// No idea why it works like that
 	if (WorkspaceNumber == 1 && !FirstDesktopRender)
 	{
+		LogEx("First Time VDesktop Re-render done\n");
 		Workspace->Tree->NeedsRendering = TRUE;
 		FirstDesktopRender = TRUE;
 	}
@@ -2310,9 +2336,18 @@ VOID RestoreEx()
 VOID HandleShutdown()
 {
 
+	static bool HasShutdown = FALSE;
+
+	if (HasShutdown)
+		return;
+
+	HasShutdown = TRUE;
+	
+
 	LogEx("Shutting Down\n");
 
-	fclose(FilePointer);
+	if (FilePointer)
+		fclose(FilePointer);
 
 	LuaDispatchEx("on_exit");
 
@@ -2379,6 +2414,9 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	//Copy Over Important Stuff of the 
 	NewNode->WindowHandle = Node->WindowHandle;
 	NewNode->PreWMInfo = Node->PreWMInfo;
+
+	if (Workspace->Dsp->Handle != TargetWorkspace->Dsp->Handle)
+		NewNode->IsDisplayChanged = TRUE;
 
 	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
@@ -2490,7 +2528,10 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 
 	if (IsIgnoreWindowEx(WindowHandle) || !IsWindow(WindowHandle))
+	{
+		LogEx("Ignoring Window : %X\n", WindowHandle);
 		return;
+	}
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
@@ -2529,6 +2570,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		FailWithCode("realloc Tiles failed\n");
 
 	AddTileToWorkspace(Workspace->Tree, TileToAdd);
+	LogEx("Rendering Workspace for New Window (%X)\n", TileToAdd->WindowHandle);
 	RenderWorkspace(CurWk);
 	CanSwitch = TRUE;
 
@@ -3127,6 +3169,8 @@ VOID InitScreenGlobals()
 
 		Display.RealScreenWidth = Display.ScreenWidth;
 		Display.RealScreenHeight = Display.ScreenHeight;
+		
+		LogEx("Display (%X) RSW : %u RSH : %u\n", Display.Handle, Display.RealScreenWidth, Display.RealScreenHeight);
 
 		if (IsGapsEnabled)
 		{
@@ -3152,7 +3196,7 @@ VOID InitScreenGlobals()
 	}
 
 
-#ifdef COMMMERICIAL
+#ifdef COMMERCIAL
 
 	ClrActWk = RGB(ColorActiveWorkspaceButton[0],
 		ColorActiveWorkspaceButton[1],
@@ -3264,8 +3308,6 @@ VOID InitStatusBar()
 			BUTTON_STATE& ButtonState = ButtonMap[Display->StatusBar[i]];
 
 			ButtonState.ButtonText[0] = '0' + i;
-
-			//INT What = ButtonMap[Display->StatusBar[i]].ButtonText[0];
 
 			if (i == CurWk)
 			{
@@ -3552,13 +3594,16 @@ VOID FlipEx()
 
 VOID VerifyWorkspaceEx()
 {
+
+
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* Tiles = Workspace->Tree->Root;
 
 	std::unordered_map<HWND, TILE_INFO*> DupeMap;
 	std::vector<TILE_INFO*> TileList;
 
- VerifyWorkspaceRecursive(Workspace, Tiles, TileList, DupeMap);
+	LogEx("VerifyWorkspaceEx : Tree->Display->Handle %X : %u\n", Workspace->Tree->Display->Handle, CurWk);
+	 VerifyWorkspaceRecursive(Workspace, Tiles, TileList, DupeMap);
 
 	for (auto DupeTile : TileList)
 	{
@@ -4200,6 +4245,7 @@ BOOL DisplayProc(HMONITOR DisplayHandle, HDC DC, LPRECT DisplayRect, LPARAM Cont
 	DISPLAY_INFO Display = { 0 };
 	Display.Handle = DisplayHandle;
 	Display.Rect = *DisplayRect;
+	LogEx("Found Display : %X : [%u %u %u %u]\n", Display.Handle, Display.Rect.left, Display.Rect.top, Display.Rect.right, Display.Rect.bottom);
 	DisplayList.push_back(Display);
 	return TRUE;
 }
@@ -4234,7 +4280,9 @@ VOID GetTrays()
 
 VOID GetMonitors()
 {
+	LogEx("Gathering Displays\n");
 	EnumDisplayMonitors(NULL, NULL, DisplayProc, NULL);
+	LogEx("Finished Gathering Displays\n");
 	HMONITOR PrimaryMonitor = MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY);
 
 	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
@@ -4248,16 +4296,23 @@ VOID GetMonitors()
 		}
 
 		if (Display->Handle == PrimaryMonitor)
+		{
 			PrimaryDisplay = Display;
+			LogEx("PrimaryDisplay : Handle : %X\n", PrimaryDisplay->Handle);
+		}
 	}
 
 	if (!PrimaryDisplay)
 		Fail("No Primary Display?");
 
+	LogEx("\n ---- Init Display -----\n");
+	int Count = 0;
 	for (auto& Workspace : WorkspaceList)
 	{
-		Workspace.Tree = &Workspace.Trees[PrimaryDisplay->Handle];
+		Workspace.Tree = &(Workspace.Trees[PrimaryDisplay->Handle]);
 		Workspace.Dsp = PrimaryDisplay;
+		LogEx("Workspace %u : Tree (%X)\n", Count, Workspace.Tree->Display->Handle);
+		Count++;
 	}
 }
 
