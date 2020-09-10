@@ -80,6 +80,9 @@
     <ClInclude Include="lua.hpp">
       <Filter>Source Files\Scripting</Filter>
     </ClInclude>
+    <ClInclude Include="statusbar.hpp">
+      <Filter>Source Files\VDesktops</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon.ico">
