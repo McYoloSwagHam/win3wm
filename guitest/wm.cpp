@@ -190,7 +190,8 @@ BOOL ShouldRerender;
 // ------------------------------------------------------------------
 // Status Bar Globals
 // ------------------------------------------------------------------
-HWND StatusButtonList[10];
+unsigned char ButtonArray[10] = { 0 };
+unsigned char LastButtonArray[10] = { 0 };
 
 // ------------------------------------------------------------------
 // Windows Stuff 
@@ -1798,124 +1799,182 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 
 }
 
+INT GetFilledWorkspaceCount()
+{
+	int count = 0;
+	for (int i = 0; i < 10; i++)
+	{
+		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+
+		if (GetWindowCount(Workspace) || i == CurWk)
+			count++;
+
+	}
+
+	return count;
+}
+
+HBRUSH ButtonBrush;
+HBRUSH ButtonMonBrush;
+HBRUSH DefaultBrush;
+
+VOID DrawTransparentRectangle(HMONITOR DisplayHandle, HWND StatusBarWindow)
+{
+
+	HDC GeneralDC;
+	HDC CompatDC;
+	BITMAPINFO BitMapInfo;
+	HBITMAP BitMap;
+	PVOID Bits;
+	PDWORD Pixels;
+	POINT Point;
+	BLENDFUNCTION BlendFunction;
+	POINT ScreenPoint;
+	SIZE Size;
+
+	CompatDC = NULL;
+	BitMap = NULL;
+	GeneralDC = GetDC(StatusBarWindow);
+
+	if (!GeneralDC)
+		return;
+	
+	INT Count = GetFilledWorkspaceCount();
+	
+	RECT TargetRect = { 0, 0, 25 * Count, 25 };
+
+	RtlZeroMemory(&BitMapInfo, sizeof(BitMapInfo));
+	BitMapInfo.bmiHeader.biSize = sizeof(BitMapInfo);
+	BitMapInfo.bmiHeader.biBitCount = 32;
+	BitMapInfo.bmiHeader.biWidth = TargetRect.right;
+	BitMapInfo.bmiHeader.biHeight = TargetRect.bottom;
+	BitMapInfo.bmiHeader.biPlanes = 1;
+
+	BitMap = CreateDIBSection(GeneralDC, &BitMapInfo, DIB_RGB_COLORS, &Bits, 0, 0);
+
+	if (!BitMap)
+		Fail("Couldn't Create BitMap");
+
+	CompatDC = CreateCompatibleDC(GeneralDC);
+
+	if (!CompatDC)
+		Fail("Couldn't Create Compatible DC");
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	HGDIOBJ BmpObj = SelectObject(CompatDC, BitMap);
+	FillRect(CompatDC, &TargetRect, DefaultBrush);
+	
+	HBRUSH ClrBrush = ButtonMonBrush;
+
+	if (DisplayHandle == Workspace->Tree->Display->Handle)
+		ClrBrush = ButtonBrush;
+
+	RECT ActRect = { 0, 0, 0, 0 };
+	for (int i = 1; i < Count + 1; i++)
+	{
+		if (ButtonArray[i] == CurWk)
+		{
+			ActRect.left = (i - 1) * 25;
+			ActRect.right = i * 25;
+			ActRect.top = 0;
+			ActRect.bottom = 25;
+		}
+
+	}
+
+	FillRect(CompatDC, &ActRect, ClrBrush);
+
+
+	BOOL WasSet = FALSE;
+	SetBkColor(CompatDC, ClrInActWk);
+	SetTextColor(CompatDC, ClrInActTxt);
+	for (int i = 1; i < Count + 1; i++)
+	{
+
+		if (ButtonArray[i] == CurWk)
+		{
+			WasSet = TRUE;
+
+			if (DisplayHandle == PrimaryDisplay->Handle)
+				SetBkColor(CompatDC, ClrActWk);
+			else
+				SetBkColor(CompatDC, ClrInMt);
+
+			SetTextColor(CompatDC, ClrActTxt);
+		}
+
+		//Render Text since they don't match
+		RECT DrawRect = { (i - 1) * 25, 0, i * 25, 25 };
+		CHAR ButtonText[2] = { ButtonArray[i] + '0', '\0' };
+		DrawTextA(CompatDC, ButtonText, -1, &DrawRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+		if (WasSet)
+		{
+			WasSet = FALSE;
+			SetBkColor(CompatDC, ClrInActWk);
+			SetTextColor(CompatDC, ClrInActTxt);
+		}
+
+
+	}
+
+	Pixels = (PDWORD)Bits;
+	for (int Y = 0; Y < TargetRect.bottom; Y++)
+	{
+		for (int X = 0; X < TargetRect.right; X++, Pixels++)
+		{
+			*Pixels |= 0xff000000; // solid
+		}
+	}
+
+	RtlZeroMemory(&Point, sizeof(Point));
+
+	BlendFunction.AlphaFormat = AC_SRC_ALPHA;
+	BlendFunction.BlendFlags = 0;
+	BlendFunction.BlendOp = AC_SRC_OVER;
+	BlendFunction.SourceConstantAlpha = 255;
+
+	Size.cx = TargetRect.right - TargetRect.left;
+	Size.cy = TargetRect.bottom - TargetRect.top;
+
+	ScreenPoint.x = TargetRect.left;
+	ScreenPoint.y = TargetRect.top;
+
+	//Draw the Text here
+
+	UpdateLayeredWindow(StatusBarWindow, GeneralDC, NULL, &Size, CompatDC, &Point, 0, &BlendFunction, ULW_ALPHA);
+
+	ReleaseDC(StatusBarWindow, GeneralDC);
+	ReleaseDC(StatusBarWindow, CompatDC);
+	DeleteObject(BitMap);
+
+	//Rendering Text
+
+
+}
+
 VOID RenderStatusBar()
 {
 	unsigned char Idx = 1;
-	static char LastWorkspaces[10] = { 0 };
-	char Workspaces[10] = { 0 };
-	std::vector<DIFF_STATE> DiffVector;
-	DiffVector.reserve(10);
 
-	BOOL IsActiveWorkspace = FALSE;
-
+	//Get ON workspaces in statusbar
 	for (int i = 1; i < WorkspaceList.size(); i++)
 	{
-		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
-		BUTTON_STATE& ButtonState = ButtonMap[PrimaryDisplay->StatusBar[i]];
-
-		if (TreeHas(Root) || i == CurWk)
+		if (GetWindowCount(&WorkspaceList[i]) || i == CurWk)
 		{
-			Workspaces[Idx] = i;
+			ButtonArray[Idx] = i;
 			Idx++;
 		}
 	}
 
+	//Workspaces with no windows become -1;
 	for (int i = Idx; i < WorkspaceList.size(); i++)
-		Workspaces[i] = -1;
-
-	for (int Idx = 0; Idx < WorkspaceList.size(); Idx++)
-	{
-
-		BUTTON_STATE& ButtonState = ButtonMap[PrimaryDisplay->StatusBar[Idx]];
-		if (Workspaces[Idx] != LastWorkspaces[Idx])
-		{
-			DiffVector.push_back({ Workspaces[Idx], LastWorkspaces[Idx], Idx});
-			LastWorkspaces[Idx] = Workspaces[Idx];
-		}
-	}
-
-	BOOL RenderTxt = FALSE;
-	BOOL RenderBg = FALSE;
-	BOOL HideWindow = FALSE;
-
-	for (int i = 0; i < DiffVector.size(); i++)
-	{
-
-		DIFF_STATE* Diff = &DiffVector[i];
-
-		// First time Rendering
-		if (!Diff->PrevTxt)
-			continue;
-
-
-		if (Diff->NewTxt == -1)
-		{
-			HideWindow = TRUE;
-		}
-		else if (Diff->NewTxt > 0 && Diff->PrevTxt > 0)
-		{
-			RenderTxt = TRUE;
-		}
-		else if (Diff->PrevTxt == -1)
-		{
-			RenderTxt = TRUE;
-			RenderBg = TRUE;
-		}
-
-		for (auto& Display : DisplayList)
-		{
-			if (HideWindow)
-				ShowWindow(Display.StatusBar[Diff->Slot], SW_HIDE);
-
-			BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[Diff->Slot]];
-			ButtonState.RenderBg = RenderBg;
-			ButtonState.RenderTxt = RenderTxt;
-
-			if (RenderTxt || RenderBg)
-			{
-
-				if (RenderTxt)
-					ButtonState.ButtonText[0] = Diff->NewTxt + '0';
-
-				InvalidateRect(Display.StatusBar[Diff->Slot], NULL, FALSE);
-
-				if (RenderBg)
-					ShowWindow(Display.StatusBar[Diff->Slot], SW_SHOW);
-			}
-		}
-	}
+		ButtonArray[i] = 0;
 
 	for (auto& Display : DisplayList)
 	{
-		BOOL IsChanged = FALSE;
-		for (int i = 1; i < WorkspaceList.size(); i++)
-		{
-			BUTTON_STATE& ButtonState = ButtonMap[Display.StatusBar[i]];
-			WORKSPACE_INFO* Workspace = &WorkspaceList[i];
-
-			if (ButtonState.IsActiveWorkspace)
-			{
-				if (ButtonState.ButtonText[0] - '0' != CurWk)
-				{
-					ButtonState.IsActiveWorkspace = FALSE;
-					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
-				}
-				else if (!IsChanged)
-				{
-					Display.BtnToColor = Display.StatusBar[i];
-					IsChanged = TRUE;
-					InvalidateRect(Display.StatusBar[i], NULL, FALSE);
-				}
-			}
-			else if (!IsChanged && (ButtonState.ButtonText[0] - '0' == CurWk))
-			{
-
-				ButtonState.IsActiveWorkspace = TRUE;
-				IsChanged = TRUE;
-				Display.BtnToColor = Display.StatusBar[i];
-				InvalidateRect(Display.StatusBar[i], NULL, FALSE);
-			}
-		}
+		DrawTransparentRectangle(Display.Handle, Display.StatusBar);
 	}
 
 }
@@ -2643,97 +2702,13 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 }
 
-VOID DrawTransparentRectangle(DISPLAY_INFO* Display, HWND WindowHandle, PRECT RgRect)
+VOID DrawStatusBar(DISPLAY_INFO* Display, HWND StatusBarWindow, std::vector<DIFF_STATE>& DiffState)
 {
-
-	HDC GeneralDC;
-	HDC CompatDC;
-	BITMAPINFO BitMapInfo;
-	HBITMAP BitMap;
-	PVOID Bits;
-	PDWORD Pixels;
-	POINT Point;
-	BLENDFUNCTION BlendFunction;
-	POINT ScreenPoint;
-	SIZE Size;
-
-
-	CompatDC = NULL;
-	BitMap = NULL;
-	GeneralDC = GetDC(WindowHandle);
-
-	if (!GeneralDC)
-		return;
-
-	RtlZeroMemory(&BitMapInfo, sizeof(BitMapInfo));
-	BitMapInfo.bmiHeader.biSize = sizeof(BitMapInfo);
-	BitMapInfo.bmiHeader.biBitCount = 32;
-	BitMapInfo.bmiHeader.biWidth = RgRect->right;
-	BitMapInfo.bmiHeader.biHeight = RgRect->bottom;
-	BitMapInfo.bmiHeader.biPlanes = 1;
-
-	BitMap = CreateDIBSection(GeneralDC, &BitMapInfo, DIB_RGB_COLORS, &Bits, 0, 0);
-
-	if (!BitMap)
-		return;
-
-	CompatDC = CreateCompatibleDC(GeneralDC);
-
-	if (!CompatDC)
-		return;
-
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
-
-	RECT ActRect = { (CurWk - 1) * 25, 0, CurWk * 25, 25 };
-	HGDIOBJ BmpObj = SelectObject(CompatDC, BitMap);
-	FillRect(CompatDC, RgRect, DefaultBrush);
-
-	if (Display)
-
-	FillRect(CompatDC, ActRect, )
-	DeleteObject(Brush);
-
-
-
-	//HGDIOBJ hOldBsh = SelectObject(CompatDC, GetStockObject(NULL_BRUSH));
-	//HGDIOBJ hOldPen = SelectObject(CompatDC, GetStockObject(NULL_PEN));
-	//Rectangle(CompatDC, RgRect->left, RgRect->top, RgRect->right, RgRect->bottom);
-	//DeleteObject(SelectObject(CompatDC, hOldPen));
-	//SelectObject(CompatDC, hOldBsh);
-
-
-	Pixels = (PDWORD)Bits;
-	for (int Y = 0; Y < RgRect->bottom; Y++)
-	{
-		for (int X = 0; X < RgRect->right; X++, Pixels++)
-		{
-			*Pixels |= 0xff000000; // solid
-		}
-	}
-
-	RtlZeroMemory(&Point, sizeof(Point));
-
-	BlendFunction.AlphaFormat = AC_SRC_ALPHA;
-	BlendFunction.BlendFlags = 0;
-	BlendFunction.BlendOp = AC_SRC_OVER;
-	BlendFunction.SourceConstantAlpha = 255;
-
-
-	Size.cx = RgRect->right - RgRect->left;
-	Size.cy = RgRect->bottom - RgRect->top;
-
-
-	ScreenPoint.x = RgRect->left;
-	ScreenPoint.y = RgRect->top;
-
-	UpdateLayeredWindow(WindowHandle, GeneralDC, &ScreenPoint, &Size, CompatDC, &Point, 0, &BlendFunction, ULW_ALPHA);
-
+	
 }
 
 
-HBRUSH ButtonBrush;
-HBRUSH ButtonMonBrush;
-HBRUSH DefaultBrush;
+
 
 LRESULT CALLBACK StatusBarMsgHandler(
 	HWND WindowHandle,
@@ -2748,27 +2723,24 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	{
 	case WM_CREATE:
 	{
-		static WORD StartBitMask = -1;
+		LPCREATESTRUCTA CreateStruct = (LPCREATESTRUCTA)LParam;
+		DISPLAY_INFO* Display = (DISPLAY_INFO*)CreateStruct->lpCreateParams;
 		static BOOL IsMaskInit = 0;
-		static std::vector<BYTE> WorkspaceOrder;
 
 		if (!IsMaskInit)
 		{
+			unsigned Count = 1;
 			IsMaskInit = TRUE;
 			for (int i = 0; i < WorkspaceList.size(); i++)
 			{
 				WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
 				if (GetWindowCount(Workspace))
-				{
-					StartBitMask |= (1 << i);
-					WorkspaceOrder.push_back(i);
-				}
+					ButtonArray[Count++] = i;
 			}
 		}
 
-		RECT NumButtons = { 0, 0, 25 * WorkspaceOrder.size(), 25 };
-		DrawTransparentRectangle(Display, WindowHandle, &NumButtons);
+		//DrawTransparentRectangle(Display->Handle, WindowHandle);
 
 	}
 	case WM_DRAWITEM:
@@ -3335,7 +3307,7 @@ VOID InitStatusBar()
 	WindowClass.hInstance = NULL;
 	WindowClass.hIcon = NULL;
 	WindowClass.hCursor = NULL;
-	WindowClass.hbrBackground = CreateSolidBrush(RGB(0x22, 0x22, 0x22));
+	WindowClass.hbrBackground = NULL;
 	WindowClass.lpszMenuName = NULL;
 	WindowClass.lpszClassName = StatusBarWindowName;
 	WindowClass.hIconSm = NULL;
@@ -3368,7 +3340,7 @@ VOID InitStatusBar()
 		StatusBarPosition.y = SearchBarRect.top;
 
 		Display->StatusBar = CreateWindowExA(
-			WS_EX_LAYERED,
+			WS_EX_LAYERED | WS_EX_TOOLWINDOW,
 			StatusBarWindowName,
 			"Win3wmStatusBar",
 			WS_POPUP,
@@ -3382,6 +3354,7 @@ VOID InitStatusBar()
 			(PVOID)Display);
 
 		SetWindowPos(Display->StatusBar, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+		ShowWindow(Display->StatusBar, SW_SHOW);
 
 	}
 }
@@ -4372,7 +4345,7 @@ INT main()
 		Fail("Only a single instance of Win3m can be run");
 
 	DpiSet();
-	FreeConsole();
+	//FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
 	InitWorkspaceList();
