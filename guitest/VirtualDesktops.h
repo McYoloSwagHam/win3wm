@@ -378,8 +378,7 @@ struct DISPLAY_INFO
 	INT RealScreenHeight;
 	FLOAT HorizontalScalar;
 	FLOAT VerticalScalar;
-	HWND StatusBar[10];
-	HWND StatusButton[10];
+	HWND StatusBar;
 	HWND BtnToColor;
 };
 

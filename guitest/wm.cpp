@@ -2643,36 +2643,97 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 }
 
-
-VOID CreateStatusButton(DISPLAY_INFO* Display, HWND ParentHandle, INT Slot, const char* ButtonText)
+VOID DrawTransparentRectangle(DISPLAY_INFO* Display, HWND WindowHandle, PRECT RgRect)
 {
 
-	INT ButtonStyle = WS_CHILD | WS_VISIBLE | BS_OWNERDRAW;
+	HDC GeneralDC;
+	HDC CompatDC;
+	BITMAPINFO BitMapInfo;
+	HBITMAP BitMap;
+	PVOID Bits;
+	PDWORD Pixels;
+	POINT Point;
+	BLENDFUNCTION BlendFunction;
+	POINT ScreenPoint;
+	SIZE Size;
 
-	Display->StatusButton[Slot] = CreateWindowExA(
-		NULL,
-		"BUTTON",  // Predefined class; Unicode assumed 
-		ButtonText,      // Button text 
-		ButtonStyle,  // Styles 
-		0,         // x position 
-		0,         // y position 
-		25,        // Button width
-		25,        // Button height
-		ParentHandle,     // Parent window
-		NULL,       // No menu.
-		NULL,
-		NULL);      // Pointer not needed.
 
-	if (!Display->StatusButton[Slot])
-		FailWithCode("Couldn't Create Status Bar Button");
+	CompatDC = NULL;
+	BitMap = NULL;
+	GeneralDC = GetDC(WindowHandle);
+
+	if (!GeneralDC)
+		return;
+
+	RtlZeroMemory(&BitMapInfo, sizeof(BitMapInfo));
+	BitMapInfo.bmiHeader.biSize = sizeof(BitMapInfo);
+	BitMapInfo.bmiHeader.biBitCount = 32;
+	BitMapInfo.bmiHeader.biWidth = RgRect->right;
+	BitMapInfo.bmiHeader.biHeight = RgRect->bottom;
+	BitMapInfo.bmiHeader.biPlanes = 1;
+
+	BitMap = CreateDIBSection(GeneralDC, &BitMapInfo, DIB_RGB_COLORS, &Bits, 0, 0);
+
+	if (!BitMap)
+		return;
+
+	CompatDC = CreateCompatibleDC(GeneralDC);
+
+	if (!CompatDC)
+		return;
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	RECT ActRect = { (CurWk - 1) * 25, 0, CurWk * 25, 25 };
+	HGDIOBJ BmpObj = SelectObject(CompatDC, BitMap);
+	FillRect(CompatDC, RgRect, DefaultBrush);
+
+	if (Display)
+
+	FillRect(CompatDC, ActRect, )
+	DeleteObject(Brush);
+
+
+
+	//HGDIOBJ hOldBsh = SelectObject(CompatDC, GetStockObject(NULL_BRUSH));
+	//HGDIOBJ hOldPen = SelectObject(CompatDC, GetStockObject(NULL_PEN));
+	//Rectangle(CompatDC, RgRect->left, RgRect->top, RgRect->right, RgRect->bottom);
+	//DeleteObject(SelectObject(CompatDC, hOldPen));
+	//SelectObject(CompatDC, hOldBsh);
+
+
+	Pixels = (PDWORD)Bits;
+	for (int Y = 0; Y < RgRect->bottom; Y++)
+	{
+		for (int X = 0; X < RgRect->right; X++, Pixels++)
+		{
+			*Pixels |= 0xff000000; // solid
+		}
+	}
+
+	RtlZeroMemory(&Point, sizeof(Point));
+
+	BlendFunction.AlphaFormat = AC_SRC_ALPHA;
+	BlendFunction.BlendFlags = 0;
+	BlendFunction.BlendOp = AC_SRC_OVER;
+	BlendFunction.SourceConstantAlpha = 255;
+
+
+	Size.cx = RgRect->right - RgRect->left;
+	Size.cy = RgRect->bottom - RgRect->top;
+
+
+	ScreenPoint.x = RgRect->left;
+	ScreenPoint.y = RgRect->top;
+
+	UpdateLayeredWindow(WindowHandle, GeneralDC, &ScreenPoint, &Size, CompatDC, &Point, 0, &BlendFunction, ULW_ALPHA);
 
 }
 
-INT ButtonIdx = 1;
+
 HBRUSH ButtonBrush;
 HBRUSH ButtonMonBrush;
 HBRUSH DefaultBrush;
-CHAR GlobalButtonText[2] = { '?', '\0' };
 
 LRESULT CALLBACK StatusBarMsgHandler(
 	HWND WindowHandle,
@@ -2687,19 +2748,29 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	{
 	case WM_CREATE:
 	{
-		LPCREATESTRUCTA CreateStruct = (LPCREATESTRUCTA)LParam;
-		DISPLAY_INFO* Display = (DISPLAY_INFO*)CreateStruct->lpCreateParams;
-		CreateStatusButton(Display, WindowHandle, ButtonIdx, GlobalButtonText);
-		ButtonIdx++;
+		static WORD StartBitMask = -1;
+		static BOOL IsMaskInit = 0;
+		static std::vector<BYTE> WorkspaceOrder;
+
+		if (!IsMaskInit)
+		{
+			IsMaskInit = TRUE;
+			for (int i = 0; i < WorkspaceList.size(); i++)
+			{
+				WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+
+				if (GetWindowCount(Workspace))
+				{
+					StartBitMask |= (1 << i);
+					WorkspaceOrder.push_back(i);
+				}
+			}
+		}
+
+		RECT NumButtons = { 0, 0, 25 * WorkspaceOrder.size(), 25 };
+		DrawTransparentRectangle(Display, WindowHandle, &NumButtons);
+
 	}
-
-		//IApplicationView* ApplicationView;
-		//if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
-		//	FailWithCode("StatusBar GetView");
-
-		//PinnedApps->PinView(ApplicationView);
-		//ApplicationView->Release();
-		break;
 	case WM_DRAWITEM:
 	{
 		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
@@ -3296,60 +3367,22 @@ VOID InitStatusBar()
 		StatusBarPosition.x = SearchBarRect.left;
 		StatusBarPosition.y = SearchBarRect.top;
 
-		StatusBarPosition.x -= 25;
-		StatusBarPosition.y -= 25;
+		Display->StatusBar = CreateWindowExA(
+			WS_EX_LAYERED,
+			StatusBarWindowName,
+			"Win3wmStatusBar",
+			WS_POPUP,
+			StatusBarPosition.x,
+			StatusBarPosition.y - 25,
+			25 * 9,
+			25,
+			NULL,
+			NULL,
+			NULL,
+			(PVOID)Display);
 
-		for (int i = 1; i < 10; i++)
-		{
+		SetWindowPos(Display->StatusBar, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 
-			GlobalButtonText[0] = '0' + i;
-
-			Display->StatusBar[i] = CreateWindowExA(
-				WS_EX_TOOLWINDOW,
-				StatusBarWindowName,
-				"Win3wmStatusBar",
-				WS_POPUP,
-				StatusBarPosition.x + i * 25,
-				StatusBarPosition.y,
-				25,
-				25,
-				NULL,
-				NULL,
-				NULL,
-				(PVOID)Display
-			);
-
-			BUTTON_STATE& ButtonState = ButtonMap[Display->StatusBar[i]];
-
-			ButtonState.ButtonText[0] = '0' + i;
-
-			if (i == CurWk)
-			{
-				Display->BtnToColor = Display->StatusBar[CurWk];
-				ButtonState.IsPrimaryDisplay = TRUE;
-			}
-
-			if (!Display->StatusBar[i])
-				FailWithCode("Could not create Status Bar Window!");
-
-			SetWindowLongPtrA(Display->StatusBar[i], GWL_EXSTYLE, WS_EX_TOOLWINDOW);
-			SetWindowLongPtrA(Display->StatusBar[i], GWL_STYLE, WS_POPUP);
-			SetWindowPos(Display->StatusBar[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-			UpdateWindow(Display->StatusBar[i]);
-
-			if (i - 1 < WorkspaceCount)
-			{
-				ButtonState.RenderBg = TRUE;
-				ButtonState.RenderTxt = TRUE;
-				ShowWindow(Display->StatusBar[i], SW_SHOW);
-			}
-			else
-			{
-				ButtonState.RenderBg = FALSE;
-				ButtonState.RenderTxt = FALSE;
-				ShowWindow(Display->StatusBar[i], SW_HIDE);
-			}
-		}
 	}
 }
 
