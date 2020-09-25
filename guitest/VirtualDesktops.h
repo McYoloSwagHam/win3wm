@@ -305,14 +305,6 @@ DECLARE_INTERFACE_IID_(IVirtualDesktopPinnedApps, IUnknown, "4ce81583-1e4c-4632-
 		STDMETHOD(UnpinView)(THIS_ IApplicationView*) PURE; 
 };
 
-
-enum LAYOUT_STATE
-{
-	HORIZONTAL_LAYOUT = 0,
-	VERTICAL_LAYOUT = 1,
-	ROOT_LAYOUT = 2,
-};
-
 enum NODE_TYPE
 {
 	TERMINAL = 0,
@@ -362,7 +354,6 @@ struct TILE_INFO
 	TILE_INFO *BranchTile;
 	TILE_INFO *BranchParent;
 	WINDOWPLACEMENT Placement;
-	LAYOUT_STATE Layout;
 	BOOL IsDisplayChanged;
 };
 

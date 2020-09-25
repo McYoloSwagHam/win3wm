@@ -221,6 +221,7 @@ BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
 BOOL IsFullScreenMax;
 BOOL ShouldLog;
+BOOL ShouldBSplit;
 POINT NewOrigin;
 
 std::vector<unsigned char> ColorActiveWorkspaceButton;
@@ -1378,6 +1379,14 @@ VOID RemoveTileFromTree(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRemove)
 
 }
 
+NODE_TYPE FlipLayout(NODE_TYPE Layout)
+{
+	if (Layout == HORIZONTAL_SPLIT)
+		return VERTICAL_SPLIT;
+	else
+		return HORIZONTAL_SPLIT;
+}
+
 VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
 
@@ -1444,7 +1453,20 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 		}
 
 
-		NodeTile->NodeType = UserChosenLayout;
+		//Bsplit stuff
+		if (ShouldBSplit)
+		{
+			ShouldBSplit = FALSE;
+
+			if (NodeTile->BranchParent)
+				NodeTile->NodeType = FlipLayout(NodeTile->BranchParent->NodeType);
+			else if (NodeTile->ParentTile)
+				NodeTile->NodeType = FlipLayout(NodeTile->ParentTile->NodeType);
+			else
+				NodeTile->NodeType = FlipLayout(Tree->Layout);
+		}		
+		else
+			NodeTile->NodeType = UserChosenLayout;
 
 		NodeTile->BranchTile = Tree->Focus;
 
@@ -1896,7 +1918,7 @@ VOID DrawTransparentRectangle(HMONITOR DisplayHandle, HWND StatusBarWindow)
 		{
 			WasSet = TRUE;
 
-			if (DisplayHandle == PrimaryDisplay->Handle)
+			if (DisplayHandle == Workspace->Tree->Display->Handle)
 				SetBkColor(CompatDC, ClrActWk);
 			else
 				SetBkColor(CompatDC, ClrInMt);
@@ -2595,6 +2617,7 @@ VOID GetRidOfFade(HWND WindowHandle)
 	BOOL DisableTransition = TRUE;
 	DwmSetWindowAttribute(WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition));
 }
+
 
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
@@ -3764,6 +3787,17 @@ VOID CreateTileEx()
 	system(StartCommand);
 }
 
+VOID BSplitEx()
+{
+
+	ShouldBSplit = TRUE;
+	IsPressed = TRUE;
+	LogEx("BSplitEx Triggered");
+	system(StartCommand);
+
+
+}
+
 VOID ParseModifier(std::string ModifierString)
 {
 	if (ModifierString != "alt" && ModifierString != "win")
@@ -4003,6 +4037,9 @@ VOID InitConfig()
 
 		ParseConfigEx("destroy_tile", DestroyTileEx);
 		ParseConfigEx("create_tile", CreateTileEx);
+
+		ParseConfigEx("bsplit_tile", BSplitEx)
+
 		ParseConfigEx("set_layout_vertical", SetLayoutVerticalEx);
 		ParseConfigEx("set_layout_horizontal", SetLayoutHorizontalEx);
 		ParseConfigEx("change_workspace_1", ChangeWorkspaceEx_1);

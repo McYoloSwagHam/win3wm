@@ -3,6 +3,7 @@
 	"modifier" : "alt",
 	"destroy_tile" : "shift+q",
 	"create_tile" : "enter",
+	"bsplit_tile" :  "x",
 
 	"set_layout_vertical" : "v",
 	"set_layout_horizontal" : "h",
@@ -48,7 +49,7 @@
 	"shutdown" : "t",
 
 	
-	"adjust_for_nc" : "n",
+	"adjust_for_nc" : "y",
 	"true_fullscreen" : "n",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
@@ -66,10 +67,10 @@
 	"active_text_color_button" : [255,255,255],
 	"inactive_text_color_button" : [0,0,0],
 	
-	"windows_to_ignore" : [],
+	"windows_to_ignore" : ["Teams"],
 
 	"start_command" : "start cmd.exe",
-	"start_directory" : "",
+	"start_directory" : "C:\\Users\\Admin\\Desktop\\Tech",
 	"lua_script_path" : ""
 	
 
