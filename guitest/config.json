@@ -46,6 +46,9 @@
 	"go_monitor_right" : "m",
 	"move_monitor_left" : "shift+n",
 	"move_monitor_right" : "shift+m",
+
+  "carry_left" :  "shift+v",
+	"carry_right" :  "shift+b",
 	"shutdown" : "t",
 
 	

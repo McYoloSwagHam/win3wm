@@ -1357,23 +1357,23 @@ BOOL IsWorkspaceRootTile(TILE_TREE* Tree)
 
 }
 
-VOID FollowFocusToTerminal(WORKSPACE_INFO* Workspace)
+VOID FollowFocusToTerminal(TILE_TREE* Tree)
 {
 
-	while (Workspace->Tree->Focus && Workspace->Tree->Focus->NodeType != TERMINAL)
-		Workspace->Tree->Focus = Workspace->Tree->Focus->BranchTile;
+	while (Tree->Focus && Tree->Focus->NodeType != TERMINAL)
+		Tree->Focus = Tree->Focus->BranchTile;
 
 }
 
-VOID RemoveTileFromTree(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRemove)
+VOID RemoveTileFromTree(TILE_TREE* Tree, TILE_INFO* TileToRemove)
 {
 
 	TileToRemove->WindowHandle = NULL;
 
-	Workspace->Tree->Focus = UnlinkNode(Workspace->Tree, TileToRemove);
+	Tree->Focus = UnlinkNode(Tree, TileToRemove);
 
-	FollowFocusToTerminal(Workspace);
-	ResortTiles(Workspace->Tree);
+	FollowFocusToTerminal(Tree);
+	ResortTiles(Tree);
 
 	free(TileToRemove);
 
@@ -1469,7 +1469,6 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 			NodeTile->NodeType = UserChosenLayout;
 
 		NodeTile->BranchTile = Tree->Focus;
-
 
 		Tree->Focus->BranchParent = NodeTile;
 		Tree->Focus->ChildTile = TileToAdd;
@@ -2116,7 +2115,7 @@ VOID FocusLeft(WORKSPACE_INFO* Workspace)
 		}
 	}
 
-	FollowFocusToTerminal(Workspace);
+	FollowFocusToTerminal(Workspace->Tree);
 
 
 }
@@ -2139,7 +2138,7 @@ VOID FocusRight(WORKSPACE_INFO* Workspace)
 
 	}
 
-	FollowFocusToTerminal(Workspace);
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
@@ -2162,7 +2161,7 @@ VOID FocusTop(WORKSPACE_INFO* Workspace)
 
 	}
 
-	FollowFocusToTerminal(Workspace);
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
@@ -2185,7 +2184,7 @@ VOID FocusBottom(WORKSPACE_INFO* Workspace)
 
 	}
 
-	FollowFocusToTerminal(Workspace);
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
@@ -2516,7 +2515,7 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
 
-	RemoveTileFromTree(Workspace, Node);
+	RemoveTileFromTree(Workspace->Tree, Node);
 
 	if (TreeHas(Root) && IsWorkspaceRootTile(Workspace->Tree))
 		Workspace->Tree->IsFullScreen = FALSE;
@@ -2716,7 +2715,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 	LogEx("DestroyWindow\n");
 
-	RemoveTileFromTree(Workspace, TileToRemove);
+	RemoveTileFromTree(Workspace->Tree, TileToRemove);
 	RenderWorkspace(CurWk);
 
 	RenderFocusWindowEx(Workspace);
@@ -3836,7 +3835,7 @@ VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName
 }
 
 
-VOID MoveMonitorLeft(BOOL ShouldMove)
+VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	DISPLAY_INFO* Display = Workspace->Dsp;
@@ -3857,17 +3856,18 @@ VOID MoveMonitorLeft(BOOL ShouldMove)
 	if (!DispIdx)
 		return;
 
+	TILE_TREE* Tree = Workspace->Tree;
+	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[DispIdx - 1].Handle];
+
 	if (!ShouldMove)
 	{
-		Workspace->Dsp = &DisplayList[--DispIdx];
+		Workspace->Dsp = &DisplayList[DispIdx - 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
 		RenderFocusWindowEx(Workspace);
-		return;
+		if (RetEarly)
+			return;
 	}
-
-	TILE_TREE* Tree = Workspace->Tree;
-	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[--DispIdx].Handle];
 
 
 	TILE_INFO* NewNode;
@@ -3884,16 +3884,17 @@ VOID MoveMonitorLeft(BOOL ShouldMove)
 	NewNode->PreWMInfo = Node->PreWMInfo;
 	NewNode->IsDisplayChanged = TRUE;
 
-	RemoveTileFromTree(Workspace, Node);
-	if (TreeHas(Root) && IsWorkspaceRootTile(Workspace->Tree))
-		Workspace->Tree->IsFullScreen = FALSE;
+	RemoveTileFromTree(Tree, Node);
+	if (Tree->Root && IsWorkspaceRootTile(Tree))
+		Tree->IsFullScreen = FALSE;
+
 	LinkNode(TargetTree, NewNode);
 	AddTileToWorkspace(TargetTree, NewNode);
 	RenderWorkspace(CurWk);
 
 }
 
-VOID MoveMonitorRight(BOOL ShouldMove)
+VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	DISPLAY_INFO* Display = Workspace->Dsp;
@@ -3916,17 +3917,20 @@ VOID MoveMonitorRight(BOOL ShouldMove)
 	if ((DispIdx + 1) >= DisplayList.size())
 		return;
 
+	TILE_TREE* Tree = Workspace->Tree;
+	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[DispIdx + 1].Handle];
+
 	if (!ShouldMove)
 	{
-		Workspace->Dsp = &DisplayList[++DispIdx];
+		Workspace->Dsp = &DisplayList[DispIdx + 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
 		RenderFocusWindowEx(Workspace);
-		return;
+
+		if (RetEarly)
+			return;
 	}
 
-	TILE_TREE* Tree = Workspace->Tree;
-	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[++DispIdx].Handle];
 
 
 	TILE_INFO* NewNode;
@@ -3943,9 +3947,9 @@ VOID MoveMonitorRight(BOOL ShouldMove)
 	NewNode->PreWMInfo = Node->PreWMInfo;
 	NewNode->IsDisplayChanged = TRUE;
 
-	RemoveTileFromTree(Workspace, Node);
-	if (TreeHas(Root) && IsWorkspaceRootTile(Workspace->Tree))
-		Workspace->Tree->IsFullScreen = FALSE;
+	RemoveTileFromTree(Tree, Node);
+	if (Tree->Root && IsWorkspaceRootTile(Tree))
+		Tree->IsFullScreen = FALSE;
 	LinkNode(TargetTree, NewNode);
 	AddTileToWorkspace(TargetTree, NewNode);
 	RenderWorkspace(CurWk);
@@ -3954,22 +3958,32 @@ VOID MoveMonitorRight(BOOL ShouldMove)
 
 VOID MoveMonitorLeftEx()
 {
-	MoveMonitorLeft(FALSE);
+	MoveMonitorLeft(FALSE, TRUE);
 }
 
 VOID MoveWindowMonitorLeftEx()
 {
-	MoveMonitorLeft(TRUE);
+	MoveMonitorLeft(TRUE, FALSE);
+}
+
+VOID CarryMonitorLeftEx()
+{
+	MoveMonitorLeft(FALSE, FALSE);
+}
+
+VOID CarryMonitorRightEx()
+{
+	MoveMonitorRight(FALSE, FALSE);
 }
 
 VOID MoveMonitorRightEx()
 {
-	MoveMonitorRight(FALSE);
+	MoveMonitorRight(FALSE, TRUE);
 }
 
 VOID MoveWindowMonitorRightEx()
 {
-	MoveMonitorRight(TRUE);
+	MoveMonitorRight(TRUE, FALSE);
 }
 
 VOID InitLogger()
@@ -4083,6 +4097,9 @@ VOID InitConfig()
 		ParseConfigEx("move_monitor_left", MoveWindowMonitorLeftEx);
 		ParseConfigEx("move_monitor_right", MoveWindowMonitorRightEx);
 
+		ParseConfigEx("carry_left", CarryMonitorLeftEx);
+		ParseConfigEx("carry_right", CarryMonitorRightEx);
+			
 		ParseModifier(GetJsonEx("modifier"));
 
 		CurrentKey = "windows_to_ignore";
