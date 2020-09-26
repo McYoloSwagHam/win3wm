@@ -147,7 +147,7 @@ const char* RemoveOtherVDesktops()
 		return "No FirstDesktop.";
 
 	IVirtualDesktop* CurrentDesktop = NULL;
-	for (int i = 1; i < NumDesktops && i < 255; i++)
+	for (unsigned int i = 1; i < NumDesktops && i < 255; i++)
 	{
 	
 		if (FAILED(DesktopObjectArray->GetAt(i, __uuidof(IVirtualDesktop), (PVOID*)&CurrentDesktop)))

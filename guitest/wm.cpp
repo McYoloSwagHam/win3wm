@@ -151,6 +151,7 @@ INT CurWk = 1;
 #define WM_INSTALL_HOOKS 0x8069
 #define WM_SHUTDOWN 0x806C
 #define WM_MOVE_TILE 0x806b
+#define WM_TILE_CHANGED 0x806d
 #define WM_USER_FOCUS 0x8096
 #define MIN_ALL 419
 #define ID_EXIT 6
@@ -3001,7 +3002,6 @@ VOID InstallNewWindowHook()
 
 	NewWindowHook = SetWindowsHookExA(WH_SHELL, NewWindowHookProc, WinHook64, 0);
 
-
 	if (!NewWindowHook)
 		FailWithCode("Couldn't set NewWindowHook");
 
@@ -3834,11 +3834,73 @@ VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName
 
 }
 
-
-VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
+VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcHwnd)
 {
+
+	TILE_INFO* NewNode;
+	TILE_INFO* Node = SrcHwnd;
+
+	if (!Node)
+		return;
+
+	NewNode = (TILE_INFO*)RtlAlloc(sizeof(TILE_INFO));
+	RtlZeroMemory(NewNode, sizeof(TILE_INFO));
+
+	//Copy Over Important Stuff of the 
+	NewNode->WindowHandle = Node->WindowHandle;
+	NewNode->PreWMInfo = Node->PreWMInfo;
+	NewNode->IsDisplayChanged = TRUE;
+
+	RemoveTileFromTree(SrcTree, Node);
+	if (SrcTree->Root && IsWorkspaceRootTile(SrcTree))
+		SrcTree->IsFullScreen = FALSE;
+
+	LinkNode(DstTree, NewNode);
+	AddTileToWorkspace(DstTree, NewNode);
+	RenderWorkspace(CurWk);
+
+}
+
+
+VOID HandleMonitorChanged(HWND ChangedWindow)
+{
+
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
-	DISPLAY_INFO* Display = Workspace->Dsp;
+	TILE_INFO* TileToRemove = NULL;
+	TILE_TREE* SrcTree = NULL;
+	TILE_TREE* DstTree = NULL;
+	HMONITOR Monitor = MonitorFromWindow(ChangedWindow, MONITOR_DEFAULTTONULL);
+
+	if (!Monitor)
+		Fail("Couldn't get Monitor for Monitor Moved Window");
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+
+		TILE_TREE* CurrentTree = &KeyValue.second;
+
+		if (CurrentTree->Display->Handle == Monitor)
+			DstTree = CurrentTree;
+
+		TileToRemove = VerifyExistingWindow(CurrentTree->Root, ChangedWindow);
+		
+		if (TileToRemove)
+			SrcTree = CurrentTree;
+
+	}
+
+	if (!TileToRemove)
+		return;
+
+	if (DstTree == SrcTree)
+		return;
+
+	MoveMonitorInternal(SrcTree, DstTree, TileToRemove);
+	
+}
+
+INT GetDisplayIdx(DISPLAY_INFO* Display)
+{
 	INT DispIdx = -1;
 
 	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
@@ -3850,9 +3912,21 @@ VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 		}
 	}
 
+	return DispIdx;
+}
+
+VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	DISPLAY_INFO* Display = Workspace->Dsp;
+	INT DispIdx = GetDisplayIdx(Display);
+
 	if (DispIdx == -1)
 		Fail("Couldn't find a monitor for display??");
 
+	//This doesn't mean that we couldn't find a display
+	//it just means that this is the very left display or DisaplyList[0]
+	// so we return since we can't do anything
 	if (!DispIdx)
 		return;
 
@@ -3869,28 +3943,7 @@ VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 			return;
 	}
 
-
-	TILE_INFO* NewNode;
-	TILE_INFO* Node = Tree->Focus;
-
-	if (!Node)
-		return;
-
-	NewNode = (TILE_INFO*)RtlAlloc(sizeof(TILE_INFO));
-	RtlZeroMemory(NewNode, sizeof(TILE_INFO));
-
-	//Copy Over Important Stuff of the 
-	NewNode->WindowHandle = Node->WindowHandle;
-	NewNode->PreWMInfo = Node->PreWMInfo;
-	NewNode->IsDisplayChanged = TRUE;
-
-	RemoveTileFromTree(Tree, Node);
-	if (Tree->Root && IsWorkspaceRootTile(Tree))
-		Tree->IsFullScreen = FALSE;
-
-	LinkNode(TargetTree, NewNode);
-	AddTileToWorkspace(TargetTree, NewNode);
-	RenderWorkspace(CurWk);
+	MoveMonitorInternal(Tree, TargetTree, Tree->Focus);
 
 }
 
@@ -3898,20 +3951,10 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	DISPLAY_INFO* Display = Workspace->Dsp;
-	INT DispIdx = -1;
-
-	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
-	{
-		if (DisplayList[Idx].Handle == Display->Handle)
-		{
-			DispIdx = Idx;
-			break;
-		}
-	}
+	INT DispIdx = GetDisplayIdx(Display);
 
 	if (DispIdx == -1)
 		Fail("Couldn't find a monitor for display??");
-
 
 	// if is last return, if is invalid then return
 	if ((DispIdx + 1) >= DisplayList.size())
@@ -3931,28 +3974,7 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 			return;
 	}
 
-
-
-	TILE_INFO* NewNode;
-	TILE_INFO* Node = Tree->Focus;
-
-	if (!Node)
-		return;
-
-	NewNode = (TILE_INFO*)RtlAlloc(sizeof(TILE_INFO));
-	RtlZeroMemory(NewNode, sizeof(TILE_INFO));
-
-	//Copy Over Important Stuff of the 
-	NewNode->WindowHandle = Node->WindowHandle;
-	NewNode->PreWMInfo = Node->PreWMInfo;
-	NewNode->IsDisplayChanged = TRUE;
-
-	RemoveTileFromTree(Tree, Node);
-	if (Tree->Root && IsWorkspaceRootTile(Tree))
-		Tree->IsFullScreen = FALSE;
-	LinkNode(TargetTree, NewNode);
-	AddTileToWorkspace(TargetTree, NewNode);
-	RenderWorkspace(CurWk);
+	MoveMonitorInternal(Tree, TargetTree, Tree->Focus);
 
 }
 
@@ -4458,6 +4480,8 @@ INT main()
 		case WM_INSTALL_HOOKS:
 			HandleWindowMessage(&Message);
 			continue;
+		case WM_TILE_CHANGED:
+			HandleMonitorChanged((HWND)Message.lParam);
 		default:
 			break;
 		}
