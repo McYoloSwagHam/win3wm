@@ -2602,7 +2602,6 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 }
 
-
 TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 {
 	for (TILE_INFO* Tile = Tiles; Tile; Tile = Tile->ChildTile)
@@ -2620,6 +2619,48 @@ TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 	}
 
 	return NULL;
+
+}
+
+TILE_TREE* GetTileWindowTree(WORKSPACE_INFO* Workspace, HWND WindowHandle)
+{
+
+	TILE_TREE* CurrentTree = NULL;
+
+	for (auto& KeyValue : Workspace->Trees)
+	{
+
+		CurrentTree = &KeyValue.second;
+
+		TILE_INFO* TileToRemove = VerifyExistingWindow(CurrentTree->Root, WindowHandle);
+
+		if (TileToRemove)
+			break;
+
+	}
+
+	return CurrentTree;
+
+}
+
+TILE_INFO* VerifyExistingWindowEx(WORKSPACE_INFO* Workspace, HWND WindowHandle)
+{
+
+	TILE_INFO* TileToRemove = NULL;
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+
+		TILE_TREE* CurrentTree = &KeyValue.second;
+
+		TileToRemove = VerifyExistingWindow(CurrentTree->Root, WindowHandle);
+
+		if (TileToRemove)
+			break;
+
+	}
+
+	return TileToRemove;
 
 }
 
@@ -3632,6 +3673,51 @@ VOID SetLayoutHorizontalEx()
 
 }
 
+VOID FocusMouseEx()
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	if (!Workspace->Tree || !Workspace->Tree->Root || !Workspace->Tree->Focus)
+		return;
+
+	POINT TargetPoint;
+
+	if (!GetCursorPos(&TargetPoint))
+		FailWithCode("GetCursorPos");
+
+	HWND TargetWindow = WindowFromPoint(TargetPoint);
+
+	if (!TargetWindow)
+		return;
+
+	TILE_INFO* TargetTile = VerifyExistingWindowEx(Workspace, TargetWindow);
+
+	if (!TargetTile)
+		return;
+
+	TILE_TREE* SrcTree = Workspace->Tree;
+	TILE_TREE* TargetTree = GetTileWindowTree(Workspace, TargetWindow);
+
+	if (!TargetTree)
+		return;
+
+	if (SrcTree == TargetTree)
+	{
+		Workspace->Tree->Focus = TargetTile;
+		RenderFocusWindowEx(Workspace);
+		return;
+	}
+
+	//Aww fuck MultiMonitor Support
+
+	Workspace->Tree = TargetTree;
+	Workspace->TileInFocus = TargetTile;
+	RenderStatusBar();
+	RenderFocusWindowEx(Workspace);
+
+
+}
+
 VOID HandleLeftEx()
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
@@ -4024,6 +4110,8 @@ VOID InitConfig()
 		ParseConfigEx("focus_right", HandleRightEx);
 		ParseConfigEx("focus_up", HandleUpEx);
 		ParseConfigEx("focus_down", HandleDownEx);
+
+		ParseConfigEx("focus_mouse", FocusMouseEx);
 
 		ParseConfigEx("swap_left", SwapLeftEx);
 		ParseConfigEx("swap_right", SwapRightEx);
