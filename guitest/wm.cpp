@@ -331,20 +331,6 @@ void LogEx(const char* Format, ...) {
 
 }
 
-
-VOID ShowTaskBar(BOOL SetTaskBar)
-{
-	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
-
-	if (!TrayWindow)
-		Fail((PCHAR)"Didn't Find TaskBar HWND");
-
-
-	ShowWindow(TrayWindow, SetTaskBar ? SW_SHOW : SW_HIDE);
-	UpdateWindow(TrayWindow);
-
-}
-
 const char* MakeFormatString(const char* Format, ...)
 {
 	char* StringMemory = (char*)malloc(1024);
@@ -361,32 +347,6 @@ const char* MakeFormatString(const char* Format, ...)
 
 }
 
-VOID EnterFullScreen()
-{
-
-	ShowTaskBar(TRUE);
-
-	WINDOWPLACEMENT NewPlacement = { 0 };
-	RECT FullScreenRect = { 0 };
-	POINT FullScreenPoint = { 0 };
-
-	SetRect(&FullScreenRect, 0, 0, GetSystemMetrics(SM_CXSCREEN),
-		GetSystemMetrics(SM_CYSCREEN));
-
-	NewPlacement.length = sizeof(WINDOWPLACEMENT);
-	NewPlacement.flags = WPF_ASYNCWINDOWPLACEMENT;
-	NewPlacement.showCmd = SW_SHOWNORMAL;
-	NewPlacement.ptMinPosition = FullScreenPoint;
-	NewPlacement.ptMaxPosition = FullScreenPoint;
-	NewPlacement.rcNormalPosition = FullScreenRect;
-
-	SetWindowPlacement(MainWindow, &NewPlacement);
-	SetWindowLongPtrA(MainWindow, GWL_STYLE, NULL_STYLE);
-
-}
-
-
-
 BOOL AppRunningCheck()
 {
 	DWORD LastError;
@@ -398,36 +358,6 @@ BOOL AppRunningCheck()
 
 	return Result;
 
-}
-
-
-
-
-
-VOID MainWindowToFore()
-{
-	HWND CurrentFgWindow;
-	DWORD FgThreadID;
-	DWORD CurrentThreadID;
-
-	CurrentFgWindow = GetForegroundWindow();
-	CurrentThreadID = GetCurrentThreadId();
-	GetWindowThreadProcessId(CurrentFgWindow, &FgThreadID);
-
-	AttachThreadInput(CurrentThreadID, FgThreadID, TRUE);
-	SetWindowPos(MainWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-	SetWindowPos(MainWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
-	SetForegroundWindow(MainWindow);
-	SetFocus(MainWindow);
-	SetActiveWindow(MainWindow);
-	AttachThreadInput(CurrentThreadID, FgThreadID, FALSE);
-	ShowWindow(MainWindow, SW_SHOW);
-
-}
-
-VOID MoveWindowToBack()
-{
-	SetWindowPos(MainWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
 }
 
 BOOL IsWindowRectVisible(HWND WindowHandle)
@@ -669,8 +599,6 @@ VOID SortTrays(HWND WindowHandle)
 			return;
 		}
 	}
-
-	Fail("Found no monitor for Tray Window?");
 
 }
 
@@ -3009,7 +2937,6 @@ VOID InstallNewWindowHook()
 
 VOID HandleWindowMessage(MSG* Message)
 {
-
 	HWND TargetWindow = (HWND)Message->lParam;
 
 	//The WindowHandle is being destroyed
@@ -3237,10 +3164,10 @@ VOID InitScreenGlobals()
 	for (auto& Display : DisplayList)
 	{
 
-		if (!Display.TrayWindow)
-			Fail("Missing Tray Window");
+		Display.TrayRect = { 0, 0, 0, 0 };
 
-		GetWindowRect(Display.TrayWindow, &Display.TrayRect);
+		if (Display.TrayWindow)
+			GetWindowRect(Display.TrayWindow, &Display.TrayRect);
 
 		Display.ScreenWidth = Display.Rect.right - Display.Rect.left;
 		Display.ScreenHeight = Display.Rect.bottom - Display.Rect.top;
@@ -3344,14 +3271,19 @@ VOID InitStatusBar()
 		RECT SearchBarRect;
 		DISPLAY_INFO* Display = &DisplayList[Idx];
 
+
+		if (!Display->TrayWindow)
+		{
+			SearchBarRect = { 0, Display->RealScreenHeight, 0, 0};
+		}
 		if (Display->Handle == PrimaryDisplay->Handle)
 		{
-			SearchBarWindow = FindWindowExW(TrayWindow, NULL, L"TrayDummySearchControl", NULL);
-			assert(SearchBarWindow);
+			SearchBarWindow = FindWindowExW(Display->TrayWindow, NULL, L"TrayDummySearchControl", NULL);
 			GetWindowRect(SearchBarWindow, &SearchBarRect);
 		}
 		else
 		{
+
 			SearchBarWindow = Display->TrayWindow;
 			assert(SearchBarWindow);
 			GetWindowRect(SearchBarWindow, &SearchBarRect);
@@ -4303,7 +4235,6 @@ VOID SetPWD()
 
 }
 
-
 VOID InitLua()
 {
 	// no lua script
@@ -4411,8 +4342,6 @@ VOID GetMonitors()
 		Count++;
 	}
 }
-
-
 
 INT main()
 {
