@@ -19,7 +19,7 @@ IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
-	UINT16 buildNumbers[] = { 10130, 10240, 14393 };
+	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
 	ULONGLONG mask = ::VerSetConditionMask(0, VER_BUILDNUMBER, VER_EQUAL);
 
@@ -63,6 +63,9 @@ const char* InitCom()
 
 	switch (buildNumber)
 	{
+	case 9200:
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_9200, (void**)&VDesktopManagerInternal);
+		break;
 	case 10130:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10130, (void**)&VDesktopManagerInternal);
 		break;
@@ -84,7 +87,7 @@ const char* InitCom()
 	return NULL;
 }
 
-HRESULT EnumVirtualDesktops(IVirtualDesktopManagerInternal* pDesktopManager)
+HRESULT EnumVirtualDesktops(HMONITOR Handle, IVirtualDesktopManagerInternal* pDesktopManager)
 {
 	printf("EnumDesktops\n");
 

@@ -3685,7 +3685,8 @@ VOID FocusMouseEx()
 	if (!GetCursorPos(&TargetPoint))
 		FailWithCode("GetCursorPos");
 
-	HWND TargetWindow = WindowFromPoint(TargetPoint);
+	HWND TargetUnknownWindow = WindowFromPoint(TargetPoint);
+	HWND TargetWindow = GetAncestor(TargetUnknownWindow, GA_ROOT);
 
 	if (!TargetWindow)
 		return;

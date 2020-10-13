@@ -114,6 +114,7 @@ DECLARE_INTERFACE_IID_(IApplicationView, IInspectable, "372E1D3B-38D3-42E4-A15B-
 
 EXTERN_C const IID IID_IVirtualDesktop;
 
+//MIDL_INTERFACE("C863F05A-1378-4F55-9F8C-6B4C00EA03FC")
 MIDL_INTERFACE("FF72FFDD-BE7E-43FC-9C03-AD81681E88E4")
 IVirtualDesktop : public IUnknown
 {
@@ -143,6 +144,10 @@ const IID UUID_IVirtualDesktopManagerInternal_10240{
 };
 const IID UUID_IVirtualDesktopManagerInternal_14393{
 	0xf31574d6, 0xb682, 0x4cdc, 0xbd, 0x56, 0x18, 0x27, 0x86, 0x0a, 0xbe, 0xc6
+};
+
+const IID UUID_IVirtualDesktopManagerInternal_9200{
+	0xb1ad6220, 0x8b03, 0x4345, 0xb9, 0xfd, 0xd8, 0xe6, 0xa8, 0xba, 0xab, 0xab
 };
 
 // 10130
