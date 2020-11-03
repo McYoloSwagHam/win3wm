@@ -19,7 +19,7 @@ IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
-	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200};
+	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
 	ULONGLONG mask = ::VerSetConditionMask(0, VER_BUILDNUMBER, VER_EQUAL);
 
@@ -61,10 +61,20 @@ const char* InitCom()
 
 	UINT16 buildNumber = GetWinBuildNumber();
 
+	//OSVERSIONINFOA InfoVersion;
+	//InfoVersion.dwOSVersionInfoSize = sizeof(InfoVersion);
+
+	////GetVersionEx(&InfoVersion);
+
+	//printf("%u\n", InfoVersion.dwBuildNumber);
+
 	switch (buildNumber)
 	{
-	case 9200:
+	case 18362:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_9200, (void**)&VDesktopManagerInternal);
+		break;
+	case 9200:
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, IID_IVirtualDesktopManagerInternalNew, (void**)&VDesktopManagerInternal);
 		break;
 	case 10130:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10130, (void**)&VDesktopManagerInternal);

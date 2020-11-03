@@ -16,8 +16,15 @@ const CLSID CLSID_ImmersiveShell = {
 const CLSID CLSID_VirtualDesktopAPI_Unknown = {
 	0xC5E0CDCA, 0x7B6E, 0x41B2, 0x9F, 0xC4, 0xD9, 0x39, 0x75, 0xCC, 0x46, 0x7B };
 
-const IID IID_IVirtualDesktopManagerInternal = {
-	0xEF9F1A6C, 0xD3CC, 0x4358, 0xB7, 0x12, 0xF8, 0x4B, 0x63, 0x5B, 0xEB, 0xE7 };
+
+//const CLSID guidObject = {0xa5cd92ff,0x29be,0x454c,0x8d,0x04,0xd8,0x28,0x79,0xfb,0x3f,0x1b};
+//GUID guidObject = {0xf31574d6,0xb682,0x4cdc,0xbd,0x56,0x18,0x27,0x86,0x0a,0xbe,0xc6};
+//const IID IID_IVirtualDesktopManagerInternal = {
+//	0xEF9F1A6C, 0xD3CC, 0x4358, 0xB7, 0x12, 0xF8, 0x4B, 0x63, 0x5B, 0xEB, 0xE7 };
+
+//F31574D6-B682-4CDC-BD56-1827860ABEC6
+const IID IID_IVirtualDesktopManagerInternalNew = {
+	0xF31574D6, 0xB682, 0x4CDC, 0xBD, 0x56, 0x18, 0x27, 0x86, 0x0A, 0xBE, 0xC6 };
 
 const CLSID CLSID_VirtualDesktopPinnedApps = {
 	0xb5a399e7, 0x1c87, 0x46b8, 0x88, 0xe9, 0xfc, 0x57, 0x47, 0xb1, 0x71, 0xbd
@@ -157,6 +164,7 @@ const IID UUID_IVirtualDesktopManagerInternal_9200{
 // 14393
 //MIDL_INTERFACE("f31574d6-b682-4cdc-bd56-1827860abec6")
 class IVirtualDesktopManagerInternal : public IUnknown
+//class IVirtualDesktopManagerInternal : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE GetCount(
@@ -386,15 +394,16 @@ struct TILE_TREE
 	BOOL NeedsRendering;
 	DISPLAY_INFO* Display;
 	NODE_TYPE Layout;
+	LONG_PTR FullScreenStyle;
 };
 
 struct WORKSPACE_INFO
 {
 	std::unordered_map<HMONITOR, TILE_TREE> Trees;
+	LONG_PTR FullScreenStyle;
 	TILE_TREE* Tree;
 	DISPLAY_INFO* Dsp;
 	TILE_INFO* TileInFocus;
-	LONG_PTR FullScreenStyle;
 	IVirtualDesktop* VDesktop;
 };
 

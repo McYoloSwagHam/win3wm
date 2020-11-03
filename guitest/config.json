@@ -54,9 +54,9 @@
 	"shutdown" : "t",
 
 	
-	"adjust_for_nc" : "y",
+	"adjust_for_nc" : "n",
 	"true_fullscreen" : "n",
-	"remove_titlebars_experimental" : "n",
+	"remove_titlebars_experimental" : "y",
 	"enable_logs" : "n",
 	
 	"gaps_enabled" : "y",

@@ -360,6 +360,20 @@ BOOL AppRunningCheck()
 
 }
 
+VOID FixFS(TILE_TREE* Tree)
+{
+	//Should be first because most common
+
+	// at the current moment this is the only change
+
+	if (Tree->IsFullScreen && IsFullScreenMax)
+	{
+		SetWindowLongPtrA(Tree->Focus->WindowHandle, GWL_STYLE, Tree->FullScreenStyle);
+		Tree->FullScreenStyle = NULL;
+	}
+
+}
+
 BOOL IsWindowRectVisible(HWND WindowHandle)
 {
 	RECT WindowRect;
@@ -1118,10 +1132,9 @@ VOID AddTileToWorkspace(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 
 	ResortTiles(Tree);
 
-
 	Tree->Focus = TileToAdd;
 	IsPressed = FALSE;
-
+	
 
 }
 
@@ -1320,7 +1333,6 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
 
 	LogEx("LinkNode : Tree->Display->Handle = %X\n", Tree->Display->Handle);
-
 	DISPLAY_INFO* Display = Tree->Display;
 
 	if (!Tree->Root)
@@ -1414,11 +1426,13 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 //Remove Title Bar from window, User Option.
 VOID RemoveTitleBar(HWND WindowHandle)
 {
-	LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+	BOOL RenderPolicy = FALSE;
+	DwmSetWindowAttribute(WindowHandle, DWMWA_ALLOW_NCPAINT,  &RenderPolicy, sizeof(RenderPolicy));
+	//LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
 
-	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
+	//WindowStyle &= ~WS_OVERLAPPEDWINDOW;
 
-	SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
+	//SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
 	
 }
 
@@ -1547,12 +1561,11 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 		ForceToForeground(WindowHandle);
 	}
 
-
 	RECT ClientRect;
 	PRECT TileRect = &Tile->Placement.rcNormalPosition;
+	HRESULT Result;
 
 	GetClientRect(WindowHandle, &ClientRect);
-
 
 	INT Width = ClientRect.right - ClientRect.left;
 	INT BorderSize = 5;
@@ -1565,6 +1578,7 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 	ClientRect.left += TopLeftClientArea.x;
 	ClientRect.top += TopLeftClientArea.y;
 	ClientRect.bottom += TopLeftClientArea.y;
+
 
 	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
 		FailWithCode("SetWindowPos Focus Window");
@@ -1666,7 +1680,7 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 		WINDOWPLACEMENT WndPlacement = { 0 };
 
 		WndPlacement.length = sizeof(WINDOWPLACEMENT);
-		WndPlacement.flags = 0;
+		WndPlacement.flags = WPF_ASYNCWINDOWPLACEMENT;
 		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
 
@@ -1736,8 +1750,8 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 		if (wcscmp(ClassName, L"ConsoleWindowClass"))
 			Height += (Display->TrayRect.bottom - Display->TrayRect.top);
 
-		Workspace->FullScreenStyle = GetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE);
-		SetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
+		Workspace->Tree->FullScreenStyle = GetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE);
+		SetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->Tree->FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
 
 
 	}
@@ -2444,6 +2458,9 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
 
+	if (!TargetWorkspace->Tree->FullScreenStyle)
+		FixFS(Workspace->Tree);
+
 	RemoveTileFromTree(Workspace->Tree, Node);
 
 	if (TreeHas(Root) && IsWorkspaceRootTile(Workspace->Tree))
@@ -2592,6 +2609,9 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	if (!Workspace->Tree->Root)
 		FailWithCode("realloc Tiles failed\n");
+
+	if (IsFullScreenMax && Workspace->Tree->IsFullScreen)
+		FixFS(Workspace->Tree);
 
 	AddTileToWorkspace(Workspace->Tree, TileToAdd);
 	LogEx("Rendering Workspace for New Window (%X)\n", TileToAdd->WindowHandle);
@@ -3474,8 +3494,6 @@ VOID DestroyTileEx()
 	if (!TreeHas(Focus))
 		return;
 
-	Workspace->Tree->IsFullScreen;
-
 	SendMessage(Workspace->Tree->Focus->WindowHandle, WM_CLOSE, 0, 0);
 
 	if (GetParent(Workspace->Tree->Focus->WindowHandle))
@@ -3648,10 +3666,10 @@ VOID GoFullscreenEx()
 	else
 		Workspace->Tree->IsFullScreen = FALSE;
 
-	if (Workspace->Tree->Focus && Workspace->FullScreenStyle)
+	if (Workspace->Tree->Focus && Workspace->Tree->FullScreenStyle)
 	{
-		SetWindowLongPtr(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->FullScreenStyle);
-		Workspace->FullScreenStyle = NULL;
+		SetWindowLongPtr(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->Tree->FullScreenStyle);
+		Workspace->Tree->FullScreenStyle = NULL;
 	}
 
 
@@ -3869,6 +3887,9 @@ VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcH
 	NewNode->WindowHandle = Node->WindowHandle;
 	NewNode->PreWMInfo = Node->PreWMInfo;
 	NewNode->IsDisplayChanged = TRUE;
+
+	if (!DstTree->IsFullScreen)
+		FixFS(DstTree);
 
 	RemoveTileFromTree(SrcTree, Node);
 	if (SrcTree->Root && IsWorkspaceRootTile(SrcTree))
