@@ -2407,16 +2407,20 @@ VOID HandleShutdown()
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
 
-	NotifyData.hWnd = NotifWindow;
 	NotifyData.cbSize = sizeof(NotifyData);
+	NotifyData.hWnd = NotifWindow;
+	NotifyData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 	NotifyData.uID = 69;
+	NotifyData.uCallbackMessage = WM_APP;
 
-	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+	DWORD LastWord = Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+
+	printf("%u", LastWord);
 
 	for (int i = 2; i < WorkspaceList.size(); i++)
 		if (WorkspaceList[i].VDesktop)
 		{
-			HRESULT Result = VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
+			HRESULT Result = VDesktopWrapper.RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
 
 			if (FAILED(Result))
 				MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
@@ -2427,7 +2431,13 @@ VOID HandleShutdown()
 		WorkspaceList[1].VDesktop->Release();
 
 	ViewCollection->Release();
-	VDesktopManagerInternal->Release();
+
+	if (VDesktopManagerInternal)
+		VDesktopManagerInternal->Release();
+
+	if (VDesktopManagerInternalNew)
+		VDesktopManagerInternalNew->Release();
+
 	VDesktopManager->Release();
 	ServiceProvider->Release();
 
