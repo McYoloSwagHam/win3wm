@@ -498,6 +498,7 @@ struct TILE_INFO
 	WINDOWPLACEMENT Placement;
 	BOOL IsDisplayChanged;
 	BOOL IsRemovedTitleBar;
+	BOOL IsConsole;
 };
 
 struct DISPLAY_INFO

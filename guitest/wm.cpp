@@ -365,7 +365,6 @@ BOOL AppRunningCheck()
 VOID FixFS(TILE_TREE* Tree)
 {
 	//Should be first because most common
-
 	// at the current moment this is the only change
 
 	if (Tree->IsFullScreen && IsFullScreenMax)
@@ -1425,17 +1424,19 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 
 VOID RestoreTitleBar(TILE_INFO* Tile)
 {
+	Tile->IsRemovedTitleBar = FALSE;
 	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
 }
 
 
 
 //Remove Title Bar from window, User Option.
-VOID RemoveTitleBar(HWND WindowHandle)
+VOID RemoveTitleBar(TILE_INFO* Tile)
 {
-	LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+	Tile->IsRemovedTitleBar = TRUE;
+	LONG_PTR WindowStyle = GetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE);
 	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
-	SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
+	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, WindowStyle);
 	
 }
 
@@ -1757,13 +1758,12 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 		WCHAR ClassName[1024] = { 0 };
 		GetClassNameW(Workspace->Tree->Focus->WindowHandle, ClassName, 1024);
 		
+		if (!Workspace->Tree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(Workspace->Tree->Focus);
+
 		//If not Console Window
-		if (wcscmp(ClassName, L"ConsoleWindowClass"))
+		if (!Workspace->Tree->Focus->IsConsole)
 			Height += (Display->TrayRect.bottom - Display->TrayRect.top);
-
-		Workspace->Tree->FullScreenStyle = GetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE);
-		SetWindowLongPtrA(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->Tree->FullScreenStyle & ~WS_OVERLAPPEDWINDOW);
-
 
 	}
 
@@ -2017,7 +2017,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 	}
 
 	RenderStatusBar();
-	RenderFocusWindowEx(Workspace);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 	LogEx("Finished Rendering Workspace : %u\n", WorkspaceNumber);
 
 }
@@ -2317,7 +2317,7 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	{
 	}
 
-	RenderFocusWindowEx(Workspace);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	//The first time you switch to a VDesktop it minizimes all windows
 	//Unless you render the desktop during the switch, for every workspace
@@ -2478,8 +2478,18 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
 
-	if (!TargetWorkspace->Tree->FullScreenStyle)
-		FixFS(Workspace->Tree);
+	if (TargetWorkspace->Tree->IsFullScreen &&
+		IsFullScreenMax)
+	{
+		if (!Workspace->Tree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(Workspace->Tree->Focus);
+
+		if (TargetWorkspace->Tree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(TargetWorkspace->Tree->Focus);
+
+	}
+
+
 
 	RemoveTileFromTree(Workspace->Tree, Node);
 
@@ -2594,6 +2604,19 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		return;
 	}
 
+
+	if (!(!IsIgnoreWindow(WindowHandle) &&
+		!HasParentOrPopup(WindowHandle) &&
+		!IsOwned(WindowHandle) &&
+		IsWindowVisible(WindowHandle) &&
+		IsWindowRectVisible(WindowHandle) &&
+		!IsWindowCloaked(WindowHandle) &&
+		!TransparentWindow(WindowHandle)))
+	{
+		LogEx("Invalid-Window : %X\n", WindowHandle);
+		return;
+	}
+
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
 	if (GetWindowCount(Workspace) > 2)
@@ -2602,8 +2625,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	CanSwitch = FALSE;
 
-	if (ShouldRemoveTitleBars)
-		RemoveTitleBar(WindowHandle);
+	//if (ShouldRemoveTitleBars)
+	//	RemoveTitleBar();
 
 	InstallWindowSizeHook();
 	GetRidOfFade(WindowHandle);
@@ -2630,8 +2653,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	if (!Workspace->Tree->Root)
 		FailWithCode("realloc Tiles failed\n");
 
-	if (IsFullScreenMax && Workspace->Tree->IsFullScreen)
-		FixFS(Workspace->Tree);
+	//if (IsFullScreenMax && Workspace->Tree->IsFullScreen)
+	//	FixFS(Workspace->Tree);
 
 	AddTileToWorkspace(Workspace->Tree, TileToAdd);
 	LogEx("Rendering Workspace for New Window (%X)\n", TileToAdd->WindowHandle);
@@ -3686,12 +3709,8 @@ VOID GoFullscreenEx()
 	else
 		Workspace->Tree->IsFullScreen = FALSE;
 
-	if (Workspace->Tree->Focus && Workspace->Tree->FullScreenStyle)
-	{
-		SetWindowLongPtr(Workspace->Tree->Focus->WindowHandle, GWL_STYLE, Workspace->Tree->FullScreenStyle);
-		Workspace->Tree->FullScreenStyle = NULL;
-	}
-
+	if (Workspace->Tree->Focus->IsRemovedTitleBar)
+		RestoreTitleBar(Workspace->Tree->Focus);
 
 	Workspace->Tree->NeedsRendering = TRUE;
 	RenderWorkspace(CurWk);
@@ -3743,7 +3762,7 @@ VOID FocusMouseEx()
 	if (SrcTree == TargetTree)
 	{
 		Workspace->Tree->Focus = TargetTile;
-		RenderFocusWindowEx(Workspace);
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 		return;
 	}
 
@@ -3752,7 +3771,7 @@ VOID FocusMouseEx()
 	Workspace->Tree = TargetTree;
 	Workspace->TileInFocus = TargetTile;
 	RenderStatusBar();
-	RenderFocusWindowEx(Workspace);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 
 }
@@ -3908,8 +3927,15 @@ VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcH
 	NewNode->PreWMInfo = Node->PreWMInfo;
 	NewNode->IsDisplayChanged = TRUE;
 
-	if (!DstTree->IsFullScreen)
-		FixFS(DstTree);
+	if (!DstTree->IsFullScreen && IsFullScreenMax && !SrcTree->Focus->IsRemovedTitleBar)
+	{
+		RemoveTitleBar(SrcTree->Focus);
+
+		if (DstTree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(DstTree->Focus);
+	}
+
+
 
 	RemoveTileFromTree(SrcTree, Node);
 	if (SrcTree->Root && IsWorkspaceRootTile(SrcTree))
@@ -3998,7 +4024,7 @@ VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 		Workspace->Dsp = &DisplayList[DispIdx - 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
-		RenderFocusWindowEx(Workspace);
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 		if (RetEarly)
 			return;
 	}
@@ -4028,7 +4054,7 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 		Workspace->Dsp = &DisplayList[DispIdx + 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
-		RenderFocusWindowEx(Workspace);
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 		if (RetEarly)
 			return;
@@ -4043,17 +4069,11 @@ VOID RemoveTitleBarEx()
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* Tile = Workspace->Tree->Focus;
-
-	if (!Tile->IsRemovedTitleBar) 
-	{
-		RemoveTitleBar(Tile->WindowHandle);
-		Tile->IsRemovedTitleBar = TRUE;
-	}
+	
+	if (!Tile->IsRemovedTitleBar)
+		RemoveTitleBar(Tile);
 	else 
-	{
 		RestoreTitleBar(Tile);
-		Tile->IsRemovedTitleBar = FALSE;
-	}
 
 }
 

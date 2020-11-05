@@ -57,7 +57,7 @@
 
 	
 	"adjust_for_nc" : "n",
-	"true_fullscreen" : "n",
+	"true_fullscreen" : "y",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
 	
