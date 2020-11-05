@@ -26,6 +26,10 @@ const CLSID CLSID_VirtualDesktopAPI_Unknown = {
 const IID IID_IVirtualDesktopManagerInternalNew = {
 	0xF31574D6, 0xB682, 0x4CDC, 0xBD, 0x56, 0x18, 0x27, 0x86, 0x0A, 0xBE, 0xC6 };
 
+const IID UIID_IVirtualDesktopWinPreview = {
+	0x094afe11,0x44f2,0x4ba0,0x97,0x6f,0x29,0xa9,0x7e,0x26,0x3e,0xe0
+};
+
 const CLSID CLSID_VirtualDesktopPinnedApps = {
 	0xb5a399e7, 0x1c87, 0x46b8, 0x88, 0xe9, 0xfc, 0x57, 0x47, 0xb1, 0x71, 0xbd
 };
@@ -119,11 +123,23 @@ DECLARE_INTERFACE_IID_(IApplicationView, IInspectable, "372E1D3B-38D3-42E4-A15B-
 
 // ??????????? ????
 
+const IID IID_VDESKTOP = {
+0xFF72FFDD, 0xBE7E, 0x43FC, 0x9C, 0x03, 0xAD, 0x81, 0x68, 0x1E, 0x88, 0xE4
+};
+
+const IID IID_VDESKTOP_INSIDER = {
+0x62fdf88b, 0x11ca, 0x4afb, 0x8b, 0xd8, 0x22, 0x96, 0xdf, 0xae, 0x49, 0xe2
+};
+
+//const IID IID_VDESKTOP_INSIDER = {
+//0xC90250F3,0x4D7D, 0x4991, 0x9B69, 0xA5, 0xC5, 0xBC, 0x1C, 0x2A, 0xE6
+//};
+
 EXTERN_C const IID IID_IVirtualDesktop;
 
 //MIDL_INTERFACE("C863F05A-1378-4F55-9F8C-6B4C00EA03FC")
-MIDL_INTERFACE("FF72FFDD-BE7E-43FC-9C03-AD81681E88E4")
-IVirtualDesktop : public IUnknown
+//MIDL_INTERFACE("FF72FFDD-BE7E-43FC-9C03-AD81681E88E4")
+class IVirtualDesktop : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE IsViewVisible(
@@ -156,6 +172,30 @@ const IID UUID_IVirtualDesktopManagerInternal_14393{
 const IID UUID_IVirtualDesktopManagerInternal_9200{
 	0xb1ad6220, 0x8b03, 0x4345, 0xb9, 0xfd, 0xd8, 0xe6, 0xa8, 0xba, 0xab, 0xab
 };
+
+
+
+//MIDL_INTERFACE("094AFE11-44F2-4BA0-976F-29A97E263EE0")
+class IVirtualDesktopManagerInternalNew : public IUnknown
+//class IVirtualDesktopManagerInternal : public IUnknown
+{
+	public: 
+		virtual HRESULT __stdcall Proc3( PVOID* p0,  int64_t* p1);
+		virtual HRESULT __stdcall MoveViewToDesktop( IApplicationView* p0,  IVirtualDesktop* p1);
+		virtual HRESULT __stdcall Proc5( IApplicationView* p0,  int64_t* p1);
+		virtual HRESULT __stdcall Proc6( PVOID* p0,  IVirtualDesktop** p1);
+		virtual HRESULT __stdcall GetDesktops( PVOID* p0,  IObjectArray** p1);
+		virtual HRESULT __stdcall Proc8( IVirtualDesktop* p0,  int64_t p1,  IVirtualDesktop** p2);
+		virtual HRESULT __stdcall SwitchDesktop( PVOID* p0,  IVirtualDesktop* p1);
+		virtual HRESULT __stdcall CreateDesktopW( PVOID* p0,  IVirtualDesktop** p1);
+		virtual HRESULT __stdcall RemoveDesktop( IVirtualDesktop* p0,  IVirtualDesktop* p1);
+		virtual HRESULT __stdcall Proc12( GUID* p0,  IVirtualDesktop** p1);
+		virtual HRESULT __stdcall Proc13( IVirtualDesktop* p0,  IObjectArray** p1,  IObjectArray** p2);
+		virtual HRESULT __stdcall Proc14( IVirtualDesktop* p0,  PVOID* p1);
+		virtual HRESULT __stdcall Proc15( IApplicationView* p0,  IApplicationView* p1);
+		virtual HRESULT __stdcall Proc16( int64_t* p0);
+};
+
 
 // 10130
 //MIDL_INTERFACE("EF9F1A6C-D3CC-4358-B712-F84B635BEBE7")
@@ -206,6 +246,95 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE FindDesktop(
 		GUID* desktopId,
 		IVirtualDesktop** ppDesktop) = 0;
+};
+
+
+struct VirtualDesktopWrapper {
+
+	BOOL IsPreviewBuild;
+	IVirtualDesktopManagerInternalNew*  VDesktopManagerInternalInsider;
+	IVirtualDesktopManagerInternal*  VDesktopManagerInternal;
+	IID CurrentIID;
+
+	VirtualDesktopWrapper(PVOID VDesktopManager, BOOL IsPreviewBuild) {
+
+		this->IsPreviewBuild = IsPreviewBuild;
+
+		if (this->IsPreviewBuild) 
+		{
+			VDesktopManagerInternalInsider = (IVirtualDesktopManagerInternalNew*)VDesktopManager;
+			VDesktopManagerInternal = NULL;
+			CurrentIID = IID_VDESKTOP_INSIDER;
+		}
+		else 
+		{
+			VDesktopManagerInternal = (IVirtualDesktopManagerInternal*)VDesktopManager;
+			VDesktopManagerInternalInsider = NULL;
+			CurrentIID = IID_VDESKTOP;
+		}
+	}
+
+	HRESULT MoveViewToDesktop(IApplicationView* TargetView, IVirtualDesktop* TargetDesktop) {
+
+		HRESULT Result;
+
+		if (this->IsPreviewBuild)
+			Result = VDesktopManagerInternalInsider->MoveViewToDesktop(TargetView, TargetDesktop);
+		else
+			Result = VDesktopManagerInternal->MoveViewToDesktop(TargetView, TargetDesktop);
+
+		return Result;
+	}
+
+	HRESULT CreateDesktopW(IVirtualDesktop** VirtualDesktop) {
+
+		HRESULT Result;
+
+		if (this->IsPreviewBuild)
+			Result = VDesktopManagerInternalInsider->CreateDesktopW(NULL, VirtualDesktop);
+		else
+			Result = VDesktopManagerInternal->CreateDesktopW(VirtualDesktop);
+
+		return Result;
+	}
+
+	HRESULT SwitchDesktop(IVirtualDesktop* VirtualDesktop) {
+		HRESULT Result;
+
+		if (this->IsPreviewBuild)
+			Result = VDesktopManagerInternalInsider->SwitchDesktop(NULL, VirtualDesktop);
+		else
+			Result = VDesktopManagerInternal->SwitchDesktop(VirtualDesktop);
+
+		return Result;
+
+	}
+
+	HRESULT GetDesktops(IObjectArray** ObjectArray) {
+
+		HRESULT Result;
+
+		if (this->IsPreviewBuild)
+			Result = VDesktopManagerInternalInsider->GetDesktops(NULL, ObjectArray);
+		else
+			Result = VDesktopManagerInternal->GetDesktops(ObjectArray);
+
+		return Result;
+	}
+
+	HRESULT RemoveDesktop(IVirtualDesktop* Desktop, IVirtualDesktop* Fallback) {
+
+		HRESULT Result;
+
+		if (this->IsPreviewBuild)
+			Result = VDesktopManagerInternalInsider->RemoveDesktop(Desktop, Fallback);
+		else
+			Result = VDesktopManagerInternal->RemoveDesktop(Desktop, Fallback);
+
+		return Result;
+
+	}
+
 };
 
 EXTERN_C const IID IID_IVirtualDesktopManager;
@@ -327,8 +456,8 @@ enum NODE_TYPE
 
  struct PRE_WM_INFO
 {
-	LONG_PTR WS_STYLE;
-	LONG_PTR WS_EX_STYLE;
+	LONG_PTR Style;
+	LONG_PTR ExStyle;
 	WINDOWPLACEMENT OldPlacement;
 
 };
@@ -368,6 +497,7 @@ struct TILE_INFO
 	TILE_INFO *BranchParent;
 	WINDOWPLACEMENT Placement;
 	BOOL IsDisplayChanged;
+	BOOL IsRemovedTitleBar;
 };
 
 struct DISPLAY_INFO

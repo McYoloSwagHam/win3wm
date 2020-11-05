@@ -12,9 +12,11 @@
 IServiceProvider* ServiceProvider;
 IVirtualDesktopManager* VDesktopManager;
 IVirtualDesktopManagerInternal* VDesktopManagerInternal;
+IVirtualDesktopManagerInternalNew* VDesktopManagerInternalNew;
 IVirtualDesktop* VWorkspaces[10];
 IVirtualDesktop* FirstDesktop;
 IApplicationViewCollection* ViewCollection;
+VirtualDesktopWrapper VDesktopWrapper(FALSE, NULL);
 IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
@@ -67,6 +69,7 @@ const char* InitCom()
 	////GetVersionEx(&InfoVersion);
 
 	//printf("%u\n", InfoVersion.dwBuildNumber);
+	BOOL IsPreviewBuild = FALSE;
 
 	switch (buildNumber)
 	{
@@ -74,7 +77,8 @@ const char* InitCom()
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_9200, (void**)&VDesktopManagerInternal);
 		break;
 	case 9200:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, IID_IVirtualDesktopManagerInternalNew, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview, (void**)&VDesktopManagerInternalNew);
+		IsPreviewBuild = TRUE;
 		break;
 	case 10130:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10130, (void**)&VDesktopManagerInternal);
@@ -91,13 +95,26 @@ const char* InitCom()
 	if (FAILED(hr))
 		return "QueryService VDM";
 
-	if (!VDesktopManagerInternal)
+	if (!VDesktopManagerInternal && !VDesktopManagerInternalNew)
 		return "PinnedApps";
+
+	if (IsPreviewBuild) 
+	{
+		VDesktopWrapper.IsPreviewBuild = IsPreviewBuild;
+		VDesktopWrapper.VDesktopManagerInternalInsider = VDesktopManagerInternalNew;
+		VDesktopWrapper.CurrentIID = IID_VDESKTOP_INSIDER;
+	}
+	else 
+	{
+		VDesktopWrapper.IsPreviewBuild = IsPreviewBuild;
+		VDesktopWrapper.VDesktopManagerInternal = VDesktopManagerInternal;
+		VDesktopWrapper.CurrentIID = IID_VDESKTOP_INSIDER;
+	}
 
 	return NULL;
 }
 
-HRESULT EnumVirtualDesktops(HMONITOR Handle, IVirtualDesktopManagerInternal* pDesktopManager)
+HRESULT EnumVirtualDesktops(HMONITOR Handle, VirtualDesktopWrapper* pDesktopManager)
 {
 	printf("EnumDesktops\n");
 
@@ -117,7 +134,7 @@ HRESULT EnumVirtualDesktops(HMONITOR Handle, IVirtualDesktopManagerInternal* pDe
 			{
 				IVirtualDesktop* pDesktop = nullptr;
 
-				if (FAILED(pObjectArray->GetAt(i, __uuidof(IVirtualDesktop), (void**)&pDesktop)))
+				if (FAILED(pObjectArray->GetAt(i, VDesktopWrapper.CurrentIID, (void**)&pDesktop)))
 					continue;
 
 				GUID id = { 0 };
@@ -146,7 +163,7 @@ const char* RemoveOtherVDesktops()
 	IObjectArray* DesktopObjectArray;
 	HRESULT hr;
 
-	hr = VDesktopManagerInternal->GetDesktops(&DesktopObjectArray);
+	hr = VDesktopWrapper.GetDesktops(&DesktopObjectArray);
 
 	if (FAILED(hr))
 		return "DesktopObjectArray";
@@ -156,17 +173,17 @@ const char* RemoveOtherVDesktops()
 	if (FAILED(DesktopObjectArray->GetCount(&NumDesktops)))
 		return "NumDesktops";
 
-	if (FAILED(DesktopObjectArray->GetAt(0, __uuidof(IVirtualDesktop), (PVOID*)&FirstDesktop)))
+	if (FAILED(DesktopObjectArray->GetAt(0, VDesktopWrapper.CurrentIID, (PVOID*)&FirstDesktop)))
 		return "No FirstDesktop.";
 
 	IVirtualDesktop* CurrentDesktop = NULL;
 	for (unsigned int i = 1; i < NumDesktops && i < 255; i++)
 	{
 	
-		if (FAILED(DesktopObjectArray->GetAt(i, __uuidof(IVirtualDesktop), (PVOID*)&CurrentDesktop)))
+		if (FAILED(DesktopObjectArray->GetAt(i, VDesktopWrapper.CurrentIID, (PVOID*)&CurrentDesktop)))
 			return "DesktopObjectArray->GetAt";
 
-		VDesktopManagerInternal->RemoveDesktop(CurrentDesktop, FirstDesktop);
+		VDesktopWrapper.RemoveDesktop(CurrentDesktop, FirstDesktop);
 
 	}
 
@@ -182,8 +199,7 @@ const char* SetupVDesktops(std::vector<WORKSPACE_INFO>& WorkspaceList)
 	for (int i = 2; i < WorkspaceList.size(); i++)
 	{
 		HRESULT Hr;
-		Hr = VDesktopManagerInternal->CreateDesktopW(&WorkspaceList[i].VDesktop);
-		
+		Hr = VDesktopWrapper.CreateDesktopW(&WorkspaceList[i].VDesktop); 
 		if (FAILED(Hr) || !WorkspaceList[i].VDesktop)
 			return "CreateDesktopW";
 	}
@@ -202,7 +218,7 @@ const char* MoveWindowToVDesktop(HWND WindowHandle, IVirtualDesktop* VDesktop)
 	if (FAILED(Result))
 		return "GetViewForHwnd";
 
-	Result = VDesktopManagerInternal->MoveViewToDesktop(ApplicationView, VDesktop);
+	Result = VDesktopWrapper.MoveViewToDesktop(ApplicationView, VDesktop);
 
 	ApplicationView->Release();
 
@@ -261,7 +277,7 @@ const char* CheckAppPinned(HWND WindowHandle, BOOL* IsPinned)
 const char* SwitchToWorkspace(WORKSPACE_INFO* Workspace)
 {
 	
-	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
+	HRESULT Result = VDesktopWrapper.SwitchDesktop(Workspace->VDesktop);
 
 	if (FAILED(Result))
 		return "SwitchToWorkspace";

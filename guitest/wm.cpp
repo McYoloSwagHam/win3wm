@@ -13,6 +13,8 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <shlobj.h>
+
+#include <future>
 #include <locale>
 #include <codecvt>
 #include <chrono>
@@ -634,8 +636,8 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		TILE_INFO TileInfo = { 0 };
 
 		TileInfo.WindowHandle = WindowHandle;
-		TileInfo.PreWMInfo.WS_STYLE = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
-		TileInfo.PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
+		TileInfo.PreWMInfo.Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+		TileInfo.PreWMInfo.ExStyle = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
 		TileInfo.PreWMInfo.OldPlacement.length = sizeof(WINDOWPLACEMENT);
 
 
@@ -1421,18 +1423,19 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 
 }
 
+VOID RestoreTitleBar(TILE_INFO* Tile)
+{
+	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+}
+
 
 
 //Remove Title Bar from window, User Option.
 VOID RemoveTitleBar(HWND WindowHandle)
 {
-	BOOL RenderPolicy = FALSE;
-	DwmSetWindowAttribute(WindowHandle, DWMWA_ALLOW_NCPAINT,  &RenderPolicy, sizeof(RenderPolicy));
-	//LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
-
-	//WindowStyle &= ~WS_OVERLAPPEDWINDOW;
-
-	//SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
+	LONG_PTR WindowStyle = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
+	SetWindowLongPtrA(WindowHandle, GWL_STYLE, WindowStyle);
 	
 }
 
@@ -1500,11 +1503,8 @@ VOID PerformInitialRegroupring()
 			*TileToAdd = *CurrentTileInfo;
 			TileToAdd->BranchTile = NULL;
 
-			TileToAdd->PreWMInfo.WS_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
-			TileToAdd->PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
-
-			if (ShouldRemoveTitleBars)
-				RemoveTitleBar(TileToAdd->WindowHandle);
+			TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+			TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
 			if (!IsOnPrimaryDisplay(TileToAdd))
 			{
@@ -1590,14 +1590,25 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 
 }
 
+
 VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 {
+
+	Sleep(150);
+
 	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
 		RenderFocusWindow(Workspace->Tree->Focus);
 	else
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 }
 
+DWORD RenderFocusWindowExThread(PVOID Workspace) {
+
+	RenderFocusWindowEx((WORKSPACE_INFO*)Workspace);
+
+	return 0;
+	
+}
 
 VOID AdjustForGaps(RECT* PrintRect, DISPLAY_INFO* Display)
 {
@@ -2323,7 +2334,7 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 
 	RenderWorkspace(WorkspaceNumber);
 
-	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
+	HRESULT Result = VDesktopWrapper.SwitchDesktop(Workspace->VDesktop);
 
 	if (TreeHas(Focus))
 		ForceToForeground(Workspace->Tree->Focus->WindowHandle);
@@ -2342,8 +2353,8 @@ VOID Restore(TILE_INFO* Tile)
 		if (Tile->BranchTile)
 			Restore(Tile->BranchTile);
 
-		SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.WS_STYLE);
-		SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.WS_EX_STYLE);
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
 	}
 }
 
@@ -2362,8 +2373,8 @@ VOID RestoreEx()
 				if (Tile->BranchTile)
 					Restore(Tile->BranchTile);
 
-				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.WS_STYLE);
-				SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.WS_EX_STYLE);
+				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+				SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
 			}
 		}
 	}
@@ -2595,8 +2606,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 	TileToAdd->WindowHandle = WindowHandle;
-	TileToAdd->PreWMInfo.WS_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
-	TileToAdd->PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
+	TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+	TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
 	if (Workspace->Tree->Display->Handle != PrimaryDisplay->Handle)
 		TileToAdd->IsDisplayChanged = TRUE;
@@ -2708,7 +2719,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	RemoveTileFromTree(Workspace->Tree, TileToRemove);
 	RenderWorkspace(CurWk);
 
-	RenderFocusWindowEx(Workspace);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	LuaDispatchEx("on_destroy_window", (PVOID)WindowHandle);
 
@@ -4018,6 +4029,26 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 
 }
 
+VOID RemoveTitleBarEx() 
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	TILE_INFO* Tile = Workspace->Tree->Focus;
+
+	if (!Tile->IsRemovedTitleBar) 
+	{
+		RemoveTitleBar(Tile->WindowHandle);
+		Tile->IsRemovedTitleBar = TRUE;
+	}
+	else 
+	{
+		RestoreTitleBar(Tile);
+		Tile->IsRemovedTitleBar = FALSE;
+	}
+
+}
+
+
 VOID MoveMonitorLeftEx()
 {
 	MoveMonitorLeft(FALSE, TRUE);
@@ -4163,6 +4194,8 @@ VOID InitConfig()
 
 		ParseConfigEx("carry_left", CarryMonitorLeftEx);
 		ParseConfigEx("carry_right", CarryMonitorRightEx);
+
+		ParseConfigEx("remove_titlebar", RemoveTitleBarEx);
 			
 		ParseModifier(GetJsonEx("modifier"));
 
@@ -4182,6 +4215,7 @@ VOID InitConfig()
 		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
 		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
+		//ParseBoolOptionEx(GetJsonEx("remove_titlebar"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		ParseBoolOptionEx(GetJsonEx("enable_logs"), &ShouldLog);
 

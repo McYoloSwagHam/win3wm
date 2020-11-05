@@ -33,7 +33,9 @@
 	"focus_up" : "up",
 	"focus_down" : "down",
 
-  "focus_mouse" :  "q",
+	"remove_titlebar" : "g",
+
+	"focus_mouse" :  "q",
 	
 	"swap_left" : "shift+left",
 	"swap_right" : "shift+right",
@@ -49,14 +51,14 @@
 	"move_monitor_left" : "shift+n",
 	"move_monitor_right" : "shift+m",
 
-  "carry_left" :  "shift+v",
+	"carry_left" :  "shift+v",
 	"carry_right" :  "shift+b",
 	"shutdown" : "t",
 
 	
 	"adjust_for_nc" : "n",
 	"true_fullscreen" : "n",
-	"remove_titlebars_experimental" : "y",
+	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
 	
 	"gaps_enabled" : "y",
