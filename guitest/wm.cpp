@@ -2374,7 +2374,6 @@ VOID RestoreEx()
 					Restore(Tile->BranchTile);
 
 				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
-				SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
 			}
 		}
 	}
@@ -2402,7 +2401,7 @@ VOID HandleShutdown()
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
 
-	//RestoreEx();
+	RestoreEx();
 
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
