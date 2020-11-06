@@ -1,0 +1,20 @@
+﻿<Window x:Class="WinWMGUI.MainWindow"
+        xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WinWMGUI"
+        mc:Ignorable="d"
+        Title="WinWM" Height="151.601" Width="360.441">
+    <StackPanel Margin="0,0,0,5">
+        <StackPanel Margin="5, 5, 5, 0">
+            <TextBlock Text="License-Activation" FontWeight="Bold" FontSize="19"></TextBlock>
+            <TextBlock Text="Copyright @ Ayaz Mammadov 2020" FontSize="12"></TextBlock>
+            <TextBox x:Name="UserBox" Foreground="#888888" Margin="0, 10, 0,0">license</TextBox>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="50" Height="30" Margin="0, 5, 5, 0" Click="ButtonHandler">Activate</Button>
+        </StackPanel>
+    </StackPanel>
+</Window>

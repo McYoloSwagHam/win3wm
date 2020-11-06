@@ -164,6 +164,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="license_gui.cpp" />
     <ClCompile Include="list.cpp" />
     <ClCompile Include="SG_InputBox.cpp" />
     <ClCompile Include="stdafx.cpp" />
@@ -174,6 +175,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="license_gui.h" />
     <ClInclude Include="lua.hpp" />
     <ClInclude Include="resource3.h" />
     <ClInclude Include="SG_InputBox.h" />

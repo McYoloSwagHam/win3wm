@@ -48,6 +48,9 @@
     <ClCompile Include="wm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="license_gui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource3.h">
@@ -82,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="statusbar.hpp">
       <Filter>Source Files\VDesktops</Filter>
+    </ClInclude>
+    <ClInclude Include="license_gui.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

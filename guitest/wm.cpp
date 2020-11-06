@@ -23,6 +23,7 @@
 #include "resource3.h"
 #include "SG_InputBox.h"
 #include "VDesktops.h"
+#include "license_gui.h"
 
 #define SOL_ALL_SAFETIES_ON 1
 
@@ -4372,13 +4373,12 @@ BOOL VerifyLicense()
 		return FALSE;
 	}
 
-	LPSTR result = SG_InputBox::GetString("WinWM", "Please Enter the WinWM License\nCopyright Ayaz Mammadov 2020", "");
+	const char* LastError = AskLicenseSpawn();
 
+	if (LastError)
+		Fail(LastError);
 
-	if (!strlen(result))
-		TerminateProcess(GetCurrentProcess(), 369);
-
-	if (strcmp(result, "athk3kf459idxz"))
+	if (strcmp(UserBuffer, "athk3kf459idxz"))
 		TerminateProcess(GetCurrentProcess(), 369);
 
 	HANDLE LicenseFile = CreateFileW(LicensePath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
