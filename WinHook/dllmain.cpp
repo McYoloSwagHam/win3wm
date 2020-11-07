@@ -76,23 +76,6 @@ VOID OnDestroyWindow(WPARAM WParam, LPARAM LParam)
 	
 }
 
-VOID OnMonitorChanged(WPARAM WParam, LPARAM LParam)
-{
-
-	HWND ChangedHwnd = (HWND)LParam;
-
-	if (!MainWin3WMWindow)
-	{
-		MainWin3WMWindow = FindWindowA("Win3wmWindow", "Win3wm");
-		
-		if (!MainWin3WMWindow)
-			FailWithCode("Couldn't find main Win3WM window");
-	}
-
-	PostMessageA(MainWin3WMWindow, WM_TILE_CHANGED, TRUE, (LPARAM)ChangedHwnd);
-	
-}
-
 extern "C" __declspec(dllexport) LRESULT CALLBACK OnWindowAction(int nCode, WPARAM WParam, LPARAM LParam)
 {
 	if (nCode < 0)
@@ -105,9 +88,6 @@ extern "C" __declspec(dllexport) LRESULT CALLBACK OnWindowAction(int nCode, WPAR
 			break;
 		case HSHELL_WINDOWCREATED:
 			OnNewWindow(WParam, LParam);
-			break;
-		case HSHELL_MONITORCHANGED:
-			OnMonitorChanged(WParam, LParam);
 			break;
 	}
 

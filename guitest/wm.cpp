@@ -47,6 +47,7 @@ FILE* FilePointer;
 	FailWithCode(com_error);
 
 BOOL FirstDesktopRender;
+BOOL IsConsoleMessage;
 //------------------------------------------------------------------
 // Application Definitions
 //------------------------------------------------------------------
@@ -220,6 +221,7 @@ const char* LuaScriptPath = "";
 LUA_OPT LuaOpt;
 BOOL HasLua;
 sol::state LuaState;
+BOOL SnapOnMonitorChange;
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
@@ -633,7 +635,9 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		!IsWindowCloaked(WindowHandle) &&
 		!TransparentWindow(WindowHandle))
 	{
-		TILE_INFO TileInfo = { 0 };
+		TILE_INFO TileInfo;
+
+		RtlZeroMemory(&TileInfo, sizeof(TileInfo));
 
 		TileInfo.WindowHandle = WindowHandle;
 		TileInfo.PreWMInfo.Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
@@ -681,6 +685,7 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 			GetWindowTextW(WindowHandle, WindowText, 1024);
 			LogEx("Gathered Window :\n\t[WindowClass] : %ls\n\t[WindowText] : %ls\n", WindowClass, WindowText);
 		}
+
 		WindowOrderList.push_back(TileInfo);
 	}
 
@@ -1514,6 +1519,13 @@ VOID PerformInitialRegroupring()
 				LogEx("New Tile is not on primary display.");
 			}
 
+			WCHAR WindowText[512];
+
+			GetClassNameW(TileToAdd->WindowHandle, WindowText, 512);
+
+			if (!wcscmp(WindowText, L"ConsoleWindowClass"))
+				TileToAdd->IsConsole = TRUE;
+
 			LinkNode(CurrentWorkspace->Tree, TileToAdd);
 			CurrentWorkspace->Tree->Focus = TileToAdd;
 			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
@@ -1596,7 +1608,7 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 {
 
-	Sleep(150);
+	Sleep(50);
 
 	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
 		RenderFocusWindow(Workspace->Tree->Focus);
@@ -1733,12 +1745,11 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 
 }
  
-VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
+VOID RenderFullscreenWindow(TILE_TREE* Tree, DISPLAY_INFO* Display)
 {
-	assert(Workspace->Tree->IsFullScreen &&
-		Workspace->Tree->Focus);
+	assert(Tree->IsFullScreen && Tree->Focus);
 
-	ForceToForeground(Workspace->Tree->Focus->WindowHandle);
+	ForceToForeground(Tree->Focus->WindowHandle);
 
 	RECT PrintRect;
 
@@ -1749,29 +1760,26 @@ VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace, DISPLAY_INFO* Display)
 	PrintRect.bottom = Display->Rect.top + Display->RealScreenHeight;
 
 	if (AdjustForNC && !IsFullScreenMax)
-		AdjustForBorder(Workspace->Tree->Focus, &PrintRect);
+		AdjustForBorder(Tree->Focus, &PrintRect);
 
 	INT Width = PrintRect.right - PrintRect.left;
 	INT Height = PrintRect.bottom - PrintRect.top;
 
 	if (IsFullScreenMax)
 	{
-		WCHAR ClassName[1024] = { 0 };
-		GetClassNameW(Workspace->Tree->Focus->WindowHandle, ClassName, 1024);
-		
-		if (!Workspace->Tree->Focus->IsRemovedTitleBar)
-			RemoveTitleBar(Workspace->Tree->Focus);
+		if (!Tree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(Tree->Focus);
 
 		//If not Console Window
-		if (!Workspace->Tree->Focus->IsConsole)
+		if (!Tree->Focus->IsConsole)
 			Height += (Display->TrayRect.bottom - Display->TrayRect.top);
 
 	}
 
-	DWORD RetVal = SetWindowPos(Workspace->Tree->Focus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
+	DWORD RetVal = SetWindowPos(Tree->Focus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
 
 	if (!RetVal)
-		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->Tree->Focus->WindowHandle));
+		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Tree->Focus->WindowHandle));
 
 }
 
@@ -2000,7 +2008,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 		if (CurrentTree->IsFullScreen)
 		{
 			LogEx("\tRenderingMode: FullScreen\n");
-			RenderFullscreenWindow(Workspace, CurrentTree->Display);
+			RenderFullscreenWindow(CurrentTree, CurrentTree->Display);
 		}
 		else if (CurrentTree->Root)
 		{
@@ -2523,6 +2531,14 @@ INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 	if (!ModDown)
 		return FALSE;
 
+	//We sent a console a message, to change it, but we also hijack it.
+	//so we have to use a bool to check if it is a console fullscreen message
+	if (KeyboardData->vkCode == VK_RETURN && IsConsoleMessage)
+	{
+		IsConsoleMessage = FALSE;
+		return FALSE;
+	}
+
 	if (ModDown == ALT && KeyboardData->vkCode == VK_LMENU)
 		return TRUE;
 
@@ -2618,6 +2634,15 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		return;
 	}
 
+	WCHAR WindowClass[512];
+	BOOL IsConsole = FALSE;
+
+	GetClassNameW(WindowHandle,WindowClass, 1024);
+
+	if (!wcscmp(WindowClass, L"ConsoleWindowClass"))
+		IsConsole = TRUE;
+
+
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
 	if (GetWindowCount(Workspace) > 2)
@@ -2639,6 +2664,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 	RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 	TileToAdd->WindowHandle = WindowHandle;
+	TileToAdd->IsConsole = IsConsole;
 	TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
 	TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
@@ -3706,12 +3732,15 @@ VOID GoFullscreenEx()
 		return;
 
 	if (Workspace->Tree->Focus)
+	{
 		Workspace->Tree->IsFullScreen = !Workspace->Tree->IsFullScreen;
+
+		if (Workspace->Tree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(Workspace->Tree->Focus);
+	}
 	else
 		Workspace->Tree->IsFullScreen = FALSE;
 
-	if (Workspace->Tree->Focus->IsRemovedTitleBar)
-		RestoreTitleBar(Workspace->Tree->Focus);
 
 	Workspace->Tree->NeedsRendering = TRUE;
 	RenderWorkspace(CurWk);
@@ -3928,12 +3957,17 @@ VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcH
 	NewNode->PreWMInfo = Node->PreWMInfo;
 	NewNode->IsDisplayChanged = TRUE;
 
-	if (!DstTree->IsFullScreen && IsFullScreenMax && !SrcTree->Focus->IsRemovedTitleBar)
+	if (DstTree->IsFullScreen && IsFullScreenMax)
 	{
-		RemoveTitleBar(SrcTree->Focus);
+		if (!SrcTree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(SrcTree->Focus);
 
-		if (DstTree->Focus->IsRemovedTitleBar)
+		if (DstTree->Focus && DstTree->Focus->IsRemovedTitleBar)
 			RestoreTitleBar(DstTree->Focus);
+	}
+	else if (!DstTree->IsFullScreen && IsFullScreenMax && SrcTree->Focus->IsRemovedTitleBar)
+	{
+		RestoreTitleBar(SrcTree->Focus);
 	}
 
 
@@ -3959,7 +3993,7 @@ VOID HandleMonitorChanged(HWND ChangedWindow)
 	HMONITOR Monitor = MonitorFromWindow(ChangedWindow, MONITOR_DEFAULTTONULL);
 
 	if (!Monitor)
-		Fail("Couldn't get Monitor for Monitor Moved Window");
+		return;
 
 	for (auto KeyValue : Workspace->Trees)
 	{
@@ -3981,6 +4015,7 @@ VOID HandleMonitorChanged(HWND ChangedWindow)
 
 	if (DstTree == SrcTree)
 		return;
+
 
 	MoveMonitorInternal(SrcTree, DstTree, TileToRemove);
 	
@@ -4242,6 +4277,7 @@ VOID InitConfig()
 		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
+		ParseBoolOptionEx(GetJsonEx("snap_on_monitor_change"), &SnapOnMonitorChange);
 		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
 		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
@@ -4583,7 +4619,12 @@ INT main()
 			HandleWindowMessage(&Message);
 			continue;
 		case WM_TILE_CHANGED:
-			HandleMonitorChanged((HWND)Message.lParam);
+			//if (SnapOnMonitorChange)
+			//{
+			//	HWND WindowHandle = (HWND)Message.wParam;
+			//	HandleMonitorChanged(WindowHandle);
+			//	continue;
+			//}
 		default:
 			break;
 		}

@@ -55,11 +55,11 @@
 	"carry_right" :  "shift+b",
 	"shutdown" : "t",
 
-	
 	"adjust_for_nc" : "n",
 	"true_fullscreen" : "y",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
+	"snap_on_monitor_change" :  "y",
 	
 	"gaps_enabled" : "y",
 	"outer_gaps_vertical" : 10,
