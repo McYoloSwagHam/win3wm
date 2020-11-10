@@ -74,7 +74,7 @@ const char* InitCom()
 	switch (buildNumber)
 	{
 	case 18362:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_9200, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopManagerInternal);
 		break;
 	case 9200:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview, (void**)&VDesktopManagerInternalNew);
@@ -108,7 +108,7 @@ const char* InitCom()
 	{
 		VDesktopWrapper.IsPreviewBuild = IsPreviewBuild;
 		VDesktopWrapper.VDesktopManagerInternal = VDesktopManagerInternal;
-		VDesktopWrapper.CurrentIID = IID_VDESKTOP_INSIDER;
+		VDesktopWrapper.CurrentIID = IID_VDESKTOP;
 	}
 
 	return NULL;
