@@ -52,24 +52,24 @@ extern "C" __declspec(dllexport) LRESULT HookProc(int nCode, WPARAM WParam, LPAR
 			}
 		}
 
-		if (pMessage->message == WM_DPICHANGED) 
-		{
+		//if (pMessage->message == WM_DPICHANGED) 
+		//{
 
-			if (!MainWin3WMWindow)
-			{
-				MainWin3WMWindow = FindWindowA("Win3wmWindow", "Win3wm");
+		//	if (!MainWin3WMWindow)
+		//	{
+		//		MainWin3WMWindow = FindWindowA("Win3wmWindow", "Win3wm");
 
-				if (!MainWin3WMWindow)
-				{
-					MessageBoxA(GetForegroundWindow(), "Couldn't Find Main Window ForceResize", NULL, MB_OK);
-					TerminateProcess(GetCurrentProcess(), 8069);
-				}
+		//		if (!MainWin3WMWindow)
+		//		{
+		//			MessageBoxA(GetForegroundWindow(), "Couldn't Find Main Window ForceResize", NULL, MB_OK);
+		//			TerminateProcess(GetCurrentProcess(), 8069);
+		//		}
 
-			}
+		//	}
 
-			PostMessageA(MainWin3WMWindow, WM_TILE_CHANGED, (WPARAM)pMessage->hwnd, 0);
+		//	PostMessageA(MainWin3WMWindow, WM_TILE_CHANGED, (WPARAM)pMessage->hwnd, 0);
 
-		}
+		//}
 
 			
 		if (pMessage->message == CustomMessage)

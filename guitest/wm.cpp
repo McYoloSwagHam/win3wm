@@ -2480,6 +2480,8 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	//Copy Over Important Stuff of the 
 	NewNode->WindowHandle = Node->WindowHandle;
 	NewNode->PreWMInfo = Node->PreWMInfo;
+	NewNode->IsConsole = Node->IsConsole;
+	NewNode->IsRemovedTitleBar = Node->IsRemovedTitleBar;
 
 	if (Workspace->Dsp->Handle != TargetWorkspace->Dsp->Handle)
 		NewNode->IsDisplayChanged = TRUE;
@@ -2490,15 +2492,17 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	if (TargetWorkspace->Tree->IsFullScreen &&
 		IsFullScreenMax)
 	{
-		if (!Workspace->Tree->Focus->IsRemovedTitleBar)
-			RemoveTitleBar(Workspace->Tree->Focus);
+		if (!NewNode->IsRemovedTitleBar)
+			RemoveTitleBar(NewNode);
 
 		if (TargetWorkspace->Tree->Focus->IsRemovedTitleBar)
 			RestoreTitleBar(TargetWorkspace->Tree->Focus);
 
 	}
-
-
+	else if (IsFullScreenMax && NewNode->IsRemovedTitleBar)
+	{
+		RestoreTitleBar(NewNode);
+	}
 
 	RemoveTileFromTree(Workspace->Tree, Node);
 
@@ -2623,8 +2627,6 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 
 	if (!(!IsIgnoreWindow(WindowHandle) &&
-		!HasParentOrPopup(WindowHandle) &&
-		!IsOwned(WindowHandle) &&
 		IsWindowVisible(WindowHandle) &&
 		IsWindowRectVisible(WindowHandle) &&
 		!IsWindowCloaked(WindowHandle) &&
@@ -2765,8 +2767,12 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 	// If the tile doesn't exist in the workspace something wrong happened.
 
-	if (Workspace->Tree)
-		TileToRemove = VerifyExistingWindow(Workspace->Tree->Root, WindowHandle);
+	TILE_TREE* Tree = GetTileWindowTree(Workspace, WindowHandle);
+
+	if (!Tree)
+		return;
+
+	TileToRemove = VerifyExistingWindow(Tree->Root, WindowHandle);
 
 	if (!TileToRemove)
 		return;
@@ -2775,7 +2781,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 
 	LogEx("DestroyWindow\n");
 
-	RemoveTileFromTree(Workspace->Tree, TileToRemove);
+	RemoveTileFromTree(Tree, TileToRemove);
 	RenderWorkspace(CurWk);
 
 	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
@@ -3955,19 +3961,21 @@ VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcH
 	//Copy Over Important Stuff of the 
 	NewNode->WindowHandle = Node->WindowHandle;
 	NewNode->PreWMInfo = Node->PreWMInfo;
+	NewNode->IsConsole = Node->IsConsole;
+	NewNode->IsRemovedTitleBar = Node->IsRemovedTitleBar;
 	NewNode->IsDisplayChanged = TRUE;
 
 	if (DstTree->IsFullScreen && IsFullScreenMax)
 	{
 		if (!SrcTree->Focus->IsRemovedTitleBar)
-			RemoveTitleBar(SrcTree->Focus);
+			RemoveTitleBar(NewNode);
 
 		if (DstTree->Focus && DstTree->Focus->IsRemovedTitleBar)
 			RestoreTitleBar(DstTree->Focus);
 	}
 	else if (!DstTree->IsFullScreen && IsFullScreenMax && SrcTree->Focus->IsRemovedTitleBar)
 	{
-		RestoreTitleBar(SrcTree->Focus);
+		RestoreTitleBar(NewNode);
 	}
 
 

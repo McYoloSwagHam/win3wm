@@ -21,16 +21,16 @@ IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
-	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362};
+	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
+    NTSTATUS(WINAPI *RtlVerifyVersionInfo)(LPOSVERSIONINFOEXW, ULONG, ULONGLONG);
+    *(FARPROC*)&RtlVerifyVersionInfo = GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlVerifyVersionInfo");
 	ULONGLONG mask = ::VerSetConditionMask(0, VER_BUILDNUMBER, VER_EQUAL);
-
-
 
 	for (size_t i = 0; i < sizeof(buildNumbers) / sizeof(buildNumbers[0]); i++)
 	{
 		osvi.dwBuildNumber = buildNumbers[i];
-		if (VerifyVersionInfoW(&osvi, VER_BUILDNUMBER, mask) != FALSE)
+		if (!RtlVerifyVersionInfo(&osvi, VER_BUILDNUMBER, mask))
 		{
 			return buildNumbers[i];
 		}
