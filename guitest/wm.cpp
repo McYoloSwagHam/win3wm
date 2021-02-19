@@ -21,8 +21,7 @@
 
 #include "json.hpp"
 #include "resource3.h"
-#include "SG_InputBox.h"
-#include "VDesktops.h"
+#include "ComInterface.h"
 #include "license_gui.h"
 
 #define SOL_ALL_SAFETIES_ON 1
@@ -30,7 +29,7 @@
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
-#define COMMERCIAL
+//#define COMMERCIAL
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -221,7 +220,6 @@ const char* LuaScriptPath = "";
 LUA_OPT LuaOpt;
 BOOL HasLua;
 sol::state LuaState;
-BOOL SnapOnMonitorChange;
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
@@ -1608,7 +1606,7 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 {
 
-	Sleep(50);
+	Sleep(0);
 
 	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
 		RenderFocusWindow(Workspace->Tree->Focus);
@@ -1786,7 +1784,7 @@ VOID RenderFullscreenWindow(TILE_TREE* Tree, DISPLAY_INFO* Display)
 INT GetFilledWorkspaceCount()
 {
 	int count = 0;
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < WorkspaceList.size(); i++)
 	{
 		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
@@ -1801,6 +1799,8 @@ INT GetFilledWorkspaceCount()
 HBRUSH ButtonBrush;
 HBRUSH ButtonMonBrush;
 HBRUSH DefaultBrush;
+
+
 
 VOID DrawTransparentRectangle(HMONITOR DisplayHandle, HWND StatusBarWindow)
 {
@@ -3528,7 +3528,12 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 		Hotkey = *PlusLoc;
 
 		if (strlen(NextToken) != 1)
+		{
 			Hotkey = ParseHotkeyWord(NextToken);
+
+			if (!Hotkey)
+				return;
+		}
 
 	}
 	else
@@ -3545,7 +3550,7 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 			Hotkey = ParseHotkeyWord(HotkeyString.c_str());
 
 			if (!Hotkey)
-				Fail(MakeFormatString("Failed to parse Config \"%s\"", HotkeyString.c_str()));
+				return;
 
 		}
 
@@ -3906,7 +3911,6 @@ VOID BSplitEx()
 	LogEx("BSplitEx Triggered");
 	system(StartCommand);
 
-
 }
 
 VOID ParseModifier(std::string ModifierString)
@@ -3930,7 +3934,7 @@ VOID InitKeyMap()
 	KeyMap.emplace("up", VK_UP);
 	KeyMap.emplace("down", VK_DOWN);
 	KeyMap.emplace("enter", VK_RETURN);
-
+	KeyMap.emplace("no_key", 0);
 }
 
 VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName)
@@ -4285,10 +4289,9 @@ VOID InitConfig()
 		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
-		ParseBoolOptionEx(GetJsonEx("snap_on_monitor_change"), &SnapOnMonitorChange);
 		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
 		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
-		ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
+		//ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
 		//ParseBoolOptionEx(GetJsonEx("remove_titlebar"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		ParseBoolOptionEx(GetJsonEx("enable_logs"), &ShouldLog);
@@ -4375,6 +4378,17 @@ VOID InitConfigFree()
 	HotKeyCallbackTable['R'][FALSE].HotKeyCb = VerifyWorkspaceEx;
 	HotKeyCallbackTable['F'][FALSE].HotKeyCb = GoFullscreenEx;
 	HotKeyCallbackTable['T'][FALSE].HotKeyCb = ShutdownEx;
+
+	HotKeyCallbackTable['D'][TRUE].HotKeyCb = FlipEx;
+
+	HotKeyCallbackTable['M'][FALSE].HotKeyCb = MoveMonitorRightEx;
+	HotKeyCallbackTable['N'][FALSE].HotKeyCb = MoveMonitorLeftEx;
+	HotKeyCallbackTable['M'][TRUE].HotKeyCb = MoveWindowMonitorRightEx;
+	HotKeyCallbackTable['N'][TRUE].HotKeyCb = MoveWindowMonitorLeftEx;
+
+	HotKeyCallbackTable['G'][FALSE].HotKeyCb = RemoveTitleBarEx;
+	HotKeyCallbackTable['Q'][FALSE].HotKeyCb = FocusMouseEx;
+	HotKeyCallbackTable['X'][FALSE].HotKeyCb = BSplitEx;
 }
 
 BOOL VerifyLicense()
@@ -4627,12 +4641,6 @@ INT main()
 			HandleWindowMessage(&Message);
 			continue;
 		case WM_TILE_CHANGED:
-			//if (SnapOnMonitorChange)
-			//{
-			//	HWND WindowHandle = (HWND)Message.wParam;
-			//	HandleMonitorChanged(WindowHandle);
-			//	continue;
-			//}
 		default:
 			break;
 		}

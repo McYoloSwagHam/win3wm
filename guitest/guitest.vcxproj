@@ -165,11 +165,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="license_gui.cpp" />
-    <ClCompile Include="list.cpp" />
-    <ClCompile Include="SG_InputBox.cpp" />
-    <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="tracy\TracyClient.cpp" />
-    <ClCompile Include="utils.cpp" />
     <ClCompile Include="VDesktops.cpp" />
     <ClCompile Include="wm.cpp" />
   </ItemGroup>
@@ -178,14 +174,9 @@
     <ClInclude Include="license_gui.h" />
     <ClInclude Include="lua.hpp" />
     <ClInclude Include="resource3.h" />
-    <ClInclude Include="SG_InputBox.h" />
     <ClInclude Include="sol.hpp" />
-    <ClInclude Include="statusbar.hpp" />
-    <ClInclude Include="stdafx.h" />
-    <ClInclude Include="targetver.h" />
-    <ClInclude Include="utils.h" />
-    <ClInclude Include="VDesktops.h" />
-    <ClInclude Include="VirtualDesktops.h" />
+    <ClInclude Include="ComInterface.h" />
+    <ClInclude Include="Types.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon.ico" />

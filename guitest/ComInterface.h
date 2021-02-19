@@ -1,8 +1,7 @@
-#include "VirtualDesktops.h"
 #include <windows.h>
 #include <stdio.h>
-
 #include <objbase.h>
+#include "Types.h"
 
 #define WM_SWITCH_DESKTOP 0x8079
 
@@ -76,7 +75,7 @@ const char* InitCom()
 	case 18362:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopManagerInternal);
 		break;
-	case 9200:
+	case 20241:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview, (void**)&VDesktopManagerInternalNew);
 		IsPreviewBuild = TRUE;
 		break;

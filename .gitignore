@@ -342,6 +342,8 @@ healthchecksdb
 /GRTAGS
 /GTAGS
 /tags
+_*
+*.swp
 /guitest/modules
 /guitest/luatest
 /guitest/VTune Profiler Results/guitest
