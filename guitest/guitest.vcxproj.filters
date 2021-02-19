@@ -27,9 +27,6 @@
     <ClCompile Include="tracy\TracyClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VDesktops.cpp">
-      <Filter>Source Files\VDesktops</Filter>
-    </ClCompile>
     <ClCompile Include="wm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

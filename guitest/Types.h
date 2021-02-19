@@ -10,6 +10,16 @@
 #include "lua.hpp"
 #include "sol.hpp"
 
+
+#define WM_INSTALL_HOOKS 0x8069
+#define WM_SHUTDOWN 0x806C
+#define WM_MOVE_TILE 0x806b
+#define WM_TILE_CHANGED 0x806d
+#define WM_USER_FOCUS 0x8096
+#define MIN_ALL 419
+#define ID_EXIT 6
+#define TIMER_FOCUS 0x1234
+
 const CLSID CLSID_ImmersiveShell = {
 	0xC2F03A33, 0x21F5, 0x47FA, 0xB4, 0xBB, 0x15, 0x63, 0x62, 0xA2, 0xF2, 0x39 };
 
@@ -544,3 +554,13 @@ struct LUA_OPT
 	sol::state State;
 	const char* Path;
 };
+
+typedef PVOID(*InitFn)(HWND WindowHandle);
+typedef VOID(*HOTKEY_FN)();
+
+struct HOTKEY_DISPATCH
+{
+	BOOL ShiftCb;
+	HOTKEY_FN HotKeyCb;
+};
+

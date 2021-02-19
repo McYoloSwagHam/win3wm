@@ -29,7 +29,13 @@
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
+
+// COMMERCIAL - for extremely basic license checking
+// NOLICENSE - for no license
+// Otherwise free mode 
+
 //#define COMMERCIAL
+#define NOLICENSE
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -101,9 +107,6 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 
 #define TreeHas(Member) (Workspace->Tree && Workspace->Tree->##Member)
 
-
-
-
 //-------------------------
 // Hotkey stupid stuff
 //-------------------------
@@ -112,10 +115,10 @@ enum MODKEY {
 	WIN = 1
 };
 
-
 //------------------------------------------------------------------
 // Window Definitions
 //------------------------------------------------------------------
+CHAR AppCheckName[] = "Win3WM"; //Mutex Check
 CHAR AppWindowName[] = "Win3wmWindow";
 CHAR DebugAppWindowName[] = "FocusDebugOverlay";
 CHAR FocusAppWindowName[] = "FocusWin3WM";
@@ -146,19 +149,13 @@ std::vector<WORKSPACE_INFO> WorkspaceList;
 std::vector<HWND> TrayList;
 std::vector<DISPLAY_INFO> DisplayList;
 DISPLAY_INFO* PrimaryDisplay;
+
+//Process Globals
 HANDLE x86ProcessHandle;
 DWORD x86ProcessId;
 HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
 INT CurWk = 1;
-#define WM_INSTALL_HOOKS 0x8069
-#define WM_SHUTDOWN 0x806C
-#define WM_MOVE_TILE 0x806b
-#define WM_TILE_CHANGED 0x806d
-#define WM_USER_FOCUS 0x8096
-#define MIN_ALL 419
-#define ID_EXIT 6
-#define TIMER_FOCUS 0x1234
 
 // ------------------------------------------------------------------
 // Screen Globals
@@ -169,20 +166,13 @@ INT ScreenHeight;
 
 INT RealScreenWidth;
 INT RealScreenHeight;
-CHAR AppCheckName[] = "Win3WM";
 
 // ------------------------------------------------------------------
 // Application Globals
 // ------------------------------------------------------------------
-typedef PVOID(*InitFn)(HWND WindowHandle);
-typedef VOID(*HOTKEY_FN)();
 
-typedef struct _HotKeyDispatch_
-{
-	BOOL ShiftCb;
-	HOTKEY_FN HotKeyCb;
-} HOTKEY_DISPATCH;
 
+//
 HMODULE ForceResize64;
 HMODULE ForceResize86;
 HMODULE WinHook64;
@@ -201,15 +191,17 @@ unsigned char LastButtonArray[10] = { 0 };
 // Windows Stuff 
 // ------------------------------------------------------------------
 
+//Windows to ignore
 const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow" };
 std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDialogProxy", L"Shell_SystemDim", L"The Event Managment Dashboard", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
+//windows console clearly is a special one
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
 	{ L"ConsoleWindowClass", SW_MAXIMIZE }
 };
 
 // ------------------------------------------------------------------
-// User Options
+// User Options - Paths
 // ------------------------------------------------------------------
 NODE_TYPE UserChosenLayout = VERTICAL_SPLIT;
 MODKEY ModKey = ALT;
@@ -217,9 +209,12 @@ const char* StartCommand = "start cmd.exe";
 const char* StartDirectory = "";
 const char* LuaScriptPath = "";
 
+//Lua states
 LUA_OPT LuaOpt;
 BOOL HasLua;
 sol::state LuaState;
+
+//User options
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
@@ -228,6 +223,7 @@ BOOL ShouldLog;
 BOOL ShouldBSplit;
 POINT NewOrigin;
 
+//Button colors
 std::vector<unsigned char> ColorActiveWorkspaceButton;
 std::vector<unsigned char> ColorInactiveWorkspaceButton;
 std::vector<unsigned char> ColorInactiveMonitorButton;
@@ -240,6 +236,7 @@ DWORD ClrInMt;
 DWORD ClrActTxt;
 DWORD ClrInActTxt;
 
+//WinWM Gaps
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
@@ -3807,7 +3804,7 @@ VOID FocusMouseEx()
 		return;
 	}
 
-	//Aww fuck MultiMonitor Support
+	//Aww MultiMonitor Support
 
 	Workspace->Tree = TargetTree;
 	Workspace->TileInFocus = TargetTile;
@@ -4592,6 +4589,9 @@ INT main()
 	if (!VerifyLicense())
 		TerminateProcess(GetCurrentProcess(), 3069);
 
+	InitConfig();
+	InitLua();
+#elif defined NOLICENSE
 	InitConfig();
 	InitLua();
 #else

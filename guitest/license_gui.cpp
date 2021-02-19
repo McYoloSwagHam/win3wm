@@ -11,8 +11,6 @@ CHAR UserBuffer[1024];
 CreateUserInterfaceFunc CreateUserInterface;
 DestroyUserInterfaceFunc DestroyUserInterface;
 DestroyCLRFunc DestroyCLR;
-
-
 HANDLE GuiPipe;
 
 #define WINWM_GUI_PIPE "\\\\.\\pipe\\winwm_gui"
