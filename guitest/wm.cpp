@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <unordered_map>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -12,18 +13,29 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <shlobj.h>
+
+#include <future>
 #include <locale>
 #include <codecvt>
+#include <chrono>
 
 #include "json.hpp"
 #include "resource3.h"
-#include "SG_InputBox.h"
-#include "VDesktops.h"
+#include "ComInterface.h"
+#include "license_gui.h"
+
+#define SOL_ALL_SAFETIES_ON 1
 
 // ------------------------------------------------------------------
 // Defs
 // ------------------------------------------------------------------
-#define COMMERCIAL
+
+// COMMERCIAL - for extremely basic license checking
+// NOLICENSE - for no license
+// Otherwise free mode 
+
+//#define COMMERCIAL
+#define NOLICENSE
 
 // ------------------------------------------------------------------
 // NT Aesthetic
@@ -31,6 +43,7 @@
 #define RtlFormatPrint snprintf
 #define RtlAlloc malloc
 #define ForegroundClass 25
+FILE* FilePointer;
 
 //------------------------------------------------------------------
 // COM Variables
@@ -39,6 +52,7 @@
 	FailWithCode(com_error);
 
 BOOL FirstDesktopRender;
+BOOL IsConsoleMessage;
 //------------------------------------------------------------------
 // Application Definitions
 //------------------------------------------------------------------
@@ -47,7 +61,6 @@ BOOL FirstDesktopRender;
 #define INIT_TILES_PER_WORKSPACE 4
 #define MAX_WORKSPACES 10
 #define MAX_INIT_TILES 40
-#define DEFAULT_LAYOUT VERTICAL_LAYOUT
 #define ARRAY_SIZEOF(A) (sizeof(A)/sizeof(*A))
 #define WIN3M_PIPE_NAME "\\\\.\\pipe\\Win3WMPipe"
 #define MINIMUM_CONSIDERED_AREA 10000
@@ -73,7 +86,7 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 //------------------------------------------------------------------
 #define ChangeWorkspaceEx(Number) VOID ChangeWorkspaceEx_##Number()\
 	{											\
-		if (Number == CurrentWorkspaceInFocus)	\
+		if (Number == CurWk)	\
 			return;								\
 												\
 		HandleChangeWorkspace(Number);			\
@@ -81,7 +94,7 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 
 #define MoveWorkspaceEx(Number) VOID MoveWorkspaceEx_##Number()\
 	{											\
-		if (Number == CurrentWorkspaceInFocus)	\
+		if (Number == CurWk)	\
 			return;								\
 												\
 		HandleMoveWindowWorkspace(Number);		\
@@ -90,6 +103,9 @@ std::unordered_map<std::string, unsigned int> KeyMap;
 #define ParseConfigEx(Key, Value) CurrentKey = Key; \
 		ParseConfig(JsonParsed[CurrentKey], Value); \
 
+#define ParseBoolOptionEx(String, Option) ParseBoolOption(String, Option, CurrentKey)
+
+#define TreeHas(Member) (Workspace->Tree && Workspace->Tree->##Member)
 
 //-------------------------
 // Hotkey stupid stuff
@@ -99,10 +115,10 @@ enum MODKEY {
 	WIN = 1
 };
 
-
 //------------------------------------------------------------------
 // Window Definitions
 //------------------------------------------------------------------
+CHAR AppCheckName[] = "Win3WM"; //Mutex Check
 CHAR AppWindowName[] = "Win3wmWindow";
 CHAR DebugAppWindowName[] = "FocusDebugOverlay";
 CHAR FocusAppWindowName[] = "FocusWin3WM";
@@ -112,14 +128,15 @@ CHAR StatusBarWindowName[] = "Win3wmStatus";
 // ------------------------------------------------------------------
 // Window Globals
 // ------------------------------------------------------------------
+std::unordered_map<HWND, BUTTON_STATE> ButtonMap;
 HWND MainWindow;
 HWND DebugWindow;
 HWND FocusWindow;
 HWND NotifWindow;
-HWND StatusBarWindow[10];
 HWND BtnToColor;
 HWND CurrentFocusChild;
 HWND TrayWindow;
+RECT ShellRect;
 
 ATOM WindowAtom;
 ATOM DebugWindowAtom;
@@ -129,18 +146,16 @@ ATOM StatusBarAtom;
 // change later to more C-ish datastructure (AKA don't use std::vector)
 std::vector<TILE_INFO> WindowOrderList;
 std::vector<WORKSPACE_INFO> WorkspaceList;
+std::vector<HWND> TrayList;
+std::vector<DISPLAY_INFO> DisplayList;
+DISPLAY_INFO* PrimaryDisplay;
+
+//Process Globals
 HANDLE x86ProcessHandle;
 DWORD x86ProcessId;
 HANDLE PipeHandle = INVALID_HANDLE_VALUE;
 HANDLE PipeEvent;
-INT CurrentWorkspaceInFocus = 1;
-#define WM_INSTALL_HOOKS 0x8069
-#define WM_SHUTDOWN 0x806C
-#define WM_MOVE_TILE 0x806b
-#define WM_USER_FOCUS 0x8096
-#define MIN_ALL 419
-#define ID_EXIT 6
-#define TIMER_FOCUS 0x1234
+INT CurWk = 1;
 
 // ------------------------------------------------------------------
 // Screen Globals
@@ -151,20 +166,13 @@ INT ScreenHeight;
 
 INT RealScreenWidth;
 INT RealScreenHeight;
-CHAR AppCheckName[] = "Win3WM";
 
 // ------------------------------------------------------------------
 // Application Globals
 // ------------------------------------------------------------------
-typedef PVOID(*InitFn)(HWND WindowHandle);
-typedef VOID(*HOTKEY_FN)();
 
-typedef struct _HotKeyDispatch_
-{
-	BOOL ShiftCb;
-	HOTKEY_FN HotKeyCb;
-} HOTKEY_DISPATCH;
 
+//
 HMODULE ForceResize64;
 HMODULE ForceResize86;
 HMODULE WinHook64;
@@ -176,32 +184,64 @@ BOOL ShouldRerender;
 // ------------------------------------------------------------------
 // Status Bar Globals
 // ------------------------------------------------------------------
-HWND StatusButtonList[10];
+unsigned char ButtonArray[10] = { 0 };
+unsigned char LastButtonArray[10] = { 0 };
 
 // ------------------------------------------------------------------
 // Windows Stuff 
 // ------------------------------------------------------------------
 
+//Windows to ignore
 const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow" };
-std::vector<std::wstring> Win32kDefaultWindowNames = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
+std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDialogProxy", L"Shell_SystemDim", L"The Event Managment Dashboard", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
+//windows console clearly is a special one
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
 	{ L"ConsoleWindowClass", SW_MAXIMIZE }
 };
 
 // ------------------------------------------------------------------
-// User Options
+// User Options - Paths
 // ------------------------------------------------------------------
 NODE_TYPE UserChosenLayout = VERTICAL_SPLIT;
 MODKEY ModKey = ALT;
 const char* StartCommand = "start cmd.exe";
+const char* StartDirectory = "";
+const char* LuaScriptPath = "";
+
+//Lua states
+LUA_OPT LuaOpt;
+BOOL HasLua;
+sol::state LuaState;
+
+//User options
 BOOL AdjustForNC;
 BOOL IsGapsEnabled;
+BOOL ShouldRemoveTitleBars;
+BOOL IsFullScreenMax;
+BOOL ShouldLog;
+BOOL ShouldBSplit;
 POINT NewOrigin;
+
+//Button colors
+std::vector<unsigned char> ColorActiveWorkspaceButton;
+std::vector<unsigned char> ColorInactiveWorkspaceButton;
+std::vector<unsigned char> ColorInactiveMonitorButton;
+std::vector<unsigned char> ColorActiveButtonText;
+std::vector<unsigned char> ColorInActiveButtonText;
+
+DWORD ClrActWk;
+DWORD ClrInActWk;
+DWORD ClrInMt;
+DWORD ClrActTxt;
+DWORD ClrInActTxt;
+
+//WinWM Gaps
 INT OuterGapsVertical;
 INT OuterGapsHorizontal;
 INT InnerGapsVertical;
 INT InnerGapsHorizontal;
+
 
 
 // ------------------------------------------------------------------
@@ -238,8 +278,6 @@ VOID FailWithCode(const char* ErrorMessage)
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 327);
 
-	logc(12, ErrorMsgBuffer);
-
 	MessageBoxA(NULL, ErrorMsgBuffer, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
@@ -255,16 +293,41 @@ VOID Fail(const char* ErrorMessage)
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
-VOID ShowTaskBar(BOOL SetTaskBar)
+using sol::lib;
+
+template<class...Args>
+void LuaDispatchEx(const char* functionName, Args &&... args)
 {
-	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
+	if (LuaOpt.On && LuaOpt.State[functionName] != sol::nil)
+	{
+		sol::protected_function Func = LuaOpt.State[functionName];
 
-	if (!TrayWindow)
-		Fail((PCHAR)"Didn't Find TaskBar HWND");
+		auto Result = Func(std::forward<Args>(args)...);
 
+		if (!Result.valid())
+		{
+			sol::error err = Result;
+			std::string what = err.what();
+			Fail(what.c_str());
+		}
 
-	ShowWindow(TrayWindow, SetTaskBar ? SW_SHOW : SW_HIDE);
-	UpdateWindow(TrayWindow);
+	}
+
+}
+
+void LogEx(const char* Format, ...) {
+	
+	if (!ShouldLog)
+		return;
+
+	if (!FilePointer)
+		Fail("Error, No File Pointer!");
+
+	va_list args;
+	va_start(args, Format);
+	vfprintf(FilePointer, Format, args);
+	fflush(FilePointer);
+	va_end(args);
 
 }
 
@@ -284,32 +347,6 @@ const char* MakeFormatString(const char* Format, ...)
 
 }
 
-VOID EnterFullScreen()
-{
-
-	ShowTaskBar(TRUE);
-
-	WINDOWPLACEMENT NewPlacement = { 0 };
-	RECT FullScreenRect = { 0 };
-	POINT FullScreenPoint = { 0 };
-
-	SetRect(&FullScreenRect, 0, 0, GetSystemMetrics(SM_CXSCREEN),
-		GetSystemMetrics(SM_CYSCREEN));
-
-	NewPlacement.length = sizeof(WINDOWPLACEMENT);
-	NewPlacement.flags = WPF_ASYNCWINDOWPLACEMENT;
-	NewPlacement.showCmd = SW_SHOWNORMAL;
-	NewPlacement.ptMinPosition = FullScreenPoint;
-	NewPlacement.ptMaxPosition = FullScreenPoint;
-	NewPlacement.rcNormalPosition = FullScreenRect;
-
-	SetWindowPlacement(MainWindow, &NewPlacement);
-	SetWindowLongPtrA(MainWindow, GWL_STYLE, NULL_STYLE);
-
-}
-
-
-
 BOOL AppRunningCheck()
 {
 	DWORD LastError;
@@ -323,34 +360,17 @@ BOOL AppRunningCheck()
 
 }
 
-
-
-
-
-VOID MainWindowToFore()
+VOID FixFS(TILE_TREE* Tree)
 {
-	HWND CurrentFgWindow;
-	DWORD FgThreadID;
-	DWORD CurrentThreadID;
+	//Should be first because most common
+	// at the current moment this is the only change
 
-	CurrentFgWindow = GetForegroundWindow();
-	CurrentThreadID = GetCurrentThreadId();
-	GetWindowThreadProcessId(CurrentFgWindow, &FgThreadID);
+	if (Tree->IsFullScreen && IsFullScreenMax)
+	{
+		SetWindowLongPtrA(Tree->Focus->WindowHandle, GWL_STYLE, Tree->FullScreenStyle);
+		Tree->FullScreenStyle = NULL;
+	}
 
-	AttachThreadInput(CurrentThreadID, FgThreadID, TRUE);
-	SetWindowPos(MainWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-	SetWindowPos(MainWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
-	SetForegroundWindow(MainWindow);
-	SetFocus(MainWindow);
-	SetActiveWindow(MainWindow);
-	AttachThreadInput(CurrentThreadID, FgThreadID, FALSE);
-	ShowWindow(MainWindow, SW_SHOW);
-
-}
-
-VOID MoveWindowToBack()
-{
-	SetWindowPos(MainWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
 }
 
 BOOL IsWindowRectVisible(HWND WindowHandle)
@@ -411,6 +431,17 @@ BOOL IsIgnoreWindow(HWND WindowHandle)
 
 }
 
+BOOL IsIgnoreWindowEx(HWND WindowHandle)
+{
+	if (IsIgnoreWindow(WindowHandle))
+	{
+		return TRUE;
+	}
+
+	LogEx("OnNewWindow : %X\n", WindowHandle);
+	return FALSE;
+}
+
 BOOL TransparentWindow(HWND WindowHandle)
 {
 	if (GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE) & WS_EX_LAYERED)
@@ -421,10 +452,7 @@ BOOL TransparentWindow(HWND WindowHandle)
 		DWORD Flags;
 
 		if (!GetLayeredWindowAttributes(WindowHandle, &WindowColorRef, &WindowAlphaByte, &Flags))
-			logc(5, "Secret Cloak : %u\n", IsWindowSecretCloaked(WindowHandle));
 
-
-		logc(5, "Handle : %X : Layered Byte: %X : %X : %X\n", WindowHandle, WindowColorRef, WindowAlphaByte, Flags);
 		if (Flags & LWA_ALPHA && !WindowAlphaByte)
 			return TRUE;
 
@@ -493,8 +521,6 @@ VOID CreateX86Process()
 	WCHAR DirLength[2048] = { 0 };
 
 	GetCurrentDirectoryW(sizeof(DirLength), DirLength);
-
-	logc(5, "%ls\n", DirLength);
 
 	CHAR CmdLine[] = "";
 	if (!CreateProcessA("win3wmipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
@@ -576,10 +602,25 @@ VOID InstallWindowSizeHook()
 
 }
 
+VOID SortTrays(HWND WindowHandle)
+{
+	for (auto& Display : DisplayList)
+	{
+		if (Display.Handle == MonitorFromWindow(WindowHandle, MONITOR_DEFAULTTOPRIMARY))
+		{
+			Display.TrayWindow = WindowHandle;
+			return;
+		}
+	}
+
+}
+
+
 BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 {
 
-	WCHAR WindowText[1024];
+	WCHAR WindowText[1024] = { 0 };
+
 
 	if (!IsIgnoreWindow(WindowHandle) &&
 		!HasParentOrPopup(WindowHandle) &&
@@ -589,13 +630,13 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		!IsWindowCloaked(WindowHandle) &&
 		!TransparentWindow(WindowHandle))
 	{
-		GetWindowTextW(WindowHandle, WindowText, 1024);
-		logc(5, "Pushing Back : %X : %ls\n", WindowHandle, WindowText);
-		TILE_INFO TileInfo = { 0 };
+		TILE_INFO TileInfo;
+
+		RtlZeroMemory(&TileInfo, sizeof(TileInfo));
 
 		TileInfo.WindowHandle = WindowHandle;
-		TileInfo.PreWMInfo.WS_STYLE = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
-		TileInfo.PreWMInfo.WS_EX_STYLE = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
+		TileInfo.PreWMInfo.Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
+		TileInfo.PreWMInfo.ExStyle = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
 		TileInfo.PreWMInfo.OldPlacement.length = sizeof(WINDOWPLACEMENT);
 
 
@@ -631,6 +672,15 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 		DwmSetWindowAttribute(TileInfo.WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition));
 
+		if (ShouldLog)
+		{
+			WCHAR WindowText[1024] = { 0 };
+			WCHAR WindowClass[1024] = { 0 };
+			GetClassNameW(WindowHandle, WindowClass, 1024);
+			GetWindowTextW(WindowHandle, WindowText, 1024);
+			LogEx("Gathered Window :\n\t[WindowClass] : %ls\n\t[WindowText] : %ls\n", WindowClass, WindowText);
+		}
+
 		WindowOrderList.push_back(TileInfo);
 	}
 
@@ -639,7 +689,9 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 
 VOID GetOtherApplicationWindows()
 {
+	LogEx("Gathering Initial Windows\n");
 	EnumWindows(EnumWndProc, NULL);
+	LogEx("Gathered %u Windows\n", WindowOrderList.size());
 
 }
 
@@ -649,13 +701,13 @@ INT GetActiveWorkspace()
 	INT Count = 0;
 
 	for (int i = 1; i < WorkspaceList.size(); i++)
-		if (WorkspaceList[i].Tiles)
+		if (WorkspaceList[i].Trees[WorkspaceList[i].Dsp->Handle].Root)
 			Count++;
 
 	return Count;
 }
 
-INT GetWindowCount(TILE_INFO* Tile)
+INT GetWindowCountRecursive(TILE_INFO* Tile)
 {
 
 	INT Count = 0;
@@ -663,9 +715,33 @@ INT GetWindowCount(TILE_INFO* Tile)
 	for (; Tile; Tile = Tile->ChildTile)
 	{
 		if (Tile->NodeType != TERMINAL)
-			Count += GetWindowCount(Tile->BranchTile);
+			Count += GetWindowCountRecursive(Tile->BranchTile);
 
 		Count++;
+	}
+
+	return Count;
+
+}
+
+
+INT GetWindowCount(WORKSPACE_INFO* Workspace)
+{
+
+	INT Count = 0;
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+		TILE_TREE* CurrentTree = &KeyValue.second;
+		TILE_INFO* Tile = CurrentTree->Root;
+
+		for (; Tile; Tile = Tile->ChildTile)
+		{
+			if (Tile->NodeType != TERMINAL)
+				Count += GetWindowCountRecursive(Tile->BranchTile);
+
+			Count++;
+		}
 	}
 
 	return Count;
@@ -882,39 +958,6 @@ INT GetColumnHeight(TILE_INFO* BranchBegin)
 
 }
 
-VOID FitTileBranches(TILE_INFO* BranchBegin, TILE_INFO* BranchParent, INT DeltaWindow)
-{
-
-	TILE_INFO* Tile = BranchBegin;
-	INT TotalEncaps = GetDescendantCount(BranchBegin);
-	INT RecurseDeltaWindow = DeltaWindow / TotalEncaps;
-	LAYOUT_STATE BranchLayout = BranchBegin->Layout;
-
-	for (int i = 0; Tile && i < TotalEncaps; i++)
-	{
-		RECT* TileRect = &Tile->Placement.rcNormalPosition;
-
-		if (BranchLayout == HORIZONTAL_LAYOUT)
-		{
-			TileRect->left += i * RecurseDeltaWindow;
-			TileRect->right += (i + 1) * RecurseDeltaWindow;
-		}
-		else
-		{
-			TileRect->top = i * RecurseDeltaWindow;
-			TileRect->bottom = (i + 1) * RecurseDeltaWindow;
-		}
-
-
-		if (Tile->BranchTile)
-			FitTileBranches(Tile->BranchTile, Tile, RecurseDeltaWindow);
-
-		Tile = Tile->ChildTile;
-	}
-
-}
-
-
 
 VOID RecurseTileVertically(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRecurse)
 {
@@ -922,7 +965,7 @@ VOID RecurseTileVertically(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRecurse)
 
 	RECT* SplitRect = &TileToRecurse->Placement.rcNormalPosition;
 	//RECT *ParentRect = &TileToRecurse->BranchParent->Placement.rcNormalPosition;
-	RECT* ParentRect = &Workspace->TileInFocus->Placement.rcNormalPosition;
+	RECT* ParentRect = &Workspace->Tree->Focus->Placement.rcNormalPosition;
 
 	SplitRect->right = ParentRect->right;
 	SplitRect->left = (ParentRect->left + ParentRect->right) / 2;
@@ -938,7 +981,7 @@ VOID RecurseTileHorizontally(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRecurse
 
 	RECT* SplitRect = &TileToRecurse->Placement.rcNormalPosition;
 	//RECT* ParentRect = &TileToRecurse->BranchParent->Placement.rcNormalPosition;
-	RECT* ParentRect = &Workspace->TileInFocus->Placement.rcNormalPosition;
+	RECT* ParentRect = &Workspace->Tree->Focus->Placement.rcNormalPosition;
 
 	SplitRect->bottom = ParentRect->bottom;
 	SplitRect->top = (ParentRect->bottom + ParentRect->top) / 2;
@@ -1005,18 +1048,24 @@ VOID ResortRecursive(TILE_INFO* BranchBegin, RECT* Box)
 
 }
 
-VOID ResortTiles(WORKSPACE_INFO* Workspace)
+VOID ResortTiles(TILE_TREE* Tree)
 {
 
-	Workspace->NeedsRendering = TRUE;
+	Tree->NeedsRendering = TRUE;
 
-	if (!Workspace->Tiles)
+	if (!Tree->Root)
+	{
+		LogEx("ResortTiles ---> No Tree Root, Not Resorting\n");
 		return;
+	}
 
-	TILE_INFO* Ancestor = Workspace->Tiles;
+	LogEx("ResortTiles ---> Tree Root, Sorting\n");
+
+	DISPLAY_INFO* Display = Tree->Display;
+	TILE_INFO* Ancestor = Tree->Root;
 	INT RightEncap = GetDescendantCount(Ancestor);
-	INT Width = ScreenWidth;
-	INT Height = ScreenHeight;
+	INT Width = Display->ScreenWidth;
+	INT Height = Display->ScreenHeight;
 
 	INT DeltaWidth = Width / RightEncap;
 	INT DeltaHeight = Height / RightEncap;
@@ -1024,32 +1073,32 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 	TILE_INFO* Tile = Ancestor;
 	RECT Encap;
 
-	if (Workspace->Layout == VERTICAL_SPLIT)
+	if (Tree->Layout == VERTICAL_SPLIT)
 	{
 
 
-		Encap.left = 0;
-		Encap.right = DeltaWidth;
-		Encap.top = 0;
-		Encap.bottom = Height;
+		Encap.left = Display->Rect.left;
+		Encap.top = Display->Rect.top;
+		Encap.right = Display->Rect.left + DeltaWidth;
+		Encap.bottom = Display->Rect.top + Height;
 
 	}
 	else
 	{
 
-		Encap.left = 0;
-		Encap.right = Width;
-		Encap.top = 0;
-		Encap.bottom = DeltaHeight;
+		Encap.left = Display->Rect.left;
+		Encap.top = Display->Rect.top;
+		Encap.right = Display->Rect.left + Width;
+		Encap.bottom = Display->Rect.top + DeltaHeight;
 	}
 
 
 	INT i = 0;
-	for (Tile = Workspace->Tiles; Tile; Tile = Tile->ChildTile)
+	for (Tile = Tree->Root; Tile; Tile = Tile->ChildTile)
 	{
 		RECT* Rect = &Tile->Placement.rcNormalPosition;
 
-		if (Workspace->Layout == VERTICAL_SPLIT)
+		if (Tree->Layout == VERTICAL_SPLIT)
 		{
 
 			Rect->left = Encap.left + (i * DeltaWidth);
@@ -1078,19 +1127,20 @@ VOID ResortTiles(WORKSPACE_INFO* Workspace)
 // The  Main Function to add a Tile to a workspace
 // It does not render the workspace.
 // call RenderWorkspace to render the workspace after adding a tile.
-VOID AddTileToWorkspace(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
+VOID AddTileToWorkspace(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
 
-	ResortTiles(Workspace);
+	LogEx("Adding Tile To Tree (%X)\n", Tree->Display->Handle);
 
+	ResortTiles(Tree);
 
-	Workspace->TileInFocus = TileToAdd;
+	Tree->Focus = TileToAdd;
 	IsPressed = FALSE;
-
+	
 
 }
 
-VOID UpgradeNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
+VOID UpgradeNode(TILE_TREE* Tree, TILE_INFO* Node)
 {
 
 	assert(Node->BranchParent);
@@ -1118,9 +1168,9 @@ VOID UpgradeNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 		Node->BranchParent = Node->BranchParent->BranchParent;
 		Node->BranchParent->BranchTile = GetAncestry(Node);
 	}
-	else if (Workspace->Tiles == Node->BranchParent)
+	else if (Tree->Root == Node->BranchParent)
 	{
-		Workspace->Tiles = Node;
+		Tree->Root = Node;
 		Node->BranchParent = NULL;
 	}
 	else
@@ -1132,7 +1182,7 @@ VOID UpgradeNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 
 }
 
-TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
+TILE_INFO* UnlinkNode(TILE_TREE* Tree, TILE_INFO* Node)
 {
 
 	assert(Node->NodeType == TERMINAL);
@@ -1141,7 +1191,6 @@ TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 
 	if (Node->BranchParent)
 	{
-
 		if (Node->BranchParent->BranchTile == Node)
 		{
 			assert(Node->ChildTile);
@@ -1157,7 +1206,7 @@ TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 			else
 			{
 				// Upgrade since this triangle only has 2 branches and we're removing one
-				UpgradeNode(Workspace, Node->ChildTile);
+				UpgradeNode(Tree, Node->ChildTile);
 				FocusTile = Node->ChildTile;
 			}
 		}
@@ -1174,7 +1223,7 @@ TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 			if (GetAncestryCount(Node) == 2 && !Node->ChildTile)
 			{
 				// Upgrade since this triangle only has 2 branches and we're removing one
-				UpgradeNode(Workspace, Node->ParentTile);
+				UpgradeNode(Tree, Node->ParentTile);
 				FocusTile = Node->ParentTile;
 			}
 			else
@@ -1200,15 +1249,16 @@ TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 	{
 
 		//Top Level and last node
-		if (Workspace->Tiles == Node && !Node->ChildTile)
+		if (Tree->Root == Node && !Node->ChildTile)
 		{
-			Workspace->Tiles = NULL;
+			Tree->Root = NULL;
 			FocusTile = NULL;
+			Tree->IsFullScreen = FALSE;
 			return NULL;
 		}
-		else if (Node == Workspace->Tiles)
+		else if (Node == Tree->Root)
 		{
-			Workspace->Tiles = Node->ChildTile;
+			Tree->Root = Node->ChildTile;
 			FocusTile = Node->ChildTile;
 			Node->ChildTile->ParentTile = NULL;
 		}
@@ -1227,77 +1277,87 @@ TILE_INFO* UnlinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* Node)
 
 
 		//Upgrade Node since ROOT brnach is a split which means root has to change
-		if (Workspace->Tiles == Node && !Node->ChildTile && Node->NodeType != TERMINAL)
+		if (Tree->Root == Node && !Node->ChildTile && Node->NodeType != TERMINAL)
 		{
-			Workspace->Tiles = Workspace->Tiles->BranchTile;
-			Workspace->Tiles->BranchParent = NULL;
-			FocusTile = Workspace->Tiles;
+			Tree->Root = Tree->Root->BranchTile;
+			Tree->Root->BranchParent = NULL;
+			FocusTile = Tree->Root;
 
-			for (TILE_INFO* Tile = Workspace->Tiles; Tile; Tile = Tile->ChildTile)
+			for (TILE_INFO* Tile = Tree->Root; Tile; Tile = Tile->ChildTile)
 				Tile->BranchParent = NULL;
-
 
 		}
 
-
 	}
-
-
 
 	return FocusTile;
 
 }
 
-BOOL IsWorkspaceRootTile(WORKSPACE_INFO* Workspace)
+BOOL IsWorkspaceRootTile(TILE_TREE* Tree)
 {
 
-	return !(Workspace->Tiles->ChildTile || Workspace->Tiles->BranchTile);
+	return !(Tree->Root->ChildTile || Tree->Root->BranchTile);
 
 }
 
-VOID RemoveTileFromWorkspace(WORKSPACE_INFO* Workspace, TILE_INFO* TileToRemove)
+VOID FollowFocusToTerminal(TILE_TREE* Tree)
 {
 
-	//WTF IS THIS,  REFACTOR WHEN BASIC CREATION & DESTRUCTION ARE FIXED
+	while (Tree->Focus && Tree->Focus->NodeType != TERMINAL)
+		Tree->Focus = Tree->Focus->BranchTile;
+
+}
+
+VOID RemoveTileFromTree(TILE_TREE* Tree, TILE_INFO* TileToRemove)
+{
 
 	TileToRemove->WindowHandle = NULL;
 
-	Workspace->TileInFocus = UnlinkNode(Workspace, TileToRemove);
+	Tree->Focus = UnlinkNode(Tree, TileToRemove);
 
-
-	while (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
-		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
-
-
-	ResortTiles(Workspace);
-	//FitTile(TileToRemove);
+	FollowFocusToTerminal(Tree);
+	ResortTiles(Tree);
 
 	free(TileToRemove);
 
 }
 
-VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
+NODE_TYPE FlipLayout(NODE_TYPE Layout)
+{
+	if (Layout == HORIZONTAL_SPLIT)
+		return VERTICAL_SPLIT;
+	else
+		return HORIZONTAL_SPLIT;
+}
+
+VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 {
 
-	if (!Workspace->Tiles)
+	LogEx("LinkNode : Tree->Display->Handle = %X\n", Tree->Display->Handle);
+	DISPLAY_INFO* Display = Tree->Display;
+
+	if (!Tree->Root)
 	{
+		LogEx("No Tree Root node, setting Tree root.\n");
 		TileToAdd->NodeType = TERMINAL;
-		Workspace->Tiles = TileToAdd;
-		Workspace->Layout = UserChosenLayout;
+		Tree->Root = TileToAdd;
+		Tree->Layout = UserChosenLayout;
 	}
-	else if (!IsPressed || IsWorkspaceRootTile(Workspace))
+	else if (!IsPressed || IsWorkspaceRootTile(Tree))
 	{
 
+		LogEx("Current Link is FOLLOW LAYOUT\n");
 		TileToAdd->NodeType = TERMINAL;
 
-		if (Workspace->TileInFocus->ChildTile)
+		if (Tree->Focus->ChildTile)
 		{
-			TileToAdd->ChildTile = Workspace->TileInFocus->ChildTile;
+			TileToAdd->ChildTile = Tree->Focus->ChildTile;
 			TileToAdd->ChildTile->ParentTile = TileToAdd;
 		}
 
-		Workspace->TileInFocus->ChildTile = TileToAdd;
-		TileToAdd->ParentTile = Workspace->TileInFocus;
+		Tree->Focus->ChildTile = TileToAdd;
+		TileToAdd->ParentTile = Tree->Focus;
 
 		if (TileToAdd->ParentTile->BranchParent)
 			TileToAdd->BranchParent = TileToAdd->ParentTile->BranchParent;
@@ -1306,56 +1366,96 @@ VOID LinkNode(WORKSPACE_INFO* Workspace, TILE_INFO* TileToAdd)
 	else
 	{
 
+		LogEx("Current Link is SPLIT\n");
 		TILE_INFO* NodeTile = (TILE_INFO*)malloc(sizeof(TILE_INFO));
 		RtlZeroMemory(NodeTile, sizeof(TILE_INFO));
 
-		if (Workspace->TileInFocus->ChildTile)
+		if (Tree->Focus->ChildTile)
 		{
-			NodeTile->ChildTile = Workspace->TileInFocus->ChildTile;
+			NodeTile->ChildTile = Tree->Focus->ChildTile;
 			NodeTile->ChildTile->ParentTile = NodeTile;
 		}
 
-		if (Workspace->TileInFocus->ParentTile)
+		if (Tree->Focus->ParentTile)
 		{
-			Workspace->TileInFocus->ParentTile->ChildTile = NodeTile;
-			NodeTile->ParentTile = Workspace->TileInFocus->ParentTile;
+			Tree->Focus->ParentTile->ChildTile = NodeTile;
+			NodeTile->ParentTile = Tree->Focus->ParentTile;
 			NodeTile->BranchParent = NodeTile->ParentTile->BranchParent;
 		}
 		else
 		{
-			if (Workspace->TileInFocus == Workspace->Tiles)
-				Workspace->Tiles = NodeTile;
+			if (Tree->Focus == Tree->Root)
+				Tree->Root = NodeTile;
 			else
 			{
-				Workspace->TileInFocus->BranchParent->BranchTile = NodeTile;
-				NodeTile->BranchParent = Workspace->TileInFocus->BranchParent;
+				Tree->Focus->BranchParent->BranchTile = NodeTile;
+				NodeTile->BranchParent = Tree->Focus->BranchParent;
 			}
 
 
 		}
 
 
-		NodeTile->NodeType = UserChosenLayout;
+		//Bsplit stuff
+		if (ShouldBSplit)
+		{
+			ShouldBSplit = FALSE;
 
-		NodeTile->BranchTile = Workspace->TileInFocus;
+			if (NodeTile->BranchParent)
+				NodeTile->NodeType = FlipLayout(NodeTile->BranchParent->NodeType);
+			else if (NodeTile->ParentTile)
+				NodeTile->NodeType = FlipLayout(NodeTile->ParentTile->NodeType);
+			else
+				NodeTile->NodeType = FlipLayout(Tree->Layout);
+		}		
+		else
+			NodeTile->NodeType = UserChosenLayout;
 
+		NodeTile->BranchTile = Tree->Focus;
 
-		Workspace->TileInFocus->BranchParent = NodeTile;
-		Workspace->TileInFocus->ChildTile = TileToAdd;
-		Workspace->TileInFocus->ParentTile = NULL;
-		TileToAdd->ParentTile = Workspace->TileInFocus;
+		Tree->Focus->BranchParent = NodeTile;
+		Tree->Focus->ChildTile = TileToAdd;
+		Tree->Focus->ParentTile = NULL;
+		TileToAdd->ParentTile = Tree->Focus;
 		TileToAdd->BranchParent = NodeTile;
 
 	}
 
 }
 
-// Seperate the all the windows we got into tiles. there are 10 workspaces.
+VOID RestoreTitleBar(TILE_INFO* Tile)
+{
+	Tile->IsRemovedTitleBar = FALSE;
+	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+}
+
+
+
+//Remove Title Bar from window, User Option.
+VOID RemoveTitleBar(TILE_INFO* Tile)
+{
+	Tile->IsRemovedTitleBar = TRUE;
+	LONG_PTR WindowStyle = GetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE);
+	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
+	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, WindowStyle);
+	
+}
+
+BOOL IsOnPrimaryDisplay(TILE_INFO* Tile)
+{
+	HMONITOR Monitor = MonitorFromWindow(Tile->WindowHandle, NULL);
+
+	if (Monitor == PrimaryDisplay->Handle)
+		return TRUE;
+
+	return FALSE;
+}
+
+// Seperate the all the windows we got into tiles. there are 9 workspaces.
 // and upon init regrouping there are 4 windows per workspaces. If there
 // is more than 40 total windows that have to be grouped. recalcualte
 // tiles per workspace.
 //
-int prog_loop = 0;
 VOID PerformInitialRegroupring()
 {
 
@@ -1383,15 +1483,13 @@ VOID PerformInitialRegroupring()
 		NumTiles = TilesPerWorkspace * NumWorkspace;
 #endif
 
-	WorkspaceIndex = CurrentWorkspaceInFocus;
+	WorkspaceIndex = CurWk;
 
 	INT TilesLeft = NumTiles;
 
 	for (int i = 0; i < NumTiles; i += TilesPerWorkspace)
 	{
 
-		// this is dumb as fuck don't use an array linked-list it because
-		// we're not morons 
 		INT ActualTilesLeft = NumTiles - (i * TilesPerWorkspace);
 		WORKSPACE_INFO* CurrentWorkspace = &WorkspaceList[WorkspaceIndex];
 
@@ -1399,23 +1497,38 @@ VOID PerformInitialRegroupring()
 		int j = 0;
 		for (; j < TilesPerWorkspace && TilesLeft; j++)
 		{
-			//printf("in for loop : %u\n", prog_loop++);
 
 			TILE_INFO* CurrentTileInfo = &WindowOrderList[i + j];
 			TILE_INFO* TileToAdd = (TILE_INFO*)malloc(sizeof(TILE_INFO));
 			RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 			*TileToAdd = *CurrentTileInfo;
-
 			TileToAdd->BranchTile = NULL;
 
-			LinkNode(CurrentWorkspace, TileToAdd);
-			AddTileToWorkspace(CurrentWorkspace, TileToAdd);
+			TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+			TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
+
+			if (!IsOnPrimaryDisplay(TileToAdd))
+			{
+				TileToAdd->IsDisplayChanged = TRUE;
+				LogEx("New Tile is not on primary display.");
+			}
+
+			WCHAR WindowText[512];
+
+			GetClassNameW(TileToAdd->WindowHandle, WindowText, 512);
+
+			if (!wcscmp(WindowText, L"ConsoleWindowClass"))
+				TileToAdd->IsConsole = TRUE;
+
+			LinkNode(CurrentWorkspace->Tree, TileToAdd);
+			CurrentWorkspace->Tree->Focus = TileToAdd;
+			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
 
 			TilesLeft--;
-			MoveWindowToVDesktop(TileToAdd->WindowHandle, CurrentWorkspace->VDesktop);
 		}
 
+		AddTileToWorkspace(CurrentWorkspace->Tree, CurrentWorkspace->Tree->Focus);
 		WorkspaceIndex++;
 
 	}
@@ -1455,17 +1568,13 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 	if (GetForegroundWindow() != Tile->WindowHandle)
 	{
 		ForceToForeground(WindowHandle);
-		logc(7, "CurrentFgWindow : %X\n", GetForegroundWindow());
 	}
-
-	logc(6, "RenderFocusWindow : %X\n", WindowHandle);
 
 	RECT ClientRect;
 	PRECT TileRect = &Tile->Placement.rcNormalPosition;
+	HRESULT Result;
 
 	GetClientRect(WindowHandle, &ClientRect);
-
-	logc(6, "%lu %lu %lu %lu\n", ClientRect.left, ClientRect.top, ClientRect.right, ClientRect.bottom);
 
 	INT Width = ClientRect.right - ClientRect.left;
 	INT BorderSize = 5;
@@ -1475,13 +1584,10 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 	if (!ClientToScreen(WindowHandle, &TopLeftClientArea))
 		return;
 
-	logc(6, "TL - X : %lu, TL - Y : %lu\n", TopLeftClientArea.x, TopLeftClientArea.y);
-
 	ClientRect.left += TopLeftClientArea.x;
 	ClientRect.top += TopLeftClientArea.y;
 	ClientRect.bottom += TopLeftClientArea.y;
 
-	logc(6, "%lu %lu %lu %lu\n", ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize);
 
 	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
 		FailWithCode("SetWindowPos Focus Window");
@@ -1493,31 +1599,42 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 
 }
 
+
 VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 {
-	if (Workspace->TileInFocus && !Workspace->IsFullScreen)
-		RenderFocusWindow(Workspace->TileInFocus);
+
+	Sleep(0);
+
+	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
+		RenderFocusWindow(Workspace->Tree->Focus);
 	else
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 }
 
+DWORD RenderFocusWindowExThread(PVOID Workspace) {
 
-VOID AdjustForGaps(RECT* PrintRect)
+	RenderFocusWindowEx((WORKSPACE_INFO*)Workspace);
+
+	return 0;
+	
+}
+
+VOID AdjustForGaps(RECT* PrintRect, DISPLAY_INFO* Display)
 {
 
-		//Adjust for OuterGaps
-		PrintRect->left += OuterGapsHorizontal / 2;
-		PrintRect->right += OuterGapsHorizontal / 2;
+	//Adjust for OuterGaps
+	PrintRect->left +=OuterGapsHorizontal / 2;
+	PrintRect->right += OuterGapsHorizontal / 2;
 
-		PrintRect->top += OuterGapsVertical / 2;
-		PrintRect->bottom += OuterGapsVertical / 2;
+	PrintRect->top += OuterGapsVertical / 2;
+	PrintRect->bottom += OuterGapsVertical / 2;
 
-		//Adjust for InnerGaps
-		PrintRect->left += InnerGapsHorizontal / 2;
-		PrintRect->right -= InnerGapsHorizontal / 2;
+	//Adjust for InnerGaps
+	PrintRect->left += InnerGapsHorizontal / 2;
+	PrintRect->right -= InnerGapsHorizontal / 2;
 
-		PrintRect->top += InnerGapsVertical / 2;
-		PrintRect->bottom -= InnerGapsVertical / 2;
+	PrintRect->top += InnerGapsVertical / 2;
+	PrintRect->bottom -= InnerGapsVertical / 2;
 
 }
 
@@ -1557,8 +1674,9 @@ VOID AdjustForBorder(TILE_INFO* Tile, RECT* PrintRect)
 
 }
 
-INT RenderWindows(TILE_INFO* Tile)
+INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 {
+
 
 	INT Count = 0;
 
@@ -1567,38 +1685,53 @@ INT RenderWindows(TILE_INFO* Tile)
 
 		if (Tile->NodeType != TERMINAL)
 		{
-			Count += RenderWindows(Tile->BranchTile);
+			Count += RenderWindows(Tile->BranchTile, Display);
 			continue;
 		}
 
 		RECT PrintRect = Tile->Placement.rcNormalPosition;
 
-		if (AdjustForNC)
+		if (AdjustForNC && !Tile->IsDisplayChanged)
 			AdjustForBorder(Tile, &PrintRect);
 
 		if (IsGapsEnabled)
-			AdjustForGaps(&PrintRect);
-
-		INT Width = (PrintRect.right - PrintRect.left);
-		INT Height = (PrintRect.bottom - PrintRect.top);
+			AdjustForGaps(&PrintRect, Display);
 
 		WINDOWPLACEMENT WndPlacement = { 0 };
 
 		WndPlacement.length = sizeof(WINDOWPLACEMENT);
-		WndPlacement.flags = 0;
+		WndPlacement.flags = WPF_ASYNCWINDOWPLACEMENT;
 		WndPlacement.showCmd = SW_RESTORE;
 		WndPlacement.rcNormalPosition = PrintRect;
+
+		LogEx("\t\tRectangle : [%d %d %d %d]\n", PrintRect.left, PrintRect.right, PrintRect.top, PrintRect.bottom);
 
 		DWORD RetVal = SetWindowPlacement(Tile->WindowHandle, &WndPlacement);
 
 		if (!RetVal)
 		{
 			if (GetLastError() == ERROR_INVALID_WINDOW_HANDLE)
+			{
+				LogEx("Invalid Window Handle (1400)\n");
 				return ++Count;
+			}
 
 			FailWithCode(MakeFormatString("SetWindowPos : %X\n", Tile->WindowHandle));
 
 		}
+
+		if (Tile->IsDisplayChanged)
+		{
+
+			INT Width = (PrintRect.right - PrintRect.left);
+			INT Height = (PrintRect.bottom - PrintRect.top);
+
+			if (AdjustForNC)
+				AdjustForBorder(Tile, &PrintRect);
+
+			SetWindowPos(Tile->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
+		}
+
 
 		Count++;
 	}
@@ -1606,100 +1739,225 @@ INT RenderWindows(TILE_INFO* Tile)
 	return Count;
 
 }
-
-VOID RenderDebugWindow(TILE_INFO* FocusTile)
+ 
+VOID RenderFullscreenWindow(TILE_TREE* Tree, DISPLAY_INFO* Display)
 {
+	assert(Tree->IsFullScreen && Tree->Focus);
 
-	return;
-
-	if (!FocusTile)
-		return;
-
-
-	RECT* FocusRect = &FocusTile->Placement.rcNormalPosition;
-
-	INT Width = FocusRect->right - FocusRect->left;
-	INT Height = FocusRect->bottom - FocusRect->top;
-
-	if (!SetWindowPos(DebugWindow, HWND_TOPMOST, FocusRect->left, FocusRect->top, Width, Height, 0))
-		FailWithCode("Couldn't move DebugWindow??");
-
-	ShowWindow(DebugWindow, SW_SHOW);
-
-}
-
-VOID RenderFullscreenWindow(WORKSPACE_INFO* Workspace)
-{
-	assert(Workspace->IsFullScreen && Workspace->TileInFocus);
-
-	ForceToForeground(Workspace->TileInFocus->WindowHandle);
-
-	HandleWeirdWindowState(Workspace->TileInFocus->WindowHandle);
+	ForceToForeground(Tree->Focus->WindowHandle);
 
 	RECT PrintRect;
 
-	PrintRect.left = 0;
-	PrintRect.top = 0;
+	PrintRect.left = Display->Rect.left;
+	PrintRect.top = Display->Rect.top;
 
-	PrintRect.right = RealScreenWidth;
-	PrintRect.bottom = RealScreenHeight;
+	PrintRect.right = Display->Rect.left + Display->RealScreenWidth;
+	PrintRect.bottom = Display->Rect.top + Display->RealScreenHeight;
 
-	if (AdjustForNC)
-		AdjustForBorder(Workspace->TileInFocus, &PrintRect);
+	if (AdjustForNC && !IsFullScreenMax)
+		AdjustForBorder(Tree->Focus, &PrintRect);
 
 	INT Width = PrintRect.right - PrintRect.left;
 	INT Height = PrintRect.bottom - PrintRect.top;
 
-	DWORD RetVal = SetWindowPos(Workspace->TileInFocus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
+	if (IsFullScreenMax)
+	{
+		if (!Tree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(Tree->Focus);
+
+		//If not Console Window
+		if (!Tree->Focus->IsConsole)
+			Height += (Display->TrayRect.bottom - Display->TrayRect.top);
+
+	}
+
+	DWORD RetVal = SetWindowPos(Tree->Focus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
 
 	if (!RetVal)
-		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Workspace->TileInFocus->WindowHandle));
+		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Tree->Focus->WindowHandle));
+
+}
+
+INT GetFilledWorkspaceCount()
+{
+	int count = 0;
+	for (int i = 0; i < WorkspaceList.size(); i++)
+	{
+		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+
+		if (GetWindowCount(Workspace) || i == CurWk)
+			count++;
+
+	}
+
+	return count;
+}
+
+HBRUSH ButtonBrush;
+HBRUSH ButtonMonBrush;
+HBRUSH DefaultBrush;
+
+
+
+VOID DrawTransparentRectangle(HMONITOR DisplayHandle, HWND StatusBarWindow)
+{
+
+	HDC GeneralDC;
+	HDC CompatDC;
+	BITMAPINFO BitMapInfo;
+	HBITMAP BitMap;
+	PVOID Bits;
+	PDWORD Pixels;
+	POINT Point;
+	BLENDFUNCTION BlendFunction;
+	POINT ScreenPoint;
+	SIZE Size;
+
+	CompatDC = NULL;
+	BitMap = NULL;
+	GeneralDC = GetDC(StatusBarWindow);
+
+	if (!GeneralDC)
+		return;
+	
+	INT Count = GetFilledWorkspaceCount();
+	
+	RECT TargetRect = { 0, 0, 25 * Count, 25 };
+
+	RtlZeroMemory(&BitMapInfo, sizeof(BitMapInfo));
+	BitMapInfo.bmiHeader.biSize = sizeof(BitMapInfo);
+	BitMapInfo.bmiHeader.biBitCount = 32;
+	BitMapInfo.bmiHeader.biWidth = TargetRect.right;
+	BitMapInfo.bmiHeader.biHeight = TargetRect.bottom;
+	BitMapInfo.bmiHeader.biPlanes = 1;
+
+	BitMap = CreateDIBSection(GeneralDC, &BitMapInfo, DIB_RGB_COLORS, &Bits, 0, 0);
+
+	if (!BitMap)
+		Fail("Couldn't Create BitMap");
+
+	CompatDC = CreateCompatibleDC(GeneralDC);
+
+	if (!CompatDC)
+		Fail("Couldn't Create Compatible DC");
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	HGDIOBJ BmpObj = SelectObject(CompatDC, BitMap);
+	FillRect(CompatDC, &TargetRect, DefaultBrush);
+	
+	HBRUSH ClrBrush = ButtonMonBrush;
+
+	if (DisplayHandle == Workspace->Tree->Display->Handle)
+		ClrBrush = ButtonBrush;
+
+	RECT ActRect = { 0, 0, 0, 0 };
+	for (int i = 1; i < Count + 1; i++)
+	{
+		if (ButtonArray[i] == CurWk)
+		{
+			ActRect.left = (i - 1) * 25;
+			ActRect.right = i * 25;
+			ActRect.top = 0;
+			ActRect.bottom = 25;
+		}
+
+	}
+
+	FillRect(CompatDC, &ActRect, ClrBrush);
+
+
+	BOOL WasSet = FALSE;
+	SetBkColor(CompatDC, ClrInActWk);
+	SetTextColor(CompatDC, ClrInActTxt);
+	for (int i = 1; i < Count + 1; i++)
+	{
+
+		if (ButtonArray[i] == CurWk)
+		{
+			WasSet = TRUE;
+
+			if (DisplayHandle == Workspace->Tree->Display->Handle)
+				SetBkColor(CompatDC, ClrActWk);
+			else
+				SetBkColor(CompatDC, ClrInMt);
+
+			SetTextColor(CompatDC, ClrActTxt);
+		}
+
+		//Render Text since they don't match
+		RECT DrawRect = { (i - 1) * 25, 0, i * 25, 25 };
+		CHAR ButtonText[2] = { ButtonArray[i] + '0', '\0' };
+		DrawTextA(CompatDC, ButtonText, -1, &DrawRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+		if (WasSet)
+		{
+			WasSet = FALSE;
+			SetBkColor(CompatDC, ClrInActWk);
+			SetTextColor(CompatDC, ClrInActTxt);
+		}
+
+
+	}
+
+	Pixels = (PDWORD)Bits;
+	for (int Y = 0; Y < TargetRect.bottom; Y++)
+	{
+		for (int X = 0; X < TargetRect.right; X++, Pixels++)
+		{
+			*Pixels |= 0xff000000; // solid
+		}
+	}
+
+	RtlZeroMemory(&Point, sizeof(Point));
+
+	BlendFunction.AlphaFormat = AC_SRC_ALPHA;
+	BlendFunction.BlendFlags = 0;
+	BlendFunction.BlendOp = AC_SRC_OVER;
+	BlendFunction.SourceConstantAlpha = 255;
+
+	Size.cx = TargetRect.right - TargetRect.left;
+	Size.cy = TargetRect.bottom - TargetRect.top;
+
+	ScreenPoint.x = TargetRect.left;
+	ScreenPoint.y = TargetRect.top;
+
+	//Draw the Text here
+
+	UpdateLayeredWindow(StatusBarWindow, GeneralDC, NULL, &Size, CompatDC, &Point, 0, &BlendFunction, ULW_ALPHA);
+
+	ReleaseDC(StatusBarWindow, GeneralDC);
+	ReleaseDC(StatusBarWindow, CompatDC);
+	DeleteObject(BitMap);
+
+	//Rendering Text
+
 
 }
 
 VOID RenderStatusBar()
 {
+	unsigned char Idx = 1;
 
-
-	INT SlotCount = 1;
-	CHAR ButtonText[2] = { '0', '\0' };
-
-	BtnToColor = 0;
-
+	//Get ON workspaces in statusbar
 	for (int i = 1; i < WorkspaceList.size(); i++)
 	{
-		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
-
-		if (i == CurrentWorkspaceInFocus)
+		if (GetWindowCount(&WorkspaceList[i]) || i == CurWk)
 		{
-			BtnToColor = StatusBarWindow[SlotCount];
-			ButtonText[0] = '0' + i;
-			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
-			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
-			SlotCount++;
-		}
-		else if (Workspace->Tiles)
-		{
-			ButtonText[0] = '0' + i;
-			SetWindowTextA(StatusButtonList[SlotCount], ButtonText);
-			InvalidateRect(StatusButtonList[SlotCount], 0, TRUE);
-			SlotCount++;
+			ButtonArray[Idx] = i;
+			Idx++;
 		}
 	}
 
-	for (int i = 1; i < 10; i++)
+	//Workspaces with no windows become -1;
+	for (int i = Idx; i < WorkspaceList.size(); i++)
+		ButtonArray[i] = 0;
+
+	for (auto& Display : DisplayList)
 	{
-		if (i < SlotCount)
-		{
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
-			logc(12, "Showing Button : %u : %X\n", i, StatusBarWindow[i]);
-		}
-		else
-		{
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
-			logc(12, "Hiding Button : %u : %X\n", i, StatusBarWindow[i]);
-		}
+		DrawTransparentRectangle(Display.Handle, Display.StatusBar);
 	}
+
 }
 
 VOID RenderNoWindow()
@@ -1707,34 +1965,66 @@ VOID RenderNoWindow()
 	SendMessage(TrayWindow, WM_COMMAND, MIN_ALL, 0);
 }
 
+template <typename F, typename ...Args>
+auto benchmark(const char* Format, F f, Args&& ...args)
+{
+	const auto start = std::chrono::high_resolution_clock::now();
+
+	auto value = f(std::forward<Args>(args)...);
+
+	std::chrono::duration<float, std::ratio<1>> Time = (std::chrono::high_resolution_clock::now() - start);
+
+	printf(Format, Time.count());
+	return value;
+}
+
 VOID RenderWorkspace(INT WorkspaceNumber)
 {
+	LogEx("Rendering Workspace : %u\n", WorkspaceNumber);
 
 	//the window about to be rendered is the window in focus;
-	CurrentWorkspaceInFocus = WorkspaceNumber;
+	CurWk = WorkspaceNumber;
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
 
+	for (auto KeyValue : Workspace->Trees)
+	{
+
+		LogEx("\tTree\n");
+
+		TILE_TREE* CurrentTree = &KeyValue.second;
+
+		if (!CurrentTree->NeedsRendering)
+		{
+			LogEx("\tTree Doesn't Need rendering\n");
+			continue;
+		}
+
+		INT Count = 1;
+
+		if (CurrentTree->IsFullScreen)
+		{
+			LogEx("\tRenderingMode: FullScreen\n");
+			RenderFullscreenWindow(CurrentTree, CurrentTree->Display);
+		}
+		else if (CurrentTree->Root)
+		{
+			LogEx("\tRenderingMode: Has Tiles\n");
+			Count = RenderWindows(CurrentTree->Root, CurrentTree->Display);
+		}
+		else
+		{
+			LogEx("\tRenderingMode: Empty Workspace\n");
+		}
+
+
+		CurrentTree->NeedsRendering = FALSE;
+
+	}
+
 	RenderStatusBar();
-
-
-	if (!Workspace->NeedsRendering)
-		return;
-
-	logc(13, "Rendering Workspace ; %u\n", WorkspaceNumber);
-
-	INT Count = 1;
-
-	if (Workspace->IsFullScreen)
-		RenderFullscreenWindow(Workspace);
-	else if (Workspace->Tiles)
-		Count = RenderWindows(Workspace->Tiles);
-
-	RenderFocusWindowEx(Workspace);
-
-	Workspace->NeedsRendering = FALSE;
-
-	logc(12, "Total Length Of Workspace : %u\n", Count);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+	LogEx("Finished Rendering Workspace : %u\n", WorkspaceNumber);
 
 }
 
@@ -1745,12 +2035,6 @@ VOID InitWorkspaceList()
 #else
 	WorkspaceList.resize(3);
 #endif
-
-	for (int i = 0; i < WorkspaceList.size(); i++)
-	{
-		WorkspaceList[i].NeedsRendering = TRUE;
-	}
-
 }
 
 VOID LoadNecessaryModules()
@@ -1766,37 +2050,32 @@ UINT_PTR KeyboardLookupTable[0x100];
 HOTKEY_DISPATCH HotKeyCallbackTable[0x100][2];
 
 
-NODE_TYPE GetBranchLayout(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
+NODE_TYPE GetBranchLayout(TILE_TREE* Tree, TILE_INFO* Tile)
 {
 	if (Tile->BranchParent)
 		return Tile->BranchParent->NodeType;
 	else
-		return Workspace->Layout;
+		return Tree->Layout;
 }
-
 
 VOID FocusLeft(WORKSPACE_INFO* Workspace)
 {
 
-	TILE_INFO* TileInFocus = Workspace->TileInFocus;
+	assert(Workspace->Tree->Focus->NodeType == TERMINAL);
 
-	assert(TileInFocus->NodeType == TERMINAL);
-
-	for (TILE_INFO* Tile = Workspace->TileInFocus; Tile; Tile = Tile->BranchParent)
+	for (TILE_INFO* Tile = Workspace->Tree->Focus; Tile; Tile = Tile->BranchParent)
 	{
-		if (GetBranchLayout(Workspace, Tile) == VERTICAL_SPLIT)
+		if (GetBranchLayout(Workspace->Tree, Tile) == VERTICAL_SPLIT)
 		{
 			if (Tile->ParentTile)
 			{
-				Workspace->TileInFocus = Tile->ParentTile;
+				Workspace->Tree->Focus = Tile->ParentTile;
 				break;
 			}
 		}
-
 	}
 
-	while (Workspace->TileInFocus->NodeType != TERMINAL)
-		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
+	FollowFocusToTerminal(Workspace->Tree);
 
 
 }
@@ -1804,26 +2083,22 @@ VOID FocusLeft(WORKSPACE_INFO* Workspace)
 VOID FocusRight(WORKSPACE_INFO* Workspace)
 {
 
-	TILE_INFO* TileInFocus = Workspace->TileInFocus;
+	assert(Workspace->Tree->Focus->NodeType == TERMINAL);
 
-	assert(TileInFocus->NodeType == TERMINAL);
-
-	for (TILE_INFO* Tile = Workspace->TileInFocus; Tile; Tile = Tile->BranchParent)
+	for (TILE_INFO* Tile = Workspace->Tree->Focus; Tile; Tile = Tile->BranchParent)
 	{
-		if (GetBranchLayout(Workspace, Tile) == VERTICAL_SPLIT)
+		if (GetBranchLayout(Workspace->Tree, Tile) == VERTICAL_SPLIT)
 		{
 			if (Tile->ChildTile)
 			{
-				Workspace->TileInFocus = Tile->ChildTile;
+				Workspace->Tree->Focus = Tile->ChildTile;
 				break;
 			}
 		}
 
 	}
 
-	while (Workspace->TileInFocus->NodeType != TERMINAL)
-		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
-
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
@@ -1831,26 +2106,22 @@ VOID FocusRight(WORKSPACE_INFO* Workspace)
 VOID FocusTop(WORKSPACE_INFO* Workspace)
 {
 
-	TILE_INFO* TileInFocus = Workspace->TileInFocus;
+	assert(Workspace->Tree->Focus->NodeType == TERMINAL);
 
-	assert(TileInFocus->NodeType == TERMINAL);
-
-	for (TILE_INFO* Tile = Workspace->TileInFocus; Tile; Tile = Tile->BranchParent)
+	for (TILE_INFO* Tile = Workspace->Tree->Focus; Tile; Tile = Tile->BranchParent)
 	{
-		if (GetBranchLayout(Workspace, Tile) == HORIZONTAL_SPLIT)
+		if (GetBranchLayout(Workspace->Tree, Tile) == HORIZONTAL_SPLIT)
 		{
 			if (Tile->ParentTile)
 			{
-				Workspace->TileInFocus = Tile->ParentTile;
+				Workspace->Tree->Focus = Tile->ParentTile;
 				break;
 			}
 		}
 
 	}
 
-	while (Workspace->TileInFocus->NodeType != TERMINAL)
-		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
-
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
@@ -1858,36 +2129,32 @@ VOID FocusTop(WORKSPACE_INFO* Workspace)
 VOID FocusBottom(WORKSPACE_INFO* Workspace)
 {
 
-	TILE_INFO* TileInFocus = Workspace->TileInFocus;
+	assert(Workspace->Tree->Focus->NodeType == TERMINAL);
 
-	assert(TileInFocus->NodeType == TERMINAL);
-
-	for (TILE_INFO* Tile = Workspace->TileInFocus; Tile; Tile = Tile->BranchParent)
+	for (TILE_INFO* Tile = Workspace->Tree->Focus; Tile; Tile = Tile->BranchParent)
 	{
-		if (GetBranchLayout(Workspace, Tile) == HORIZONTAL_SPLIT)
+		if (GetBranchLayout(Workspace->Tree, Tile) == HORIZONTAL_SPLIT)
 		{
 			if (Tile->ChildTile)
 			{
-				Workspace->TileInFocus = Tile->ChildTile;
+				Workspace->Tree->Focus = Tile->ChildTile;
 				break;
 			}
 		}
 
 	}
 
-	while (Workspace->TileInFocus->NodeType != TERMINAL)
-		Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
-
+	FollowFocusToTerminal(Workspace->Tree);
 
 }
 
-VOID FocusRoot(WORKSPACE_INFO* Workspace)
+VOID FocusRoot(TILE_TREE* Tree)
 {
 
-	if (Workspace->TileInFocus->BranchParent)
-		UserChosenLayout = Workspace->TileInFocus->BranchParent->NodeType;
+	if (Tree->Focus->BranchParent)
+		UserChosenLayout = Tree->Focus->BranchParent->NodeType;
 	else
-		UserChosenLayout = Workspace->Layout;
+		UserChosenLayout = Tree->Layout;
 }
 
 BOOL ButtonDown(UINT_PTR Button)
@@ -1898,30 +2165,30 @@ BOOL ButtonDown(UINT_PTR Button)
 VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
-	if (!Workspace->Tiles)
+	if (!Workspace->Tree->Focus)
 		return;
 
-	TILE_INFO* PrevTile = Workspace->TileInFocus;
+	TILE_INFO* PrevTile = Workspace->Tree->Focus;
 
 	if (Swap)
 	{
-		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
+		HWND TargetWindow = Workspace->Tree->Focus->WindowHandle;
 		FocusLeft(Workspace);
 
-		if (Workspace->TileInFocus != PrevTile)
+		if (Workspace->Tree->Focus != PrevTile)
 		{
-			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
-			Workspace->TileInFocus->WindowHandle = TargetWindow;
-			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			PrevTile->WindowHandle = Workspace->Tree->Focus->WindowHandle;
+			Workspace->Tree->Focus->WindowHandle = TargetWindow;
+			Workspace->Tree->NeedsRendering = TRUE;
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
 		FocusLeft(Workspace);
 
-	FocusRoot(Workspace);
-	RenderFocusWindow(Workspace->TileInFocus);
-	RenderDebugWindow(Workspace->TileInFocus);
+	FocusRoot(Workspace->Tree);
+	RenderFocusWindow(Workspace->Tree->Focus);
+	ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 }
 
@@ -1929,60 +2196,60 @@ VOID HandleLeft(WORKSPACE_INFO* Workspace, BOOL Swap)
 VOID HandleRight(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
-	if (!Workspace->Tiles)
+	if (!Workspace->Tree->Focus)
 		return;
 
-	TILE_INFO* PrevTile = Workspace->TileInFocus;
+	TILE_INFO* PrevTile = Workspace->Tree->Focus;
 
 	if (Swap)
 	{
-		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
+		HWND TargetWindow = Workspace->Tree->Focus->WindowHandle;
 		FocusRight(Workspace);
 
-		if (Workspace->TileInFocus != PrevTile)
+		if (Workspace->Tree->Focus != PrevTile)
 		{
-			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
-			Workspace->TileInFocus->WindowHandle = TargetWindow;
-			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			PrevTile->WindowHandle = Workspace->Tree->Focus->WindowHandle;
+			Workspace->Tree->Focus->WindowHandle = TargetWindow;
+			Workspace->Tree->NeedsRendering = TRUE;
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
 		FocusRight(Workspace);
 
-	FocusRoot(Workspace);
-	RenderFocusWindow(Workspace->TileInFocus);
-	RenderDebugWindow(Workspace->TileInFocus);
+	FocusRoot(Workspace->Tree);
+	RenderFocusWindow(Workspace->Tree->Focus);
+	ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 }
 
 VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
-	if (!Workspace->Tiles)
+	if (!Workspace->Tree->Focus)
 		return;
 
-	TILE_INFO* PrevTile = Workspace->TileInFocus;
+	TILE_INFO* PrevTile = Workspace->Tree->Focus;
 
 	if (Swap)
 	{
-		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
+		HWND TargetWindow = Workspace->Tree->Focus->WindowHandle;
 		FocusTop(Workspace);
 
-		if (Workspace->TileInFocus != PrevTile)
+		if (Workspace->Tree->Focus != PrevTile)
 		{
-			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
-			Workspace->TileInFocus->WindowHandle = TargetWindow;
-			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			PrevTile->WindowHandle = Workspace->Tree->Focus->WindowHandle;
+			Workspace->Tree->Focus->WindowHandle = TargetWindow;
+			Workspace->Tree->NeedsRendering = TRUE;
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
 		FocusTop(Workspace);
 
-	FocusRoot(Workspace);
-	RenderFocusWindow(Workspace->TileInFocus);
-	RenderDebugWindow(Workspace->TileInFocus);
+	FocusRoot(Workspace->Tree);
+	RenderFocusWindow(Workspace->Tree->Focus);
+	ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 }
 
@@ -1990,22 +2257,23 @@ VOID HandleTop(WORKSPACE_INFO* Workspace, BOOL Swap)
 VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 {
 
-	if (!Workspace->Tiles)
+
+	if (!Workspace->Tree->Focus)
 		return;
 
-	TILE_INFO* PrevTile = Workspace->TileInFocus;
+	TILE_INFO* PrevTile = Workspace->Tree->Focus;
 
 	if (Swap)
 	{
-		HWND TargetWindow = Workspace->TileInFocus->WindowHandle;
+		HWND TargetWindow = Workspace->Tree->Focus->WindowHandle;
 		FocusBottom(Workspace);
 
-		if (Workspace->TileInFocus != PrevTile)
+		if (Workspace->Tree->Focus != PrevTile)
 		{
-			PrevTile->WindowHandle = Workspace->TileInFocus->WindowHandle;
-			Workspace->TileInFocus->WindowHandle = TargetWindow;
-			Workspace->NeedsRendering = TRUE;
-			RenderWorkspace(CurrentWorkspaceInFocus);
+			PrevTile->WindowHandle = Workspace->Tree->Focus->WindowHandle;
+			Workspace->Tree->Focus->WindowHandle = TargetWindow;
+			Workspace->Tree->NeedsRendering = TRUE;
+			RenderWorkspace(CurWk);
 		}
 	}
 	else
@@ -2015,9 +2283,9 @@ VOID HandleBottom(WORKSPACE_INFO* Workspace, BOOL Swap)
 	//when you destroy a node the next one goes down and so the swap
 	// happens regardless
 
-	FocusRoot(Workspace);
-	RenderFocusWindow(Workspace->TileInFocus);
-	RenderDebugWindow(Workspace->TileInFocus);
+	FocusRoot(Workspace->Tree);
+	RenderFocusWindow(Workspace->Tree->Focus);
+	ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 }
 
@@ -2045,26 +2313,17 @@ INT HideWindows(TILE_INFO* Tile)
 
 }
 
-VOID HideWorkspace(INT WorkspaceNumber)
-{
-	TILE_INFO* Tiles = WorkspaceList[WorkspaceNumber].Tiles;
-
-	HideWindows(Tiles);
-
-}
-
 VOID HandleSwitchDesktop(INT WorkspaceNumber)
 {
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[WorkspaceNumber];
-	TILE_INFO* FocusTile = Workspace->TileInFocus;
 
 	//Atomically wait while a new window is being created
 	while (!CanSwitch)
 	{
 	}
 
-	RenderFocusWindowEx(Workspace);
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	//The first time you switch to a VDesktop it minizimes all windows
 	//Unless you render the desktop during the switch, for every workspace
@@ -2074,51 +2333,116 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	// No idea why it works like that
 	if (WorkspaceNumber == 1 && !FirstDesktopRender)
 	{
-		Workspace->NeedsRendering = TRUE;
+		LogEx("First Time VDesktop Re-render done\n");
+		Workspace->Tree->NeedsRendering = TRUE;
 		FirstDesktopRender = TRUE;
 	}
 
 	RenderWorkspace(WorkspaceNumber);
 
+	HRESULT Result = VDesktopWrapper.SwitchDesktop(Workspace->VDesktop);
 
-	HRESULT Result = VDesktopManagerInternal->SwitchDesktop(Workspace->VDesktop);
+	if (TreeHas(Focus))
+		ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 	if (FAILED(Result))
 		Fail("SwitchDesktop");
 
-	if (Workspace->TileInFocus)
-		ForceToForeground(Workspace->TileInFocus->WindowHandle);
+	LuaDispatchEx("on_change_workspace", CurWk);
+
+}
+
+VOID Restore(TILE_INFO* Tile)
+{
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+			Restore(Tile->BranchTile);
+
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+		SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
+	}
+}
+
+VOID RestoreEx()
+{
+
+	for (int i = 1; i < WorkspaceList.size(); i++)
+	{
+
+		WORKSPACE_INFO* Workspace = &WorkspaceList[i];
+		for (auto KeyValue : Workspace->Trees)
+		{
+			TILE_TREE* CurrentTree = &KeyValue.second;
+			for (TILE_INFO* Tile = CurrentTree->Root; Tile; Tile = Tile->ChildTile)
+			{
+				if (Tile->BranchTile)
+					Restore(Tile->BranchTile);
+
+				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+			}
+		}
+	}
 
 }
 
 VOID HandleShutdown()
 {
+
+	static bool HasShutdown = FALSE;
+
+	if (HasShutdown)
+		return;
+
+	HasShutdown = TRUE;
+	
+
+	LogEx("Shutting Down\n");
+
+	if (FilePointer)
+		fclose(FilePointer);
+
+	LuaDispatchEx("on_exit");
+
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 369);
+
+	RestoreEx();
 
 	NOTIFYICONDATA NotifyData;
 	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
 
-	NotifyData.hWnd = NotifWindow;
 	NotifyData.cbSize = sizeof(NotifyData);
-	NotifyData.uID = 1;
+	NotifyData.hWnd = NotifWindow;
+	NotifyData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+	NotifyData.uID = 69;
+	NotifyData.uCallbackMessage = WM_APP;
 
-	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+	DWORD LastWord = Shell_NotifyIcon(NIM_DELETE, &NotifyData);
+
+	printf("%u", LastWord);
 
 	for (int i = 2; i < WorkspaceList.size(); i++)
 		if (WorkspaceList[i].VDesktop)
 		{
-			HRESULT Result = VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
+			HRESULT Result = VDesktopWrapper.RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
 
 			if (FAILED(Result))
 				MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
 			WorkspaceList[i].VDesktop->Release();
 		}
 
-	WorkspaceList[1].VDesktop->Release();
+	if (WorkspaceList[1].VDesktop)
+		WorkspaceList[1].VDesktop->Release();
 
 	ViewCollection->Release();
-	VDesktopManagerInternal->Release();
+
+	if (VDesktopManagerInternal)
+		VDesktopManagerInternal->Release();
+
+	if (VDesktopManagerInternalNew)
+		VDesktopManagerInternalNew->Release();
+
 	VDesktopManager->Release();
 	ServiceProvider->Release();
 
@@ -2128,18 +2452,20 @@ VOID HandleShutdown()
 
 VOID HandleChangeWorkspace(INT WorkspaceNumber)
 {
-	if (WorkspaceNumber == CurrentWorkspaceInFocus)
+	if (WorkspaceNumber == CurWk)
 		return;
 
+	LogEx("Change to Workspace : %u\n", CurWk);
 	PostThreadMessageA(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
 }
 
 VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	WORKSPACE_INFO* TargetWorkspace = &WorkspaceList[WorkspaceNumber];
-	TILE_INFO* Node = Workspace->TileInFocus;
+
+	TILE_INFO* Node = Workspace->Tree->Focus;
 	TILE_INFO* NewNode;
 
 	if (!Node)
@@ -2151,18 +2477,41 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	//Copy Over Important Stuff of the 
 	NewNode->WindowHandle = Node->WindowHandle;
 	NewNode->PreWMInfo = Node->PreWMInfo;
+	NewNode->IsConsole = Node->IsConsole;
+	NewNode->IsRemovedTitleBar = Node->IsRemovedTitleBar;
 
-	if (!Node)
-		return;
-
+	if (Workspace->Dsp->Handle != TargetWorkspace->Dsp->Handle)
+		NewNode->IsDisplayChanged = TRUE;
 
 	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
 
-	RemoveTileFromWorkspace(Workspace, Node);
-	LinkNode(TargetWorkspace, NewNode);
-	AddTileToWorkspace(TargetWorkspace, NewNode);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	if (TargetWorkspace->Tree->IsFullScreen &&
+		IsFullScreenMax)
+	{
+		if (!NewNode->IsRemovedTitleBar)
+			RemoveTitleBar(NewNode);
+
+		if (TargetWorkspace->Tree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(TargetWorkspace->Tree->Focus);
+
+	}
+	else if (IsFullScreenMax && NewNode->IsRemovedTitleBar)
+	{
+		RestoreTitleBar(NewNode);
+	}
+
+	RemoveTileFromTree(Workspace->Tree, Node);
+
+	if (TreeHas(Root) && IsWorkspaceRootTile(Workspace->Tree))
+		Workspace->Tree->IsFullScreen = FALSE;
+
+	LinkNode(TargetWorkspace->Tree, NewNode);
+	AddTileToWorkspace(TargetWorkspace->Tree, NewNode);
+	RenderWorkspace(CurWk);
+
+	if (Workspace->Tree->Focus)
+		ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 }
 
@@ -2182,6 +2531,14 @@ INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 
 	if (!ModDown)
 		return FALSE;
+
+	//We sent a console a message, to change it, but we also hijack it.
+	//so we have to use a bool to check if it is a console fullscreen message
+	if (KeyboardData->vkCode == VK_RETURN && IsConsoleMessage)
+	{
+		IsConsoleMessage = FALSE;
+		return FALSE;
+	}
 
 	if (ModDown == ALT && KeyboardData->vkCode == VK_LMENU)
 		return TRUE;
@@ -2204,155 +2561,6 @@ INT HandleKeyStatesConfig(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
 
 }
 
-INT HandleKeyStates(PKBDLLHOOKSTRUCT KeyboardData, UINT_PTR KeyState)
-{
-
-	BOOL AltDown = (KeyboardLookupTable[KeyboardData->vkCode] == WM_SYSKEYDOWN);
-	INT SkipKey = TRUE;
-	INT WorkspaceNumber = -1;
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-
-
-	if (!AltDown)
-	{
-		SkipKey = FALSE;
-		return SkipKey;
-	}
-
-	switch (KeyboardData->vkCode)
-	{
-	case VK_LMENU:
-		break;
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-
-		WorkspaceNumber = KeyboardData->vkCode - '0';
-
-		logc(5, "Changing  to workspace : %u\n", WorkspaceNumber);
-
-		if (WorkspaceNumber == CurrentWorkspaceInFocus)
-			break;
-
-		if (ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
-		{
-
-			if (Workspace->IsFullScreen)
-				break;
-
-			HandleMoveWindowWorkspace(WorkspaceNumber);
-		}
-		else
-			HandleChangeWorkspace(WorkspaceNumber);
-
-		break;
-	case 'P':
-		for (int i = 0; i < WorkspaceList.size(); i++)
-		{
-			logc(11, "Showing Button : %X\n", StatusBarWindow[i]);
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
-		}
-		break;
-	case 'T':
-		if (x86ProcessHandle)
-			TerminateProcess(x86ProcessHandle, 369);
-		TerminateProcess(GetCurrentProcess(), 420);
-		break;
-	case 'Y':
-		for (int i = 0; WorkspaceList.size(); i++)
-		{
-			logc(11, "Hiding Button : %X\n", StatusBarWindow[i]);
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
-		}
-		break;
-	case 'F':
-
-		//Single tile no need to 
-		if (Workspace->Tiles && !Workspace->Tiles->ChildTile && Workspace->Tiles->NodeType == TERMINAL)
-			break;
-
-		if (Workspace->TileInFocus)
-			Workspace->IsFullScreen = !Workspace->IsFullScreen;
-		else
-			Workspace->IsFullScreen = FALSE;
-		RenderWorkspace(CurrentWorkspaceInFocus);
-		break;
-	case 'H':
-		IsPressed = TRUE;
-		UserChosenLayout = VERTICAL_SPLIT;
-		if (IsWorkspaceRootTile(Workspace))
-			Workspace->Layout = UserChosenLayout;
-		break;
-	case 'V':
-		IsPressed = TRUE;
-		UserChosenLayout = HORIZONTAL_SPLIT;
-		if (IsWorkspaceRootTile(Workspace))
-			Workspace->Layout = UserChosenLayout;
-		break;
-	case VK_LEFT:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleLeft(Workspace);
-		break;
-	case VK_UP:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleTop(Workspace);
-		break;
-	case VK_DOWN:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleBottom(Workspace);
-		break;
-	case VK_RIGHT:
-
-		if (Workspace->IsFullScreen)
-			break;
-
-		//HandleRight(Workspace);
-		//RenderDebugWindow(Workspace->TileInFocus);
-		break;
-	case VK_RETURN:
-		system("start cmd.exe");
-		break;
-	case 'Q':
-
-
-		if (!ButtonDown(KeyboardLookupTable[VK_LSHIFT]))
-			SkipKey = FALSE;
-		else
-		{
-
-			Workspace->IsFullScreen = FALSE;
-
-			//WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-			SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
-			//DestroyWindow(Workspace->TileInFocus->WindowHandle);
-			//RemoveTileFromWorkspace(Workspace, Workspace->TileInFocus);
-			//RenderWorkspace(CurrentWorkspaceInFocus);
-		}
-		break;
-	default:
-		SkipKey = FALSE;
-		break;
-	}
-
-	return SkipKey;
-
-}
-
 LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 {
 
@@ -2369,24 +2577,8 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 
 	if (HandleKeyStatesConfig(KeyboardData, KeyState))
 	{
-		WCHAR WindowText[1024] = { 0 };
-		HWND WindowHandle;
-
-		if (WorkspaceList[CurrentWorkspaceInFocus].TileInFocus)
-			WindowHandle = WorkspaceList[CurrentWorkspaceInFocus].TileInFocus->WindowHandle;
-		else
-			WindowHandle = NULL;
-
-		GetWindowTextW(WindowHandle, WindowText, 1024);
-		logc(9, "Focus Text: %ls\n", WindowText);
-		GetClassNameW(WindowHandle, WindowText, 1024);
-		logc(9, "Focus Class: %ls\n", WindowText);
-		logc(9, "Window In Focus : %X\n", WindowHandle);
 		return DO_NOT_PASS_KEY;
 	}
-
-
-	//logc(11, "Layout : %u\n", UserChosenLayout);
 
 	return CallNextHookEx(KeyboardHook, nCode, WParam, LParam);
 
@@ -2402,32 +2594,9 @@ VOID InstallKeyboardHooks()
 
 LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
 {
-	if (x86ProcessHandle)
-		TerminateProcess(x86ProcessHandle, 369);
-
-
-	NOTIFYICONDATA NotifyData;
-	RtlZeroMemory(&NotifyData, sizeof(NotifyData));
-
-	NotifyData.uID = 1;
-	Shell_NotifyIcon(NIM_DELETE, &NotifyData);
-
-	for (int i = 2; i < WorkspaceList.size(); i++)
-		if (WorkspaceList[i].VDesktop)
-		{
-			VDesktopManagerInternal->RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
-			WorkspaceList[i].VDesktop->Release();
-		}
-
-	WorkspaceList[1].VDesktop->Release();
-
-	ViewCollection->Release();
-	VDesktopManagerInternal->Release();
-	VDesktopManager->Release();
-	ServiceProvider->Release();
+	HandleShutdown();
 
 	return EXCEPTION_CONTINUE_SEARCH;
-
 }
 
 VOID SetCrashRoutine()
@@ -2442,47 +2611,85 @@ VOID GetRidOfFade(HWND WindowHandle)
 	DwmSetWindowAttribute(WindowHandle, DWMWA_TRANSITIONS_FORCEDISABLED, &DisableTransition, sizeof(DisableTransition));
 }
 
+
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
 
 
-	if (IsIgnoreWindow(WindowHandle) || !IsWindow(WindowHandle))
+	if (IsIgnoreWindowEx(WindowHandle) || !IsWindow(WindowHandle))
+	{
+		LogEx("Ignoring Window : %X\n", WindowHandle);
 		return;
+	}
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+
+	if (!(!IsIgnoreWindow(WindowHandle) &&
+		IsWindowVisible(WindowHandle) &&
+		IsWindowRectVisible(WindowHandle) &&
+		!IsWindowCloaked(WindowHandle) &&
+		!TransparentWindow(WindowHandle)))
+	{
+		LogEx("Invalid-Window : %X\n", WindowHandle);
+		return;
+	}
+
+	WCHAR WindowClass[512];
+	BOOL IsConsole = FALSE;
+
+	GetClassNameW(WindowHandle,WindowClass, 1024);
+
+	if (!wcscmp(WindowClass, L"ConsoleWindowClass"))
+		IsConsole = TRUE;
+
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 #ifndef COMMERCIAL
-	if (GetWindowCount(Workspace->Tiles) > 2)
+	if (GetWindowCount(Workspace) > 2)
 		return;
 #endif
 
 	CanSwitch = FALSE;
 
+	//if (ShouldRemoveTitleBars)
+	//	RemoveTitleBar();
+
 	InstallWindowSizeHook();
 	GetRidOfFade(WindowHandle);
 	SendMessageW(WindowHandle, WM_INSTALL_HOOKS, NULL, (LPARAM)WindowHandle);
 
-	BOOL IsFirstTile = (!Workspace->Tiles);
+	BOOL IsFirstTile = (!(Workspace->Tree && Workspace->Tree->Root));
 
 	TILE_INFO* TileToAdd = (TILE_INFO*)malloc(sizeof(TILE_INFO));
 	RtlZeroMemory(TileToAdd, sizeof(TILE_INFO));
 
 	TileToAdd->WindowHandle = WindowHandle;
+	TileToAdd->IsConsole = IsConsole;
+	TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
+	TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
-	LinkNode(Workspace, TileToAdd);
+	if (Workspace->Tree->Display->Handle != PrimaryDisplay->Handle)
+		TileToAdd->IsDisplayChanged = TRUE;
+
+	LinkNode(Workspace->Tree, TileToAdd);
 
 	// if it's the first one in the workspace then don't realloc
 	if (IsFirstTile)
-		Workspace->Tiles = TileToAdd;
+		Workspace->Tree->Root = TileToAdd;
 
-	if (!Workspace->Tiles)
+	if (!Workspace->Tree->Root)
 		FailWithCode("realloc Tiles failed\n");
 
-	AddTileToWorkspace(Workspace, TileToAdd);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	//if (IsFullScreenMax && Workspace->Tree->IsFullScreen)
+	//	FixFS(Workspace->Tree);
+
+	AddTileToWorkspace(Workspace->Tree, TileToAdd);
+	LogEx("Rendering Workspace for New Window (%X)\n", TileToAdd->WindowHandle);
+	RenderWorkspace(CurWk);
 	CanSwitch = TRUE;
 
-}
+	LuaDispatchEx("on_new_window", (PVOID)WindowHandle);
 
+}
 
 TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 {
@@ -2504,62 +2711,89 @@ TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 
 }
 
+TILE_TREE* GetTileWindowTree(WORKSPACE_INFO* Workspace, HWND WindowHandle)
+{
+
+	TILE_TREE* CurrentTree = NULL;
+
+	for (auto& KeyValue : Workspace->Trees)
+	{
+
+		CurrentTree = &KeyValue.second;
+
+		TILE_INFO* TileToRemove = VerifyExistingWindow(CurrentTree->Root, WindowHandle);
+
+		if (TileToRemove)
+			break;
+
+	}
+
+	return CurrentTree;
+
+}
+
+TILE_INFO* VerifyExistingWindowEx(WORKSPACE_INFO* Workspace, HWND WindowHandle)
+{
+
+	TILE_INFO* TileToRemove = NULL;
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+
+		TILE_TREE* CurrentTree = &KeyValue.second;
+
+		TileToRemove = VerifyExistingWindow(CurrentTree->Root, WindowHandle);
+
+		if (TileToRemove)
+			break;
+
+	}
+
+	return TileToRemove;
+
+}
+
 extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 {
 
 	if (IsIgnoreWindow(WindowHandle))
 		return;
 
-
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-	TILE_INFO* Tiles = Workspace->Tiles;
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* TileToRemove = NULL;
 
 	// If the tile doesn't exist in the workspace something wrong happened.
 
-	TileToRemove = VerifyExistingWindow(Workspace->Tiles, WindowHandle);
+	TILE_TREE* Tree = GetTileWindowTree(Workspace, WindowHandle);
+
+	if (!Tree)
+		return;
+
+	TileToRemove = VerifyExistingWindow(Tree->Root, WindowHandle);
 
 	if (!TileToRemove)
 		return;
 
 	//FailWithCode("Got tile to remove but couldn't find it");
 
-	RemoveTileFromWorkspace(Workspace, TileToRemove);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	LogEx("DestroyWindow\n");
 
-	RenderFocusWindowEx(Workspace);
+	RemoveTileFromTree(Tree, TileToRemove);
+	RenderWorkspace(CurWk);
+
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+
+	LuaDispatchEx("on_destroy_window", (PVOID)WindowHandle);
 
 }
 
-
-VOID CreateStatusButton(HWND ParentHandle, INT Slot, const char* ButtonText)
+VOID DrawStatusBar(DISPLAY_INFO* Display, HWND StatusBarWindow, std::vector<DIFF_STATE>& DiffState)
 {
-
-	INT ButtonStyle = WS_CHILD | WS_VISIBLE | BS_OWNERDRAW;
-
-	StatusButtonList[Slot] = CreateWindowExA(
-		NULL,
-		"BUTTON",  // Predefined class; Unicode assumed 
-		ButtonText,      // Button text 
-		ButtonStyle,  // Styles 
-		0,         // x position 
-		0,         // y position 
-		25,        // Button width
-		25,        // Button height
-		ParentHandle,     // Parent window
-		NULL,       // No menu.
-		NULL,
-		NULL);      // Pointer not needed.
-
-	if (!StatusButtonList[Slot])
-		FailWithCode("Couldn't Create Status Bar Button");
-
+	
 }
 
-INT ButtonIdx = 1;
-HBRUSH ButtonBrush;
-HBRUSH DefaultBrush;
-CHAR GlobalButtonText[2] = { '?', '\0' };
+
+
 
 LRESULT CALLBACK StatusBarMsgHandler(
 	HWND WindowHandle,
@@ -2573,49 +2807,73 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	switch (Message)
 	{
 	case WM_CREATE:
-		CreateStatusButton(WindowHandle, ButtonIdx, GlobalButtonText);
-		ButtonIdx++;
+	{
+		LPCREATESTRUCTA CreateStruct = (LPCREATESTRUCTA)LParam;
+		DISPLAY_INFO* Display = (DISPLAY_INFO*)CreateStruct->lpCreateParams;
+		static BOOL IsMaskInit = 0;
 
-		//IApplicationView* ApplicationView;
-		//if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
-		//	FailWithCode("StatusBar GetView");
+		if (!IsMaskInit)
+		{
+			unsigned Count = 1;
+			IsMaskInit = TRUE;
+			for (int i = 0; i < WorkspaceList.size(); i++)
+			{
+				WORKSPACE_INFO* Workspace = &WorkspaceList[i];
 
-		//PinnedApps->PinView(ApplicationView);
-		//ApplicationView->Release();
-		break;
+				if (GetWindowCount(Workspace))
+					ButtonArray[Count++] = i;
+			}
+		}
+
+		//DrawTransparentRectangle(Display->Handle, WindowHandle);
+
+	}
 	case WM_DRAWITEM:
 	{
 		PDRAWITEMSTRUCT DrawItem = (PDRAWITEMSTRUCT)LParam;
-		WCHAR BtnCaption[3] = { 0 };
-		GetWindowTextW(DrawItem->hwndItem, BtnCaption, 6);
+		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
+		WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-		if (BtnToColor == WindowHandle)
+		if (ButtonState.IsActiveWorkspace)
 		{
-			SetBkColor(DrawItem->hDC, RGB(0, 0, 255));
-			SetTextColor(DrawItem->hDC, RGB(255, 255, 255));
+			DWORD ClrButton = ClrInMt;
+
+			if (WindowHandle == Workspace->Tree->Display->BtnToColor)
+				ClrButton = ClrActWk;
+
+			SetBkColor(DrawItem->hDC, ClrButton);
+			SetTextColor(DrawItem->hDC, ClrActTxt);
 		}
 		else
 		{
-			SetBkColor(DrawItem->hDC, GetSysColor(COLOR_BTNFACE));
-			SetTextColor(DrawItem->hDC, RGB(0, 0, 0));
+			SetBkColor(DrawItem->hDC, ClrInActWk);
+			SetTextColor(DrawItem->hDC, ClrInActTxt);
 		}
 
-		DrawTextW(DrawItem->hDC, BtnCaption, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (ButtonState.RenderTxt)
+			DrawTextA(DrawItem->hDC, ButtonState.ButtonText, 1, &DrawItem->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
 		return TRUE;
 		break;
 	}
 	case WM_CTLCOLORBTN:
-		if (BtnToColor == WindowHandle)
+	{
+		BOOL IsActiveWindow = FALSE;
+		BUTTON_STATE& ButtonState = ButtonMap[WindowHandle];
+		WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+		if (ButtonState.IsActiveWorkspace)
 		{
-			//Blue Brush.
-			return (LRESULT)ButtonBrush;
+			if (WindowHandle == Workspace->Tree->Display->BtnToColor)
+				return (LRESULT)ButtonBrush;
+			return (LRESULT)ButtonMonBrush;
 		}
 		else
 		{
 			//Red Brush.
-			//ButtonBrush = CreateSolidBrush(RGB(rand() % 252, rand() % 255, rand() % 255));
 			return (LRESULT)DefaultBrush;
 		}
+	}
 		break;
 	default:
 		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
@@ -2729,20 +2987,20 @@ LRESULT CALLBACK FocusMessageHandler(
 		{
 		case TIMER_FOCUS:
 
-			Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+			Workspace = &WorkspaceList[CurWk];
 
 
 
-			if (Workspace->TileInFocus)
+			if (TreeHas(Focus))
 			{
 
 				RECT TileRect;
 
-				GetWindowRect(Workspace->TileInFocus->WindowHandle, &TileRect);
+				GetWindowRect(Workspace->Tree->Focus->WindowHandle, &TileRect);
 
 				//There is a fullscreen window
 				//don't render focus bar
-				if ((TileRect.bottom - TileRect.top) > ScreenHeight)
+				if ((TileRect.bottom - TileRect.top) > RealScreenHeight)
 					return 0;
 			}
 
@@ -2781,7 +3039,6 @@ LRESULT CALLBACK NewWindowHookProc(int nCode, WPARAM WParam, LPARAM LParam)
 
 	if (nCode == HCBT_CREATEWND)
 	{
-		logc(9, "NewWindow : %X\n", WParam);
 		OnNewWindow((HWND)WParam);
 	}
 
@@ -2807,8 +3064,6 @@ VOID InstallNewWindowHook()
 
 	NewWindowHook = SetWindowsHookExA(WH_SHELL, NewWindowHookProc, WinHook64, 0);
 
-	logc(5, "NewWindowHook : %p\n", NewWindowHook);
-
 	if (!NewWindowHook)
 		FailWithCode("Couldn't set NewWindowHook");
 
@@ -2816,18 +3071,15 @@ VOID InstallNewWindowHook()
 
 VOID HandleWindowMessage(MSG* Message)
 {
-
 	HWND TargetWindow = (HWND)Message->lParam;
 
 	//The WindowHandle is being destroyed
 	if (Message->wParam)
 	{
-		logc(6, "DestroyWindow : %X\n", TargetWindow);
 		OnDestroyWindow(TargetWindow);
 	}
 	else
 	{
-		logc(9, "NewWindow : %X\n", TargetWindow);
 		OnNewWindow(TargetWindow);
 	}
 }
@@ -3036,65 +3288,92 @@ VOID CreateFocusOverlay()
 	ShowWindow(FocusWindow, SW_SHOW);
 	UpdateWindow(FocusWindow);
 
-	SetTimer(FocusWindow, TIMER_FOCUS, 1500, NULL);
+	SetTimer(FocusWindow, TIMER_FOCUS, 750, NULL);
 
 }
 
 VOID InitScreenGlobals()
 {
 
-	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
-
-	HWND ShellWindow = TrayWindow;
-
-	RECT ShellRect;
-
-	if (!ShellWindow)
-		FailWithCode("No Shell Window Found");
-
-	GetWindowRect(ShellWindow, &ShellRect);
-
-	ScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-	ScreenHeight = GetSystemMetrics(SM_CYSCREEN) - (ShellRect.bottom - ShellRect.top);
-
-	RealScreenWidth = ScreenWidth;
-	RealScreenHeight = ScreenHeight;
-
-	if (IsGapsEnabled)
+	for (auto& Display : DisplayList)
 	{
 
-		if (OuterGapsVertical > RealScreenHeight)
-			Fail("outer_gaps_vertical cannot be bigger than screen height");
+		Display.TrayRect = { 0, 0, 0, 0 };
 
-		if (OuterGapsHorizontal > RealScreenWidth)
-			Fail("outer_gaps_horizontal cannot be bigger than screen height");
+		if (Display.TrayWindow)
+			GetWindowRect(Display.TrayWindow, &Display.TrayRect);
 
-		if (InnerGapsVertical > RealScreenHeight)
-			Fail("inner_gaps_vertical cannot be bigger than screen height");
+		Display.ScreenWidth = Display.Rect.right - Display.Rect.left;
+		Display.ScreenHeight = Display.Rect.bottom - Display.Rect.top;
+		Display.ScreenHeight -= (Display.TrayRect.bottom - Display.TrayRect.top);
 
-		if (InnerGapsHorizontal > RealScreenWidth)
-			Fail("inner_gaps_horizontal cannot be bigger than screen height");
+		Display.RealScreenWidth = Display.ScreenWidth;
+		Display.RealScreenHeight = Display.ScreenHeight;
+		
+		LogEx("Display (%X) RSW : %u RSH : %u\n", Display.Handle, Display.RealScreenWidth, Display.RealScreenHeight);
 
-		ScreenWidth -= OuterGapsHorizontal;
-		ScreenHeight -= OuterGapsVertical;
+		if (IsGapsEnabled)
+		{
+
+			if (OuterGapsVertical > Display.RealScreenHeight)
+				Fail("outer_gaps_vertical cannot be bigger than screen height");
+
+			if (OuterGapsHorizontal > Display.RealScreenWidth)
+				Fail("outer_gaps_horizontal cannot be bigger than screen height");
+
+			if (InnerGapsVertical > Display.RealScreenHeight)
+				Fail("inner_gaps_vertical cannot be bigger than screen height");
+
+			if (InnerGapsHorizontal > Display.RealScreenWidth)
+				Fail("inner_gaps_horizontal cannot be bigger than screen height");
+
+			Display.HorizontalScalar = ((Display.Rect.right - Display.Rect.left) / (PrimaryDisplay->Rect.right - PrimaryDisplay->Rect.left));
+			Display.VerticalScalar = ((Display.Rect.bottom - Display.Rect.top) / (PrimaryDisplay->Rect.bottom - PrimaryDisplay->Rect.top));
+
+			Display.ScreenWidth -= (Display.HorizontalScalar * OuterGapsHorizontal);
+			Display.ScreenHeight -= (Display.VerticalScalar * OuterGapsVertical);
+		}
 	}
 
-	ButtonBrush = CreateSolidBrush(RGB(0, 0, 255));
-	DefaultBrush = GetSysColorBrush(COLOR_BTNFACE);
 
-	logc(9, "ScreenHeight: %lu - ScreenWidth : %lu\n", ScreenHeight, ScreenWidth);
+#ifdef COMMERCIAL
+
+	ClrActWk = RGB(ColorActiveWorkspaceButton[0],
+		ColorActiveWorkspaceButton[1],
+		ColorActiveWorkspaceButton[2]);
+
+	ClrInActWk = RGB(ColorInactiveWorkspaceButton[0],
+		ColorInactiveWorkspaceButton[1],
+		ColorInactiveWorkspaceButton[2]);
+
+	ClrInMt = RGB(ColorInactiveMonitorButton[0],
+		ColorInactiveMonitorButton[1],
+		ColorInactiveMonitorButton[2]);
+
+	ClrActTxt = RGB(ColorActiveButtonText[0],
+		ColorActiveButtonText[1],
+		ColorActiveButtonText[2]);
+
+	ClrInActTxt = RGB(ColorInActiveButtonText[0],
+		ColorInActiveButtonText[1],
+		ColorInActiveButtonText[2]);
+
+#else
+	ClrActWk = 0xff0000;
+	ClrInActWk = 0xf0f0f0;
+	ClrInMt = 0xff;
+	ClrActTxt = 0xffffff;
+	ClrInActTxt = 0x0;
+
+#endif
+
+	ButtonBrush = CreateSolidBrush(ClrActWk);
+	ButtonMonBrush = CreateSolidBrush(ClrInMt);
+	DefaultBrush = CreateSolidBrush(ClrInActWk);
+
 
 }
 
-
-VOID MoveButtonToPosition(INT Slot, INT Position, const char* ButtonText)
-{
-	assert(StatusButtonList[Slot]);
-
-	if (!SetWindowPos(StatusButtonList[Slot], HWND_TOPMOST, 10 + 40 * Position, 10, 0, 0, SWP_NOSIZE))
-		FailWithCode("SetWindowPos Status Button");
-
-}
 
 VOID InitStatusBar()
 {
@@ -3111,65 +3390,67 @@ VOID InitStatusBar()
 	WindowClass.hInstance = NULL;
 	WindowClass.hIcon = NULL;
 	WindowClass.hCursor = NULL;
-	WindowClass.hbrBackground = CreateSolidBrush(RGB(0x22, 0x22, 0x22));
+	WindowClass.hbrBackground = NULL;
 	WindowClass.lpszMenuName = NULL;
 	WindowClass.lpszClassName = StatusBarWindowName;
 	WindowClass.hIconSm = NULL;
 
 	StatusBarAtom = RegisterClassExA(&WindowClass);
 
-	HWND SearchBarWindow = FindWindowExW(TrayWindow, NULL, L"TrayDummySearchControl", NULL);
-	RECT SearchBarRect;
-
-	assert(SearchBarWindow);
-
-	GetWindowRect(SearchBarWindow, &SearchBarRect);
-
-	for (int i = 1; i < 10; i++)
+	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
 	{
 
-		GlobalButtonText[0] = '0' + i;
+		HWND SearchBarWindow;
+		POINT StatusBarPosition;
+		RECT SearchBarRect;
+		DISPLAY_INFO* Display = &DisplayList[Idx];
 
-		StatusBarWindow[i] = CreateWindowExA(
-			WS_EX_TOOLWINDOW,
+
+		if (!Display->TrayWindow)
+		{
+			SearchBarRect = { 0, Display->RealScreenHeight, 0, 0};
+		}
+		if (Display->Handle == PrimaryDisplay->Handle)
+		{
+			SearchBarWindow = FindWindowExW(Display->TrayWindow, NULL, L"TrayDummySearchControl", NULL);
+			GetWindowRect(SearchBarWindow, &SearchBarRect);
+		}
+		else
+		{
+
+			SearchBarWindow = Display->TrayWindow;
+			assert(SearchBarWindow);
+			GetWindowRect(SearchBarWindow, &SearchBarRect);
+
+		}
+
+		StatusBarPosition.x = SearchBarRect.left;
+		StatusBarPosition.y = SearchBarRect.top;
+
+		Display->StatusBar = CreateWindowExA(
+			WS_EX_LAYERED | WS_EX_TOOLWINDOW,
 			StatusBarWindowName,
 			"Win3wmStatusBar",
 			WS_POPUP,
-			SearchBarRect.left + i * 25,
-			SearchBarRect.top - 35,
+			StatusBarPosition.x,
+			StatusBarPosition.y - 25,
+			25 * 9,
 			25,
-			25,
 			NULL,
 			NULL,
 			NULL,
-			NULL
-		);
+			(PVOID)Display);
 
-		if (i == CurrentWorkspaceInFocus)
-			BtnToColor = StatusBarWindow[CurrentWorkspaceInFocus];
-
-		if (!StatusBarWindow[i])
-			FailWithCode("Could not create Status Bar Window!");
-
-		SetWindowLongPtrA(StatusBarWindow[i], GWL_EXSTYLE, WS_EX_TOOLWINDOW);
-		SetWindowLongPtrA(StatusBarWindow[i], GWL_STYLE, WS_POPUP);
-		SetWindowPos(StatusBarWindow[i], HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-		UpdateWindow(StatusBarWindow[i]);
-
-		if (i - 1 < WorkspaceCount)
-		{
-			ShowWindow(StatusBarWindow[i], SW_SHOW);
-		}
-		else
-			ShowWindow(StatusBarWindow[i], SW_HIDE);
+		SetWindowPos(Display->StatusBar, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+		ShowWindow(Display->StatusBar, SW_SHOW);
 
 	}
-
 }
 
 VOID DpiSet()
 {
-	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+	//SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 }
 
 VOID InitIcon()
@@ -3183,7 +3464,7 @@ VOID InitIcon()
 	NotifyData.cbSize = sizeof(NotifyData);
 	NotifyData.hWnd = NotifWindow;
 	NotifyData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-	NotifyData.uID = 1;
+	NotifyData.uID = 69;
 	NotifyData.uCallbackMessage = WM_APP;
 
 	HICON hIcon = (HICON)LoadImage(GetModuleHandle(0), MAKEINTRESOURCE(TRAY_ICON), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
@@ -3216,8 +3497,6 @@ VOID ParseToken(char* Token, PBOOL isShift)
 		return;
 	}
 
-
-
 }
 
 char ParseHotkeyWord(const char* WordBinding)
@@ -3246,7 +3525,12 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 		Hotkey = *PlusLoc;
 
 		if (strlen(NextToken) != 1)
+		{
 			Hotkey = ParseHotkeyWord(NextToken);
+
+			if (!Hotkey)
+				return;
+		}
 
 	}
 	else
@@ -3263,7 +3547,7 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 			Hotkey = ParseHotkeyWord(HotkeyString.c_str());
 
 			if (!Hotkey)
-				Fail(MakeFormatString("Failed to parse Config \"%s\"", HotkeyString.c_str()));
+				return;
 
 		}
 
@@ -3283,28 +3567,27 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 VOID DestroyTileEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->TileInFocus)
+	if (!TreeHas(Focus))
 		return;
 
-	Workspace->IsFullScreen = FALSE;
+	SendMessage(Workspace->Tree->Focus->WindowHandle, WM_CLOSE, 0, 0);
 
-	SendMessage(Workspace->TileInFocus->WindowHandle, WM_CLOSE, 0, 0);
-
-	if (GetParent(Workspace->TileInFocus->WindowHandle))
-		OnDestroyWindow(Workspace->TileInFocus->WindowHandle);
+	if (GetParent(Workspace->Tree->Focus->WindowHandle))
+		OnDestroyWindow(Workspace->Tree->Focus->WindowHandle);
 
 }
 
 VOID SetLayoutVerticalEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	IsPressed = TRUE;
 	UserChosenLayout = HORIZONTAL_SPLIT;
-	if (IsWorkspaceRootTile(Workspace))
-		Workspace->Layout = UserChosenLayout;
+	if (IsWorkspaceRootTile(Workspace->Tree))
+		Workspace->Tree->Layout = UserChosenLayout;
+
 }
 
 ChangeWorkspaceEx(1);
@@ -3332,77 +3615,210 @@ VOID ShutdownEx()
 	PostThreadMessageA(GetCurrentThreadId(), WM_SHUTDOWN, 0, 0);
 }
 
-VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile)
+VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::vector<TILE_INFO*>& HandleList, std::unordered_map<HWND, TILE_INFO*>& DupeMap)
 {
 
 	TILE_INFO* ChildTile = NULL;
 
 	for (; Tile; Tile = ChildTile)
 	{
+
 		ChildTile = Tile->ChildTile;
 
 		if (Tile->BranchTile)
-			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile);
-
-		if (!IsWindow(Tile->WindowHandle))
+			VerifyWorkspaceRecursive(Workspace, Tile->BranchTile, HandleList, DupeMap);
+		else if (!IsWindow(Tile->WindowHandle))
 		{
-			Workspace->TileInFocus = UnlinkNode(Workspace, Tile);
+			Workspace->Tree->Focus = UnlinkNode(Workspace->Tree, Tile);
 
-			while (Workspace->TileInFocus && Workspace->TileInFocus->NodeType != TERMINAL)
-				Workspace->TileInFocus = Workspace->TileInFocus->BranchTile;
+			while (Workspace->Tree->Focus && Workspace->Tree->Focus->NodeType != TERMINAL)
+				Workspace->Tree->Focus = Workspace->Tree->Focus->BranchTile;
 
 			free(Tile);
+			continue;
 		}
+
+		TILE_INFO* AlreadyExists = DupeMap[Tile->WindowHandle];
+
+		if (AlreadyExists)
+			HandleList.push_back(Tile);
 	}
 
 }
 
+BOOL FlipRecursive(TILE_INFO* Tile)
+{
+	BOOL Changed = FALSE;
+
+	for (; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+		{
+
+			if (Tile->NodeType == VERTICAL_SPLIT)
+				Tile->NodeType = HORIZONTAL_SPLIT;
+			else
+				Tile->NodeType = VERTICAL_SPLIT;
+
+			Changed |= FlipRecursive(Tile->BranchTile);
+		}
+	}
+
+	return Changed;
+	
+}
+
+VOID FlipEx()
+{
+
+	BOOL Changed = FALSE;
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	if (!TreeHas(Root) || IsWorkspaceRootTile(Workspace->Tree))
+		return;
+
+	if (Workspace->Tree->Layout == HORIZONTAL_SPLIT)
+		Workspace->Tree->Layout = VERTICAL_SPLIT;
+	else
+		Workspace->Tree->Layout = HORIZONTAL_SPLIT;
+
+	for (TILE_INFO* Tile = Workspace->Tree->Root; Tile; Tile = Tile->ChildTile)
+	{
+		if (Tile->BranchTile)
+		{
+
+			if (Tile->NodeType == VERTICAL_SPLIT)
+				Tile->NodeType = HORIZONTAL_SPLIT;
+			else
+				Tile->NodeType = VERTICAL_SPLIT;
+
+			FlipRecursive(Tile->BranchTile);
+
+		}
+	}
+
+	ResortTiles(Workspace->Tree);
+	RenderWorkspace(CurWk);
+
+}
+
+
 VOID VerifyWorkspaceEx()
 {
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
-	TILE_INFO* Tile = Workspace->Tiles;
 
-	VerifyWorkspaceRecursive(Workspace, Tile);
-	ResortTiles(Workspace);
-	RenderWorkspace(CurrentWorkspaceInFocus);
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	TILE_INFO* Tiles = Workspace->Tree->Root;
+
+	std::unordered_map<HWND, TILE_INFO*> DupeMap;
+	std::vector<TILE_INFO*> TileList;
+
+	LogEx("VerifyWorkspaceEx : Tree->Display->Handle %X : %u\n", Workspace->Tree->Display->Handle, CurWk);
+	 VerifyWorkspaceRecursive(Workspace, Tiles, TileList, DupeMap);
+
+	for (auto DupeTile : TileList)
+	{
+			Workspace->Tree->Focus = UnlinkNode(Workspace->Tree, DupeTile);
+
+			while (Workspace->Tree->Focus && Workspace->Tree->Focus->NodeType != TERMINAL)
+				Workspace->Tree->Focus = Workspace->Tree->Focus->BranchTile;
+
+			free(DupeTile);
+	}
+
+	ResortTiles(Workspace->Tree);
+	RenderWorkspace(CurWk);
 
 }
 
 VOID GoFullscreenEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	//Single tile no need to 
-	if (Workspace->Tiles && !Workspace->Tiles->ChildTile && Workspace->Tiles->NodeType == TERMINAL)
+	if (Workspace->Tree->Root && !Workspace->Tree->Root->ChildTile && Workspace->Tree->Root->NodeType == TERMINAL)
 		return;
 
-	if (Workspace->TileInFocus)
-		Workspace->IsFullScreen = !Workspace->IsFullScreen;
-	else
-		Workspace->IsFullScreen = FALSE;
+	if (Workspace->Tree->Focus)
+	{
+		Workspace->Tree->IsFullScreen = !Workspace->Tree->IsFullScreen;
 
-	Workspace->NeedsRendering = TRUE;
-	RenderWorkspace(CurrentWorkspaceInFocus);
+		if (Workspace->Tree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(Workspace->Tree->Focus);
+	}
+	else
+		Workspace->Tree->IsFullScreen = FALSE;
+
+
+	Workspace->Tree->NeedsRendering = TRUE;
+	RenderWorkspace(CurWk);
+	PVOID LuaHWND = (PVOID)(Workspace->Tree->Focus) ? Workspace->Tree->Focus->WindowHandle : NULL;
+	LuaDispatchEx("on_fullscreen", Workspace->Tree->IsFullScreen, LuaHWND);
 
 }
 
 VOID SetLayoutHorizontalEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	IsPressed = TRUE;
 	UserChosenLayout = VERTICAL_SPLIT;
-	if (IsWorkspaceRootTile(Workspace))
-		Workspace->Layout = UserChosenLayout;
+	if (IsWorkspaceRootTile(Workspace->Tree))
+		Workspace->Tree->Layout = UserChosenLayout;
+
+}
+
+VOID FocusMouseEx()
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	if (!Workspace->Tree || !Workspace->Tree->Root || !Workspace->Tree->Focus)
+		return;
+
+	POINT TargetPoint;
+
+	if (!GetCursorPos(&TargetPoint))
+		FailWithCode("GetCursorPos");
+
+	HWND TargetUnknownWindow = WindowFromPoint(TargetPoint);
+	HWND TargetWindow = GetAncestor(TargetUnknownWindow, GA_ROOT);
+
+	if (!TargetWindow)
+		return;
+
+	TILE_INFO* TargetTile = VerifyExistingWindowEx(Workspace, TargetWindow);
+
+	if (!TargetTile)
+		return;
+
+	TILE_TREE* SrcTree = Workspace->Tree;
+	TILE_TREE* TargetTree = GetTileWindowTree(Workspace, TargetWindow);
+
+	if (!TargetTree)
+		return;
+
+	if (SrcTree == TargetTree)
+	{
+		Workspace->Tree->Focus = TargetTile;
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+		return;
+	}
+
+	//Aww MultiMonitor Support
+
+	Workspace->Tree = TargetTree;
+	Workspace->TileInFocus = TargetTile;
+	RenderStatusBar();
+	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 
 }
 
 VOID HandleLeftEx()
 {
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleLeft(Workspace, FALSE);
 
 }
@@ -3410,9 +3826,9 @@ VOID HandleLeftEx()
 VOID SwapLeftEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleLeft(Workspace, TRUE);
 
 }
@@ -3420,9 +3836,9 @@ VOID SwapLeftEx()
 VOID HandleRightEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleRight(Workspace, FALSE);
 
 }
@@ -3430,9 +3846,9 @@ VOID HandleRightEx()
 VOID SwapRightEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleRight(Workspace, TRUE);
 }
 
@@ -3440,9 +3856,9 @@ VOID SwapRightEx()
 VOID HandleDownEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleBottom(Workspace, FALSE);
 
 }
@@ -3450,9 +3866,9 @@ VOID HandleDownEx()
 VOID SwapDownEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleBottom(Workspace, TRUE);
 
 }
@@ -3461,9 +3877,9 @@ VOID SwapDownEx()
 VOID HandleUpEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleTop(Workspace, FALSE);
 
 }
@@ -3471,16 +3887,27 @@ VOID HandleUpEx()
 VOID SwapUpEx()
 {
 
-	WORKSPACE_INFO* Workspace = &WorkspaceList[CurrentWorkspaceInFocus];
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
-	if (!Workspace->IsFullScreen)
+	if (!Workspace->Tree->IsFullScreen)
 		HandleTop(Workspace, TRUE);
 
 }
 
 VOID CreateTileEx()
 {
+	LogEx("CreateTileEx Triggered\n");
 	system(StartCommand);
+}
+
+VOID BSplitEx()
+{
+
+	ShouldBSplit = TRUE;
+	IsPressed = TRUE;
+	LogEx("BSplitEx Triggered");
+	system(StartCommand);
+
 }
 
 VOID ParseModifier(std::string ModifierString)
@@ -3504,6 +3931,235 @@ VOID InitKeyMap()
 	KeyMap.emplace("up", VK_UP);
 	KeyMap.emplace("down", VK_DOWN);
 	KeyMap.emplace("enter", VK_RETURN);
+	KeyMap.emplace("no_key", 0);
+}
+
+VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName)
+{
+
+	if (UserInput == "y")
+		*Option = TRUE;
+	else if (UserInput == "n")
+		*Option = FALSE;
+	else
+		Fail(MakeFormatString("\"%s\" in configs.json can only be \"y\" or \"n\"", OptionName));
+
+
+}
+
+VOID MoveMonitorInternal(TILE_TREE* SrcTree, TILE_TREE* DstTree, TILE_INFO* SrcHwnd)
+{
+
+	TILE_INFO* NewNode;
+	TILE_INFO* Node = SrcHwnd;
+
+	if (!Node)
+		return;
+
+	NewNode = (TILE_INFO*)RtlAlloc(sizeof(TILE_INFO));
+	RtlZeroMemory(NewNode, sizeof(TILE_INFO));
+
+	//Copy Over Important Stuff of the 
+	NewNode->WindowHandle = Node->WindowHandle;
+	NewNode->PreWMInfo = Node->PreWMInfo;
+	NewNode->IsConsole = Node->IsConsole;
+	NewNode->IsRemovedTitleBar = Node->IsRemovedTitleBar;
+	NewNode->IsDisplayChanged = TRUE;
+
+	if (DstTree->IsFullScreen && IsFullScreenMax)
+	{
+		if (!SrcTree->Focus->IsRemovedTitleBar)
+			RemoveTitleBar(NewNode);
+
+		if (DstTree->Focus && DstTree->Focus->IsRemovedTitleBar)
+			RestoreTitleBar(DstTree->Focus);
+	}
+	else if (!DstTree->IsFullScreen && IsFullScreenMax && SrcTree->Focus->IsRemovedTitleBar)
+	{
+		RestoreTitleBar(NewNode);
+	}
+
+
+
+	RemoveTileFromTree(SrcTree, Node);
+	if (SrcTree->Root && IsWorkspaceRootTile(SrcTree))
+		SrcTree->IsFullScreen = FALSE;
+
+	LinkNode(DstTree, NewNode);
+	AddTileToWorkspace(DstTree, NewNode);
+	RenderWorkspace(CurWk);
+
+}
+
+
+VOID HandleMonitorChanged(HWND ChangedWindow)
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	TILE_INFO* TileToRemove = NULL;
+	TILE_TREE* SrcTree = NULL;
+	TILE_TREE* DstTree = NULL;
+	HMONITOR Monitor = MonitorFromWindow(ChangedWindow, MONITOR_DEFAULTTONULL);
+
+	if (!Monitor)
+		return;
+
+	for (auto KeyValue : Workspace->Trees)
+	{
+
+		TILE_TREE* CurrentTree = &KeyValue.second;
+
+		if (CurrentTree->Display->Handle == Monitor)
+			DstTree = CurrentTree;
+
+		TileToRemove = VerifyExistingWindow(CurrentTree->Root, ChangedWindow);
+		
+		if (TileToRemove)
+			SrcTree = CurrentTree;
+
+	}
+
+	if (!TileToRemove)
+		return;
+
+	if (DstTree == SrcTree)
+		return;
+
+
+	MoveMonitorInternal(SrcTree, DstTree, TileToRemove);
+	
+}
+
+INT GetDisplayIdx(DISPLAY_INFO* Display)
+{
+	INT DispIdx = -1;
+
+	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
+	{
+		if (DisplayList[Idx].Handle == Display->Handle)
+		{
+			DispIdx = Idx;
+			break;
+		}
+	}
+
+	return DispIdx;
+}
+
+VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	DISPLAY_INFO* Display = Workspace->Dsp;
+	INT DispIdx = GetDisplayIdx(Display);
+
+	if (DispIdx == -1)
+		Fail("Couldn't find a monitor for display??");
+
+	//This doesn't mean that we couldn't find a display
+	//it just means that this is the very left display or DisaplyList[0]
+	// so we return since we can't do anything
+	if (!DispIdx)
+		return;
+
+	TILE_TREE* Tree = Workspace->Tree;
+	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[DispIdx - 1].Handle];
+
+	if (!ShouldMove)
+	{
+		Workspace->Dsp = &DisplayList[DispIdx - 1];
+		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
+		RenderStatusBar();
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+		if (RetEarly)
+			return;
+	}
+
+	MoveMonitorInternal(Tree, TargetTree, Tree->Focus);
+
+}
+
+VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
+{
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	DISPLAY_INFO* Display = Workspace->Dsp;
+	INT DispIdx = GetDisplayIdx(Display);
+
+	if (DispIdx == -1)
+		Fail("Couldn't find a monitor for display??");
+
+	// if is last return, if is invalid then return
+	if ((DispIdx + 1) >= DisplayList.size())
+		return;
+
+	TILE_TREE* Tree = Workspace->Tree;
+	TILE_TREE* TargetTree = &Workspace->Trees[DisplayList[DispIdx + 1].Handle];
+
+	if (!ShouldMove)
+	{
+		Workspace->Dsp = &DisplayList[DispIdx + 1];
+		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
+		RenderStatusBar();
+		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+
+		if (RetEarly)
+			return;
+	}
+
+	MoveMonitorInternal(Tree, TargetTree, Tree->Focus);
+
+}
+
+VOID RemoveTitleBarEx() 
+{
+
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+	TILE_INFO* Tile = Workspace->Tree->Focus;
+	
+	if (!Tile->IsRemovedTitleBar)
+		RemoveTitleBar(Tile);
+	else 
+		RestoreTitleBar(Tile);
+
+}
+
+
+VOID MoveMonitorLeftEx()
+{
+	MoveMonitorLeft(FALSE, TRUE);
+}
+
+VOID MoveWindowMonitorLeftEx()
+{
+	MoveMonitorLeft(TRUE, FALSE);
+}
+
+VOID CarryMonitorLeftEx()
+{
+	MoveMonitorLeft(FALSE, FALSE);
+}
+
+VOID CarryMonitorRightEx()
+{
+	MoveMonitorRight(FALSE, FALSE);
+}
+
+VOID MoveMonitorRightEx()
+{
+	MoveMonitorRight(FALSE, TRUE);
+}
+
+VOID MoveWindowMonitorRightEx()
+{
+	MoveMonitorRight(TRUE, FALSE);
+}
+
+VOID InitLogger()
+{
+
+	FilePointer = fopen("log.txt", "a");
+
+	if (!FilePointer)
+		Fail("Couldn't create log.txt");
 
 }
 
@@ -3553,11 +4209,18 @@ VOID InitConfig()
 		return JsonParsed[CurrentKey];
 	};
 
+	if (ShouldLog)
+		InitLogger();
+
+
 	try
 	{
 
 		ParseConfigEx("destroy_tile", DestroyTileEx);
 		ParseConfigEx("create_tile", CreateTileEx);
+
+		ParseConfigEx("bsplit_tile", BSplitEx)
+
 		ParseConfigEx("set_layout_vertical", SetLayoutVerticalEx);
 		ParseConfigEx("set_layout_horizontal", SetLayoutHorizontalEx);
 		ParseConfigEx("change_workspace_1", ChangeWorkspaceEx_1);
@@ -3575,6 +4238,8 @@ VOID InitConfig()
 		ParseConfigEx("focus_up", HandleUpEx);
 		ParseConfigEx("focus_down", HandleDownEx);
 
+		ParseConfigEx("focus_mouse", FocusMouseEx);
+
 		ParseConfigEx("swap_left", SwapLeftEx);
 		ParseConfigEx("swap_right", SwapRightEx);
 		ParseConfigEx("swap_up", SwapUpEx);
@@ -3590,10 +4255,22 @@ VOID InitConfig()
 		ParseConfigEx("move_workspace_8", MoveWorkspaceEx_8);
 		ParseConfigEx("move_workspace_9", MoveWorkspaceEx_9);
 
+		ParseConfigEx("flip_workspace", FlipEx);
 		ParseConfigEx("verify_workspace", VerifyWorkspaceEx);
 		ParseConfigEx("fullscreen", GoFullscreenEx);
 		ParseConfigEx("shutdown", ShutdownEx);
 
+		ParseConfigEx("go_monitor_left", MoveMonitorLeftEx);
+		ParseConfigEx("go_monitor_right", MoveMonitorRightEx);
+
+		ParseConfigEx("move_monitor_left", MoveWindowMonitorLeftEx);
+		ParseConfigEx("move_monitor_right", MoveWindowMonitorRightEx);
+
+		ParseConfigEx("carry_left", CarryMonitorLeftEx);
+		ParseConfigEx("carry_right", CarryMonitorRightEx);
+
+		ParseConfigEx("remove_titlebar", RemoveTitleBarEx);
+			
 		ParseModifier(GetJsonEx("modifier"));
 
 		CurrentKey = "windows_to_ignore";
@@ -3609,23 +4286,19 @@ VOID InitConfig()
 		std::string start_command = GetJsonEx("start_command");
 		StartCommand = _strdup(start_command.c_str());
 
-		std::string AdjustForNc = GetJsonEx("adjust_for_nc");
+		ParseBoolOptionEx(GetJsonEx("adjust_for_nc"), &AdjustForNC);
+		ParseBoolOptionEx(GetJsonEx("gaps_enabled"), &IsGapsEnabled);
+		//ParseBoolOptionEx(GetJsonEx("remove_titlebars_experimental"), &ShouldRemoveTitleBars);
+		//ParseBoolOptionEx(GetJsonEx("remove_titlebar"), &ShouldRemoveTitleBars);
+		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
+		ParseBoolOptionEx(GetJsonEx("enable_logs"), &ShouldLog);
 
-		if (AdjustForNc == "y")
-			AdjustForNC = TRUE;
-		else if (AdjustForNc == "n")
-			AdjustForNC = FALSE;
-		else
-			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
+		if (ShouldLog)
+			InitLogger();
 
-		std::string gaps_enabled = GetJsonEx("gaps_enabled");
 
-		if (gaps_enabled == "y")
-			IsGapsEnabled = TRUE;
-		else if (gaps_enabled == "n")
-			IsGapsEnabled = FALSE;
-		else
-			Fail("\"gaps_enabled\" in configs.json can only be \"y\" or \"n\"");
+		StartDirectory = _strdup(static_cast<std::string>(GetJsonEx("start_directory")).c_str());
+		LuaScriptPath = _strdup(static_cast<std::string>(GetJsonEx("lua_script_path")).c_str());
 
 		if (IsGapsEnabled)
 		{
@@ -3634,6 +4307,37 @@ VOID InitConfig()
 			InnerGapsVertical = GetJsonEx("inner_gaps_vertical");
 			InnerGapsHorizontal = GetJsonEx("inner_gaps_horizontal");
 		}
+
+		CurrentKey = "active_workspace_color_button";
+		ColorActiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
+		//ColorActiveWorkspaceButton = GetJsonEx("active_workspace_color_button");
+
+		if (ColorActiveWorkspaceButton.size() != 3)
+			Fail("active_workspace_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_workspace_color_button";
+		ColorInactiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
+
+		if (ColorInactiveWorkspaceButton.size() != 3)
+			Fail("inactive_workspace_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_monitor_color_button";
+		ColorInactiveMonitorButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorInactiveMonitorButton.size() != 3)
+			Fail("inactive_monitor_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "active_text_color_button";
+		ColorActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorActiveButtonText.size() != 3)
+			Fail("active_text_color_button should be an array of 3 unsigned chars");
+
+		CurrentKey = "inactive_text_color_button";
+		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+
+		if (ColorInActiveButtonText.size() != 3)
+			Fail("inactive_text_color_button should be an array of 3 unsigned chars");
 
 	}
 	catch (json::type_error& e)
@@ -3671,6 +4375,17 @@ VOID InitConfigFree()
 	HotKeyCallbackTable['R'][FALSE].HotKeyCb = VerifyWorkspaceEx;
 	HotKeyCallbackTable['F'][FALSE].HotKeyCb = GoFullscreenEx;
 	HotKeyCallbackTable['T'][FALSE].HotKeyCb = ShutdownEx;
+
+	HotKeyCallbackTable['D'][TRUE].HotKeyCb = FlipEx;
+
+	HotKeyCallbackTable['M'][FALSE].HotKeyCb = MoveMonitorRightEx;
+	HotKeyCallbackTable['N'][FALSE].HotKeyCb = MoveMonitorLeftEx;
+	HotKeyCallbackTable['M'][TRUE].HotKeyCb = MoveWindowMonitorRightEx;
+	HotKeyCallbackTable['N'][TRUE].HotKeyCb = MoveWindowMonitorLeftEx;
+
+	HotKeyCallbackTable['G'][FALSE].HotKeyCb = RemoveTitleBarEx;
+	HotKeyCallbackTable['Q'][FALSE].HotKeyCb = FocusMouseEx;
+	HotKeyCallbackTable['X'][FALSE].HotKeyCb = BSplitEx;
 }
 
 BOOL VerifyLicense()
@@ -3713,13 +4428,12 @@ BOOL VerifyLicense()
 		return FALSE;
 	}
 
-	LPSTR result = SG_InputBox::GetString("WinWM", "Please Enter the WinWM License\nCopyright Ayaz Mammadov 2020", "");
+	const char* LastError = AskLicenseSpawn();
 
+	if (LastError)
+		Fail(LastError);
 
-	if (!strlen(result))
-		TerminateProcess(GetCurrentProcess(), 369);
-
-	if (strcmp(result, "athk3kf459idxz"))
+	if (strcmp(UserBuffer, "athk3kf459idxz"))
 		TerminateProcess(GetCurrentProcess(), 369);
 
 	HANDLE LicenseFile = CreateFileW(LicensePath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
@@ -3741,9 +4455,125 @@ BOOL VerifyLicense()
 
 }
 
+VOID SetPWD()
+{
+
+	if (strlen(StartDirectory))
+		SetCurrentDirectory(StartDirectory);
+
+}
+
+VOID InitLua()
+{
+	// no lua script
+	if (!strlen(LuaScriptPath))
+		return;
+
+	LuaOpt.On = TRUE;
+
+	LuaOpt.State.open_libraries(lib::base,
+		lib::bit32,
+		lib::coroutine,
+		lib::debug,
+		lib::ffi,
+		lib::io,
+		lib::jit,
+		lib::math,
+		lib::os,
+		lib::package,
+		lib::string,
+		lib::table,
+		lib::utf8);
+
+	try {
+		LuaOpt.State.script_file(LuaScriptPath);
+	}
+	catch (const std::exception& LuaException)
+	{
+		Fail(LuaException.what());
+	}
+
+}
+
+BOOL DisplayProc(HMONITOR DisplayHandle, HDC DC, LPRECT DisplayRect, LPARAM Context)
+{
+	DISPLAY_INFO Display = { 0 };
+	Display.Handle = DisplayHandle;
+	Display.Rect = *DisplayRect;
+	LogEx("Found Display : %X : [%u %u %u %u]\n", Display.Handle, Display.Rect.left, Display.Rect.top, Display.Rect.right, Display.Rect.bottom);
+	DisplayList.push_back(Display);
+	return TRUE;
+}
+
+BOOL CALLBACK TrayProc(HWND WindowHandle, LPARAM Param)
+{
+	WCHAR WindowText[1024] = { 0 };
+
+	GetClassNameW(WindowHandle, WindowText, 1024);
+
+	if (!wcscmp(WindowText, L"Shell_SecondaryTrayWnd"))
+		SortTrays(WindowHandle);
+
+	return TRUE;
+
+}
+
+VOID GetTrays()
+{
+	EnumWindows(TrayProc, NULL);
+
+	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
+
+	HWND ShellWindow = TrayWindow;
+
+	if (!ShellWindow)
+		FailWithCode("No Primary Tray Window Found");
+
+	SortTrays(TrayWindow);
+
+}
+
+VOID GetMonitors()
+{
+	LogEx("Gathering Displays\n");
+	EnumDisplayMonitors(NULL, NULL, DisplayProc, NULL);
+	LogEx("Finished Gathering Displays\n");
+	HMONITOR PrimaryMonitor = MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY);
+
+	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
+	{
+		DISPLAY_INFO* Display = &DisplayList[Idx];
+
+		for (auto& Workspace : WorkspaceList)
+		{
+			Workspace.Trees[Display->Handle].Display = Display;
+			Workspace.Trees[Display->Handle].NeedsRendering = TRUE;
+		}
+
+		if (Display->Handle == PrimaryMonitor)
+		{
+			PrimaryDisplay = Display;
+			LogEx("PrimaryDisplay : Handle : %X\n", PrimaryDisplay->Handle);
+		}
+	}
+
+	if (!PrimaryDisplay)
+		Fail("No Primary Display?");
+
+	LogEx("\n ---- Init Display -----\n");
+	int Count = 0;
+	for (auto& Workspace : WorkspaceList)
+	{
+		Workspace.Tree = &(Workspace.Trees[PrimaryDisplay->Handle]);
+		Workspace.Dsp = PrimaryDisplay;
+		LogEx("Workspace %u : Tree (%X)\n", Count, Workspace.Tree->Display->Handle);
+		Count++;
+	}
+}
 
 INT main()
 {
+
 	if (AppRunningCheck())
 		Fail("Only a single instance of Win3m can be run");
 
@@ -3751,17 +4581,23 @@ INT main()
 	FreeConsole();
 	SetCrashRoutine();
 	ComOk(InitCom());
+	InitWorkspaceList();
+	GetMonitors();
+	GetTrays();
 
 #ifdef COMMERCIAL
 	if (!VerifyLicense())
 		TerminateProcess(GetCurrentProcess(), 3069);
 
 	InitConfig();
+	InitLua();
+#elif defined NOLICENSE
+	InitConfig();
+	InitLua();
 #else
 	InitConfigFree();
 #endif
 	InitScreenGlobals();
-	InitWorkspaceList();
 	ComOk(RemoveOtherVDesktops());
 	ComOk(SetupVDesktops(WorkspaceList));
 	CreateInitialWindow();
@@ -3775,9 +4611,10 @@ INT main()
 	CreateNotificationWindow();
 	InitIcon();
 	CreateFocusOverlay();
-	WorkspaceList[CurrentWorkspaceInFocus].NeedsRendering = TRUE;
-	RenderWorkspace(CurrentWorkspaceInFocus);
+	WorkspaceList[CurWk].Tree->NeedsRendering = TRUE;
 	InitStatusBar();
+	RenderWorkspace(CurWk);
+	SetPWD();
 
 	MSG Message;
 	while (int RetVal = GetMessageA(&Message, NULL, 0, 0))
@@ -3803,6 +4640,7 @@ INT main()
 		case WM_INSTALL_HOOKS:
 			HandleWindowMessage(&Message);
 			continue;
+		case WM_TILE_CHANGED:
 		default:
 			break;
 		}
@@ -3815,5 +4653,6 @@ INT main()
 	return 0;
 
 }
+
 
 

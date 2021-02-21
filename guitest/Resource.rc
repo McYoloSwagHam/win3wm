@@ -37,10 +37,6 @@ TRAY_ICON               ICON                    "icon.ico"
 /////////////////////////////////////////////////////////////////////////////
 // Italian (Italy) resources
 
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ITA)
-LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
-#pragma code_page(1252)
-
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -66,7 +62,6 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Italian (Italy) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

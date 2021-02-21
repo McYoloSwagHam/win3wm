@@ -338,13 +338,3 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-/GPATH
-/GRTAGS
-/GTAGS
-/tags
-_*
-*.swp
-/guitest/modules
-/guitest/luatest
-/guitest/VTune Profiler Results/guitest
-/guitest/VTune Profiler Results/sample (matrix)
