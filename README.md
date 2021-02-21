@@ -12,10 +12,10 @@ for the config options please check the page [here](google.com "lmao")
  * WinWMGUI - was the C# gui that was to be used for licensing purposes.
  
  ## Building
- twm needs to be built for x64
- ForceResize and WinHook need to be built for both x86 and x64
- x86ipc needs to be built for x86
- WinWMGUI can be built for either x86/x64
+ * twm needs to be built for x64
+ * ForceResize and WinHook need to be built for both x86 and x64
+ * x86ipc needs to be built for x86
+ * WinWMGUI can be built for either x86/x64
  
 ## TODO
 - [ ] focus switching on cursor movement and not hotkey
