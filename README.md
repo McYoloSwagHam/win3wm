@@ -17,3 +17,8 @@ for the config options please check the page [here](google.com "lmao")
  x86ipc needs to be built for x86
  WinWMGUI can be built for either x86/x64
  
+## TODO
+- [ ] focus switching on cursor movement and not hotkey
+- [ ] save tree layout and restore on restart.
+- [ ] CrashHandling (restart on crash)
+- [ ] Focus system similar to i3wm (current focus system is basic)
