@@ -1,0 +1,84 @@
+{
+
+	"modifier" : "alt",
+	"destroy_tile" : "shift+q",
+	"create_tile" : "enter",
+	"bsplit_tile" :  "x",
+
+	"set_layout_vertical" : "v",
+	"set_layout_horizontal" : "h",
+	
+	"change_workspace_1" : "1",
+	"change_workspace_2" : "2",
+	"change_workspace_3" : "3",
+	"change_workspace_4" : "4",
+	"change_workspace_5" : "5",
+	"change_workspace_6" : "6",
+	"change_workspace_7" : "7",
+	"change_workspace_8" : "8",
+	"change_workspace_9" : "9",
+	
+	"move_workspace_1" : "shift+1",
+	"move_workspace_2" : "shift+2",
+	"move_workspace_3" : "shift+3",
+	"move_workspace_4" : "shift+4",
+	"move_workspace_5" : "shift+5",
+	"move_workspace_6" : "shift+6",
+	"move_workspace_7" : "shift+7",
+	"move_workspace_8" : "shift+8",
+	"move_workspace_9" : "shift+9",
+	
+	"focus_left" : "left",
+	"focus_right" : "right",
+	"focus_up" : "up",
+	"focus_down" : "down",
+
+	"remove_titlebar" : "g",
+	"focus_mouse" :  "q",
+	
+	"swap_left" : "shift+left",
+	"swap_right" : "shift+right",
+	"swap_up" : "shift+up",
+	"swap_down" : "shift+down",
+	"flip_workspace" : "shift+d",
+	
+	"verify_workspace" : "r",
+	"fullscreen" : "f",
+	
+	"go_monitor_left" : "n",
+	"go_monitor_right" : "m",
+	"move_monitor_left" : "shift+n",
+	"move_monitor_right" : "shift+m",
+
+	"carry_left" :  "shift+v",
+	"carry_right" :  "shift+b",
+	"shutdown" : "t",
+
+	"adjust_for_nc" : "n",
+	"true_fullscreen" : "n",
+	"remove_titlebars_experimental" : "n",
+	"enable_logs" : "n",
+	
+	"gaps_enabled" : "y",
+	"outer_gaps_vertical" : 10,
+	"outer_gaps_horizontal" : 10,
+	"inner_gaps_horizontal" : 10,
+	"inner_gaps_vertical" : 10,
+	
+	"active_workspace_color_button" : [0,0,255],
+	"inactive_workspace_color_button" : [240,240,240],
+	"inactive_monitor_color_button" : [255, 0, 0],
+	
+	"active_text_color_button" : [255,255,255],
+	"inactive_text_color_button" : [0,0,0],
+	
+	"windows_to_ignore" : ["Teams"],
+
+	"start_command" : "start cmd.exe",
+	"start_directory" : "C:\\Users",
+	"lua_script_path" : ""
+	
+
+}
+
+
