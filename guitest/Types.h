@@ -40,6 +40,9 @@ const IID UIID_IVirtualDesktopWinPreview = {
 	0x094afe11,0x44f2,0x4ba0,0x97,0x6f,0x29,0xa9,0x7e,0x26,0x3e,0xe0
 };
 
+
+const IID UIID_IVirtualDesktopWinPreview_21313 = { 0xb2f925b9,0x5a0f,0x4d2e, 0x9f,0x4d,0x2b,0x15,0x07,0x59,0x3c,0x10};
+
 const CLSID CLSID_VirtualDesktopPinnedApps = {
 	0xb5a399e7, 0x1c87, 0x46b8, 0x88, 0xe9, 0xfc, 0x57, 0x47, 0xb1, 0x71, 0xbd
 };
@@ -141,6 +144,8 @@ const IID IID_VDESKTOP_INSIDER = {
 0x62fdf88b, 0x11ca, 0x4afb, 0x8b, 0xd8, 0x22, 0x96, 0xdf, 0xae, 0x49, 0xe2
 };
 
+const IID IID_VDESKTOP_INSIDER_2 = {0x536d3495,0xb208,0x4cc9,0xae,0x26,0xde,0x81,0x11,0x27,0x5b,0xf8};
+
 //const IID IID_VDESKTOP_INSIDER = {
 //0xC90250F3,0x4D7D, 0x4991, 0x9B69, 0xA5, 0xC5, 0xBC, 0x1C, 0x2A, 0xE6
 //};
@@ -186,7 +191,8 @@ const IID UUID_IVirtualDesktopManagerInternal_9200{
 
 
 //MIDL_INTERFACE("094AFE11-44F2-4BA0-976F-29A97E263EE0")
-class IVirtualDesktopManagerInternalNew : public IUnknown
+//this is the 20241 version
+class IVirtualDesktopManagerInternal_20241 : public IUnknown
 //class IVirtualDesktopManagerInternal : public IUnknown
 {
 	public: 
@@ -205,6 +211,29 @@ class IVirtualDesktopManagerInternalNew : public IUnknown
 		virtual HRESULT __stdcall Proc15( IApplicationView* p0,  IApplicationView* p1);
 		virtual HRESULT __stdcall Proc16( int64_t* p0);
 };
+
+//Every version the Interface changes, this is the 21313 version
+class __declspec(uuid("b2f925b9-5a0f-4d2e-9f4d-2b1507593c10")) IVirtualDesktopManagerInternal_21313 : public IUnknown {
+public:
+	virtual HRESULT __stdcall Proc3(PVOID* p0, int64_t* p1);
+	virtual HRESULT __stdcall MoveViewToDesktop(IApplicationView* p0, IVirtualDesktop* p1);
+	virtual HRESULT __stdcall Proc5(IApplicationView* p0, int64_t* p1);
+	virtual HRESULT __stdcall Proc6(PVOID* p0, IVirtualDesktop** p1);
+	virtual HRESULT __stdcall GetDesktops(PVOID* p0, IObjectArray** p1);
+	virtual HRESULT __stdcall Proc8(IVirtualDesktop* p0, int64_t p1, IVirtualDesktop** p2);
+	virtual HRESULT __stdcall SwitchDesktop(PVOID* p0, IVirtualDesktop* p1);
+	virtual HRESULT __stdcall CreateDesktopW(PVOID* p0, IVirtualDesktop** p1);
+	virtual HRESULT __stdcall Proc11(IVirtualDesktop* p0, PVOID* p1, int64_t p2);
+	virtual HRESULT __stdcall RemoveDesktop(IVirtualDesktop* p0, IVirtualDesktop* p1);
+	virtual HRESULT __stdcall Proc13(GUID* p0, IVirtualDesktop** p1);
+	virtual HRESULT __stdcall Proc14(IVirtualDesktop* p0, IObjectArray** p1, IObjectArray** p2);
+	virtual HRESULT __stdcall Proc15(IVirtualDesktop* p0, PVOID* p1);
+	virtual HRESULT __stdcall Proc16(IVirtualDesktop* p0, PVOID* p1);
+	virtual HRESULT __stdcall Proc17(PVOID* p0);
+	virtual HRESULT __stdcall Proc18(IApplicationView* p0, IApplicationView* p1);
+	virtual HRESULT __stdcall Proc19(int64_t* p0);
+};
+
 
 
 // 10130
@@ -262,36 +291,29 @@ public:
 struct VirtualDesktopWrapper {
 
 	BOOL IsPreviewBuild;
-	IVirtualDesktopManagerInternalNew*  VDesktopManagerInternalInsider;
+	IVirtualDesktopManagerInternal_20241*  VDesktopManagerInternal_20241;
+	IVirtualDesktopManagerInternal_21313*  VDesktopManagerInternal_21313;
 	IVirtualDesktopManagerInternal*  VDesktopManagerInternal;
 	IID CurrentIID;
-
-	VirtualDesktopWrapper(PVOID VDesktopManager, BOOL IsPreviewBuild) {
-
-		this->IsPreviewBuild = IsPreviewBuild;
-
-		if (this->IsPreviewBuild) 
-		{
-			VDesktopManagerInternalInsider = (IVirtualDesktopManagerInternalNew*)VDesktopManager;
-			VDesktopManagerInternal = NULL;
-			CurrentIID = IID_VDESKTOP_INSIDER;
-		}
-		else 
-		{
-			VDesktopManagerInternal = (IVirtualDesktopManagerInternal*)VDesktopManager;
-			VDesktopManagerInternalInsider = NULL;
-			CurrentIID = IID_VDESKTOP;
-		}
-	}
+	UINT16 VersionNumber;
 
 	HRESULT MoveViewToDesktop(IApplicationView* TargetView, IVirtualDesktop* TargetDesktop) {
 
 		HRESULT Result;
 
-		if (this->IsPreviewBuild)
-			Result = VDesktopManagerInternalInsider->MoveViewToDesktop(TargetView, TargetDesktop);
-		else
+		switch (this->VersionNumber)
+		{
+		case 21313:
+			Result = VDesktopManagerInternal_21313->MoveViewToDesktop(TargetView, TargetDesktop);
+			break;
+		case 20241:
+			Result = VDesktopManagerInternal_20241->MoveViewToDesktop(TargetView, TargetDesktop);
+			break;
+		default:
 			Result = VDesktopManagerInternal->MoveViewToDesktop(TargetView, TargetDesktop);
+			break;
+		}
+
 
 		return Result;
 	}
@@ -300,21 +322,38 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		if (this->IsPreviewBuild)
-			Result = VDesktopManagerInternalInsider->CreateDesktopW(NULL, VirtualDesktop);
-		else
+		switch (this->VersionNumber)
+		{
+		case 21313:
+			Result = VDesktopManagerInternal_21313->CreateDesktopW(NULL, VirtualDesktop);
+			break;
+		case 20241:
+			Result = VDesktopManagerInternal_20241->CreateDesktopW(NULL, VirtualDesktop);
+			break;
+		default:
 			Result = VDesktopManagerInternal->CreateDesktopW(VirtualDesktop);
+			break;
+		}
 
 		return Result;
 	}
 
 	HRESULT SwitchDesktop(IVirtualDesktop* VirtualDesktop) {
+
 		HRESULT Result;
 
-		if (this->IsPreviewBuild)
-			Result = VDesktopManagerInternalInsider->SwitchDesktop(NULL, VirtualDesktop);
-		else
+		switch (this->VersionNumber)
+		{
+		case 21313:
+			Result = VDesktopManagerInternal_21313->SwitchDesktop(NULL, VirtualDesktop);
+			break;
+		case 20241:
+			Result = VDesktopManagerInternal_20241->SwitchDesktop(NULL, VirtualDesktop);
+			break;
+		default:
 			Result = VDesktopManagerInternal->SwitchDesktop(VirtualDesktop);
+			break;
+		}
 
 		return Result;
 
@@ -324,10 +363,18 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		if (this->IsPreviewBuild)
-			Result = VDesktopManagerInternalInsider->GetDesktops(NULL, ObjectArray);
-		else
+		switch (this->VersionNumber)
+		{
+		case 21313:
+			Result = VDesktopManagerInternal_21313->GetDesktops(NULL, ObjectArray);
+			break;
+		case 20241:
+			Result = VDesktopManagerInternal_20241->GetDesktops(NULL, ObjectArray);
+			break;
+		default:
 			Result = VDesktopManagerInternal->GetDesktops(ObjectArray);
+			break;
+		}
 
 		return Result;
 	}
@@ -336,10 +383,18 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		if (this->IsPreviewBuild)
-			Result = VDesktopManagerInternalInsider->RemoveDesktop(Desktop, Fallback);
-		else
+		switch (this->VersionNumber)
+		{
+		case 21313:
+			Result = VDesktopManagerInternal_21313->RemoveDesktop(Desktop, Fallback);
+			break;
+		case 20241:
+			Result = VDesktopManagerInternal_20241->RemoveDesktop(Desktop, Fallback);
+			break;
+		default:
 			Result = VDesktopManagerInternal->RemoveDesktop(Desktop, Fallback);
+			break;
+		}
 
 		return Result;
 

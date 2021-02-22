@@ -10,17 +10,16 @@
 //------------------------------------------------------------------
 IServiceProvider* ServiceProvider;
 IVirtualDesktopManager* VDesktopManager;
-IVirtualDesktopManagerInternal* VDesktopManagerInternal;
-IVirtualDesktopManagerInternalNew* VDesktopManagerInternalNew;
+PVOID VDesktopManagerUnknown;
 IVirtualDesktop* VWorkspaces[10];
 IVirtualDesktop* FirstDesktop;
 IApplicationViewCollection* ViewCollection;
-VirtualDesktopWrapper VDesktopWrapper(FALSE, NULL);
+VirtualDesktopWrapper VDesktopWrapper;
 IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
-	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241};
+	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241, 21313};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
     NTSTATUS(WINAPI *RtlVerifyVersionInfo)(LPOSVERSIONINFOEXW, ULONG, ULONGLONG);
     *(FARPROC*)&RtlVerifyVersionInfo = GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlVerifyVersionInfo");
@@ -69,46 +68,49 @@ const char* InitCom()
 
 	//printf("%u\n", InfoVersion.dwBuildNumber);
 	BOOL IsPreviewBuild = FALSE;
+	IID CurrentIID;
 
 	switch (buildNumber)
 	{
 	case 18362:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopWrapper.VDesktopManagerInternal);
+		CurrentIID = IID_VDESKTOP;
+		break;
+	case 21313:
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview_21313, (void**)&VDesktopWrapper.VDesktopManagerInternal_21313);
+		IsPreviewBuild = TRUE;
+		CurrentIID = IID_VDESKTOP_INSIDER_2;
 		break;
 	case 20241:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview, (void**)&VDesktopManagerInternalNew);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview, (void**)&VDesktopWrapper.VDesktopManagerInternal_20241);
 		IsPreviewBuild = TRUE;
+		CurrentIID = IID_VDESKTOP_INSIDER;
 		break;
 	case 10130:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10130, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10130, (void**)&VDesktopWrapper.VDesktopManagerInternal);
+		CurrentIID = IID_VDESKTOP;
 		break;
 	case 10240:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10240, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_10240, (void**)&VDesktopWrapper.VDesktopManagerInternal);
+		CurrentIID = IID_VDESKTOP;
 		break;
 	case 14393:
 	default:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopManagerInternal);
+		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopWrapper.VDesktopManagerInternal);
+		CurrentIID = IID_VDESKTOP;
 		break;
 	}
 
 	if (FAILED(hr))
 		return "QueryService VDM";
 
-	if (!VDesktopManagerInternal && !VDesktopManagerInternalNew)
+	if (!VDesktopWrapper.VDesktopManagerInternal && 
+		!VDesktopWrapper.VDesktopManagerInternal_20241 && 
+		!VDesktopWrapper.VDesktopManagerInternal_21313)
 		return "PinnedApps";
 
-	if (IsPreviewBuild) 
-	{
-		VDesktopWrapper.IsPreviewBuild = IsPreviewBuild;
-		VDesktopWrapper.VDesktopManagerInternalInsider = VDesktopManagerInternalNew;
-		VDesktopWrapper.CurrentIID = IID_VDESKTOP_INSIDER;
-	}
-	else 
-	{
-		VDesktopWrapper.IsPreviewBuild = IsPreviewBuild;
-		VDesktopWrapper.VDesktopManagerInternal = VDesktopManagerInternal;
-		VDesktopWrapper.CurrentIID = IID_VDESKTOP;
-	}
+	VDesktopWrapper.CurrentIID = CurrentIID;
+	VDesktopWrapper.VersionNumber = buildNumber;
 
 	return NULL;
 }

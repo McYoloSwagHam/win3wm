@@ -1469,7 +1469,7 @@ VOID PerformInitialRegroupring()
 	NumWorkspace = WorkspaceList.size() - 1;
 	MaxInitTiles = NumWorkspace * 4;
 
-#ifdef COMMERCIAL
+#if defined COMMERCIAL || defined NOLICENSE
 	if (NumTiles > MaxInitTiles)
 		TilesPerWorkspace = (NumTiles / NumWorkspace) + 1;
 	else if (NumTiles > INIT_TILES_PER_WORKSPACE)
@@ -1611,7 +1611,7 @@ VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
 		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
 }
 
-DWORD RenderFocusWindowExThread(PVOID Workspace) {
+DWORD WINAPI RenderFocusWindowExThread(PVOID Workspace) {
 
 	RenderFocusWindowEx((WORKSPACE_INFO*)Workspace);
 
@@ -2030,7 +2030,7 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 
 VOID InitWorkspaceList()
 {
-#ifdef COMMERCIAL
+#if defined COMMERCIAL || defined NOLICENSE
 	WorkspaceList.resize(10);
 #else
 	WorkspaceList.resize(3);
@@ -2437,11 +2437,17 @@ VOID HandleShutdown()
 
 	ViewCollection->Release();
 
-	if (VDesktopManagerInternal)
-		VDesktopManagerInternal->Release();
-
-	if (VDesktopManagerInternalNew)
-		VDesktopManagerInternalNew->Release();
+	switch(VDesktopWrapper.VersionNumber)
+	{
+	case 21313:
+		VDesktopWrapper.VDesktopManagerInternal_21313->Release();
+		break;
+	case 20241:
+		VDesktopWrapper.VDesktopManagerInternal_20241->Release();
+		break;
+	default:
+		VDesktopWrapper.VDesktopManagerInternal->Release();
+	}
 
 	VDesktopManager->Release();
 	ServiceProvider->Release();
@@ -2643,7 +2649,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
-#ifndef COMMERCIAL
+#if !defined COMMERCIAL && !defined NOLICENSE
 	if (GetWindowCount(Workspace) > 2)
 		return;
 #endif
@@ -3336,7 +3342,7 @@ VOID InitScreenGlobals()
 	}
 
 
-#ifdef COMMERCIAL
+#if defined COMMERCIAL || defined NOLICENSE
 
 	ClrActWk = RGB(ColorActiveWorkspaceButton[0],
 		ColorActiveWorkspaceButton[1],
