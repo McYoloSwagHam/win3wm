@@ -523,8 +523,8 @@ VOID CreateX86Process()
 	GetCurrentDirectoryW(sizeof(DirLength), DirLength);
 
 	CHAR CmdLine[] = "";
-	if (!CreateProcessA("win3wmipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
-		FailWithCode("Couldn't Start win3wmipc.exe");
+	if (!CreateProcessA("x86ipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
+		FailWithCode("Couldn't Start x86ipc.exe");
 
 	x86ProcessHandle = ProcInfo.hProcess;
 	x86ProcessId = ProcInfo.dwProcessId;
