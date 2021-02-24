@@ -1,0 +1,587 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>WinWM Documentation</title>
+        
+        <meta name="robots" content="noindex" />
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="config.html"><strong aria-hidden="true">1.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="hotkeys.html"><strong aria-hidden="true">1.1.</strong> Hotkeys</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">1.2.</strong> Options</a></li><li class="chapter-item expanded "><a href="gaps.html"><strong aria-hidden="true">1.3.</strong> Gaps</a></li><li class="chapter-item expanded "><a href="customization.html"><strong aria-hidden="true">1.4.</strong> Customization</a></li><li class="chapter-item expanded "><a href="wtig.html"><strong aria-hidden="true">1.5.</strong> Filtering</a></li><li class="chapter-item expanded "><a href="prefs.html"><strong aria-hidden="true">1.6.</strong> Preferences</a></li></ol></li><li class="chapter-item expanded "><a href="lua.html"><strong aria-hidden="true">2.</strong> Lua Scripting</a></li><li class="chapter-item expanded "><a href="multwkflw.html"><strong aria-hidden="true">3.</strong> Multi-Monitor Workflow</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">4.</strong> FAQ</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">WinWM Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#configuration" id="configuration">Configuration</a></h1>
+<p>This is the documentation for WinWM.
+All the things discussed apply only for the Commercial/Site version of WinWM, and not for the personal freeware.</p>
+<p>Most of these configs will be surrounding options in <code>config.json</code> in the WinWM directory.</p>
+<h2><a class="header" href="#license" id="license">License</a></h2>
+<p>Copyright 2020 @ Ayaz Mammadov</p>
+<h1><a class="header" href="#hotkeys" id="hotkeys">Hotkeys</a></h1>
+<h2><a class="header" href="#modifier" id="modifier"><code>Modifier</code></a></h2>
+<p>modifier is the option that dictates what the modifier/super key for WinWM is.
+It is a string that only has 2 possible values</p>
+<ul>
+<li><code>&quot;alt&quot;</code> - the left alt key on the keyboard as the modifier key</li>
+<li><code>&quot;win&quot;</code> - the left windows key on the keyboard as the modifier key</li>
+</ul>
+<p><code>&quot;alt&quot;</code> is the default value for this option.</p>
+<h2><a class="header" href="#destroy_tile" id="destroy_tile"><code>destroy_tile</code></a></h2>
+<p><code>destroy_tile</code> is the hotkey designated to closing/destroying the current tile that is focused.</p>
+<p>By default, this value is <code>&quot;mod+shift+q&quot;</code></p>
+<h2><a class="header" href="#create_tile" id="create_tile"><code>create_tile</code></a></h2>
+<p><code>create_tile</code> is the hotkey designated to creating a new tile, running the <code>&quot;start_command&quot;</code> config </p>
+<p>By default, this value is <code>&quot;mod+shift+enter&quot;</code></p>
+<h2><a class="header" href="#set_layout_vertical" id="set_layout_vertical"><code>set_layout_vertical</code></a></h2>
+<p><code>set_layout_vertical</code> is the hotkey designated to setting the current layout to vertical (vertical split)</p>
+<p>By default, this value is <code>&quot;mod+v&quot;</code></p>
+<h2><a class="header" href="#set_layout_horizontal" id="set_layout_horizontal"><code>set_layout_horizontal</code></a></h2>
+<p><code>set_layout_horizontal</code> is the hotkey designated to setting the current layout to horizontal (horizontal split)</p>
+<p>By default, this value is <code>&quot;mod+h&quot;</code></p>
+<h2><a class="header" href="#change_workspace_" id="change_workspace_"><code>change_workspace_*</code></a></h2>
+<blockquote>
+<p><strong>NOTE</strong>: * is a placeholder for a number in this context.</p>
+</blockquote>
+<p>&quot;change_workspace_*&quot; designates the group of hotkeys to change the current desktop view to workspace *</p>
+<p>By default, this value is <code>&quot;mod+\*&quot;</code></p>
+<h2><a class="header" href="#move_workspace_" id="move_workspace_"><code>move_workspace_\*</code></a></h2>
+<blockquote>
+<p><strong>NOTE</strong>: * is a placeholder for a number in this context</p>
+</blockquote>
+<p>&quot;move_workspace_*&quot; designates the group of hotkeys to change the current desktop view to workspace *</p>
+<p>By default, this value is <code>&quot;mode+shift+\*&quot;</code></p>
+<h2><a class="header" href="#focus_left" id="focus_left"><code>focus_left</code></a></h2>
+<p><code>focus_left</code> is the hotkey designated to changing the focus to the window on the left</p>
+<p>By default, this value is <code>&quot;mod+left&quot;</code></p>
+<h2><a class="header" href="#focus_right" id="focus_right"><code>focus_right</code></a></h2>
+<p><code>focus_right</code> is the hotkey designated to changing the focus to the window on the right</p>
+<p>By default, this value is <code>&quot;mod+right&quot;</code></p>
+<h2><a class="header" href="#focus_up" id="focus_up"><code>focus_up</code></a></h2>
+<p><code>focus_up</code> is the hotkey designated to changing the focus to the window above</p>
+<p>By default, this value is <code>&quot;mod+up&quot;</code></p>
+<h2><a class="header" href="#focus_down" id="focus_down"><code>focus_down</code></a></h2>
+<p><code>focus_down</code> is the hotkey designated to changing the focus to the window below</p>
+<p>By default, this value is <code>&quot;mod+down&quot;</code></p>
+<h2><a class="header" href="#swap_left" id="swap_left"><code>swap_left</code></a></h2>
+<p><code>swap_left</code> is the hotkey designated to swapping the current window with the window on the left</p>
+<p>By default, this value is <code>&quot;mod+shift+left&quot;</code></p>
+<h2><a class="header" href="#swap_right" id="swap_right"><code>swap_right</code></a></h2>
+<p><code>swap_right</code> is the hotkey designated to swapping the current window with the window on the right</p>
+<p>By default, this value is <code>&quot;mod+shift+right&quot;</code></p>
+<h2><a class="header" href="#swap_up" id="swap_up"><code>swap_up</code></a></h2>
+<p><code>swap_up</code> is the hotkey designated to swapping the current window with the window above</p>
+<p>By default, this value is <code>&quot;mod+shift+up&quot;</code></p>
+<h2><a class="header" href="#swap_down" id="swap_down"><code>swap_down</code></a></h2>
+<p><code>swap_down</code> is the hotkey designated to swapping the current window with the window on the left</p>
+<p>By default, this value is <code>&quot;mod+shift+down&quot;</code></p>
+<h2><a class="header" href="#flip_workspace" id="flip_workspace"><code>flip_workspace</code></a></h2>
+<p>flips the workspace orientation, for example take the workspace below.</p>
+<p><img src="ex1.png" alt="Pre-Flip" /></p>
+<p>Flipping this workspace will result in the orientation below</p>
+<p><img src="ex2.png" alt="Post-Flip" /></p>
+<p>By default, this value is <code>mod+shift+d</code></p>
+<h2><a class="header" href="#verify_workspace" id="verify_workspace"><code>verify_workspace</code></a></h2>
+<p>verify_workspace is used for re-rendering the workspace, incase there are any windows out of place, or windows have to been manually moved out of order.</p>
+<h2><a class="header" href="#fullscreen" id="fullscreen"><code>fullscreen</code></a></h2>
+<p>fullscreen is the hotkey designated to entering fullscreen mode, or if already in fullscreen mode, exiting fullscreen mode.</p>
+<p>By default this value is <code>&quot;mod+f&quot;</code></p>
+<h2><a class="header" href="#go_monitor_left" id="go_monitor_left"><code>go_monitor_left</code></a></h2>
+<p><code>go_monitor_left</code> is the hotkey designated to changed the current focused monitor to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+n&quot;</code></p>
+<h2><a class="header" href="#go_monitor_right" id="go_monitor_right"><code>go_monitor_right</code></a></h2>
+<p><code>go_monitor_right</code> is the hotkey designated to changed the current focused monitor to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+m&quot;</code></p>
+<h2><a class="header" href="#move_monitor_left" id="move_monitor_left"><code>move_monitor_left</code></a></h2>
+<p><code>move_monitor_left</code> is the hotkey designated to move the current focused window (if there is any) to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+shift+n&quot;</code></p>
+<h2><a class="header" href="#move_monitor_right" id="move_monitor_right"><code>move_monitor_right</code></a></h2>
+<p><code>move_monitor_right</code> is the hotkey designated to move the current focused window to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+shift+m&quot;</code></p>
+<h2><a class="header" href="#carry_monitor_left" id="carry_monitor_left"><code>carry_monitor_left</code></a></h2>
+<p><code>carry_monitor_left</code> is the hotkey designated to carry the current focused window (if there is any) to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+shift+b&quot;</code></p>
+<h2><a class="header" href="#carry_monitor_right" id="carry_monitor_right"><code>carry_monitor_right</code></a></h2>
+<p><code>carry_monitor_right</code> is the hotkey designated to carry the current focused window to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+shift+v&quot;</code></p>
+<h2><a class="header" href="#shutdown" id="shutdown"><code>shutdown</code></a></h2>
+<p><code>shutdown</code> is the hotkey designated for exiting WinWM, it also restores all windows styles to how they spawned and merges all virtual desktops.</p>
+<p>By default this value is <code>&quot;mod+shift+t&quot;</code></p>
+<h2><a class="header" href="#focus_mouse" id="focus_mouse"><code>focus_mouse</code></a></h2>
+<p><code>focus_mouse</code> is the hotkey designated to change focus to the current tile under the cursor</p>
+<p>By default this value is <code>&quot;mod+q&quot;</code></p>
+<h2><a class="header" href="#bsplit" id="bsplit"><code>bsplit</code></a></h2>
+<p><code>bsplit</code> is the hotkey designated to spawn a binary split window</p>
+<p>By default this value is <code>&quot;mod+x&quot;</code></p>
+<h2><a class="header" href="#remove_titlebars" id="remove_titlebars"><code>remove_titlebars</code></a></h2>
+<p><code>remove_titlebars</code> is the hotkey designated to remove the titlebars on the tile under the cursor</p>
+<p>By default this value is <code>&quot;mod+g&quot;</code></p>
+<h1><a class="header" href="#options" id="options">Options</a></h1>
+<p>Options are configurations that have 2 different settings, they are described by 2 different values</p>
+<ul>
+<li><code>&quot;n&quot;</code> - meaning this option is off.</li>
+<li><code>&quot;y&quot;</code> - meaning this option is on.</li>
+</ul>
+<h2><a class="header" href="#adjust_for_nc" id="adjust_for_nc"><code>adjust_for_nc</code></a></h2>
+<p>by default there is a tiny border around most windows, if this option is on then WinWM takes the border of each window into account and makes the windows fit perfectly.</p>
+<p>By default, this value is off (<code>&quot;n&quot;</code>)</p>
+<h2><a class="header" href="#remove_titlebars_experimental" id="remove_titlebars_experimental"><code>remove_titlebars_experimental</code></a></h2>
+<p>This feature is experimental and may not work as intended.
+This feature removes captions and titlebars.</p>
+<p>By default, this value is off (<code>&quot;n&quot;</code>)</p>
+<h2><a class="header" href="#enable_logs" id="enable_logs"><code>enable_logs</code></a></h2>
+<p>this option makes logs, this is used when a bug is encountered to send logs back to me. While this is open performance will degrade</p>
+<p>By default, this value is off (<code>&quot;n&quot;</code>)</p>
+<h2><a class="header" href="#true_fullscreen" id="true_fullscreen"><code>true_fullscreen</code></a></h2>
+<p>this option makes fullscreen mode take up 100% of the screen area, and hides the taskbar.</p>
+<p>By default, this value is off (<code>&quot;n&quot;</code>)</p>
+<h1><a class="header" href="#gaps" id="gaps">Gaps</a></h1>
+<p>Gaps can be enabled by setting&quot;gaps_enabled&quot; to &quot;y&quot;, only then will the options below take effect. </p>
+<h2><a class="header" href="#outer_gaps_vertical" id="outer_gaps_vertical"><code>outer_gaps_vertical</code></a></h2>
+<p>&quot;outer_gaps_vertical&quot; describes the the pixel size of the vertical outer gap.</p>
+<p>By default, this value is <code>0</code></p>
+<h2><a class="header" href="#outer_gaps_horizontal" id="outer_gaps_horizontal"><code>outer_gaps_horizontal</code></a></h2>
+<p>&quot;outer_gaps_horizontal&quot; describes the pixel size of the horizontal outer gaps.</p>
+<p>By default, this value is <code>0</code></p>
+<h2><a class="header" href="#inner_gaps_horizontal" id="inner_gaps_horizontal"><code>inner_gaps_horizontal</code></a></h2>
+<p>&quot;inner_gaps_horziontal&quot; describes the pixel size of the inner horizontal gaps between the windows</p>
+<p>By default, this value is <code>0</code></p>
+<h2><a class="header" href="#inner_gaps_vertical" id="inner_gaps_vertical"><code>inner_gaps_vertical</code></a></h2>
+<p>&quot;inner_gaps_vertical&quot; describes the pixel size of the inner vertical gaps between the windows. </p>
+<p>By default, this value is <code>0</code></p>
+<h1><a class="header" href="#customization" id="customization">Customization</a></h1>
+<p>all of these values are RGB colors describe by an array of 3 integers from 0 to 255.</p>
+<p>The first integer describing the Red Value, the second integer describing the Green Value, the third integer describing the blue value.</p>
+<h2><a class="header" href="#active_workspace_color_button" id="active_workspace_color_button"><code>active_workspace_color_button</code></a></h2>
+<p>the color of the active workspace button in the statusbar.</p>
+<p>By default this value is <code>[0, 0, 255]</code></p>
+<h2><a class="header" href="#inactive_workspace_color_button" id="inactive_workspace_color_button"><code>inactive_workspace_color_button</code></a></h2>
+<p>the color of the inactive workspace button in the statusbar.</p>
+<p>By default this value is <code>[240, 240, 240]</code></p>
+<h2><a class="header" href="#inactive_monitor_color_button" id="inactive_monitor_color_button"><code>inactive_monitor_color_button</code></a></h2>
+<p>the color of the active workspace button on the unfocused monitor.</p>
+<p>By default, this value is <code>[255, 0, 0]</code></p>
+<h2><a class="header" href="#active_text_color_button" id="active_text_color_button"><code>active_text_color_button</code></a></h2>
+<p>the color of the text on an active workspace button.</p>
+<p>By default, this value is <code>[255, 255, 255]</code></p>
+<h2><a class="header" href="#inactive_text_color_button" id="inactive_text_color_button"><code>inactive_text_color_button</code></a></h2>
+<p>the color of the text on an inactive workspace button.</p>
+<p>By default, this value is <code>[0, 0, 0]</code></p>
+<h1><a class="header" href="#filtering" id="filtering">Filtering</a></h1>
+<h2><a class="header" href="#windows_to_ignore" id="windows_to_ignore"><code>windows_to_ignore</code></a></h2>
+<p>there are certain windows that don't play nicely with WinWM, &quot;windows_to_ignore&quot; is an array of strings that contain either the name of a window or the name of the class it belongs to, the matching works on a substring basis, so you only need a part of the name.
+An example value for this Config might be : <code>[&quot;Notepad++&quot;, &quot;keypirinha&quot;]</code></p>
+<p>By default, this value is <code>[]</code></p>
+<h1><a class="header" href="#preferences" id="preferences">Preferences</a></h1>
+<p>These are other options that let you change certain behaviours.</p>
+<h2><a class="header" href="#start_command" id="start_command"><code>start_command</code></a></h2>
+<p>When you execute <code>create_tile</code> (<code>mod+enter</code> by default), this command will be called to create the new window.</p>
+<p>By default, this value is <code>start cmd.exe</code> </p>
+<h2><a class="header" href="#start_directory" id="start_directory"><code>start_directory</code></a></h2>
+<p>this is the working directory that <strong>WinWM</strong> will use, so that your applications spawned by WinWM will start from that directory (e.g. CMD starting at &quot;C:\Users\Admin&quot;)</p>
+<p>An Example Value for this options is :
+<code>&quot;C:\\Users\\Admin&quot;</code></p>
+<p>By default, this value is <code>&quot;&quot;</code></p>
+<h1><a class="header" href="#lua-scripting" id="lua-scripting">Lua Scripting</a></h1>
+<h2><a class="header" href="#information" id="information">Information</a></h2>
+<p>WinWM contains an embedded Lua Engine, (LuaJIT-2.0.5), that allows for scripting for customization  &amp; interop purposes, it also has callbacks on certain actions to notify your scripts of certain events.</p>
+<p>The Lua Environment provided by WinWM exports these libraries by default.</p>
+<pre><code class="language-lua">base
+bit32
+coroutine
+debug
+ffi
+io
+jit
+math
+os
+package
+string
+table
+utf8
+</code></pre>
+<h2><a class="header" href="#setup" id="setup">Setup</a></h2>
+<p>In order to turn on Lua Scripting, the option <code>&quot;lua_script_path&quot;</code> has to be set, the value of this option by default is <code>&quot;&quot;</code>, an example value for this option would be path like so</p>
+<ul>
+<li><code>&quot;C:\\Users\\Admin\\my_lua_script.lua&quot;</code> - Absolute Path</li>
+<li><code>&quot;lua/my_lua_script&quot;</code> - Relative Path (Relative to the folder where WinWM.exe is located)</li>
+</ul>
+<h2><a class="header" href="#callbacks" id="callbacks">Callbacks</a></h2>
+<p>WinWM provides several callback such as</p>
+<ul>
+<li><code>on_new_window(window_handle)</code></li>
+<li><code>on_destroy_window(window_handle)</code></li>
+<li><code>on_fullscreen(is_fullscreen, window_handle)</code></li>
+<li><code>on_change_workspace(workspace_number)</code></li>
+<li><code>on_exit()</code></li>
+</ul>
+<p><em>If you have/want more callbacks, feel free to send me ideas</em></p>
+<p>Here is an example lua script</p>
+<h2><a class="header" href="#working-with-external-libs" id="working-with-external-libs">Working With External Libs</a></h2>
+<p>external modules that are used in the lua scripts have to be in the same path as the WinWM.exe.</p>
+<p>For Example.</p>
+<pre><code class="language-lua">local winapi = require 'LuaModules.winapi'
+require 'LuaModules.MyOtherScript'
+require 'LuaModules.winapi.windowclass'
+</code></pre>
+<p>In order to access these external modules the file structure would have to look like this</p>
+<pre><code>- WinWM.exe
+- LuaModules &lt;DIR&gt;
+	- winapi &lt;DIR&gt;
+		windowclass.lua
+	- MyOtherScript.lua
+	
+</code></pre>
+<h2><a class="header" href="#example-logger-script" id="example-logger-script">Example Logger script</a></h2>
+<p>Just as an example on how this all works together, I'll guide you on creating a little logger script, that logs all activies and records the name of every window on every event.</p>
+<p>I'll be using <a href="https://luapower.com/winapi">winapi</a> which requires 2 other modules</p>
+<ul>
+<li><a href="https://luapower.com/glue/">glue.lua</a></li>
+<li><a href="https://luapower.com/glue/">events.lua</a></li>
+</ul>
+<p>The folder structure is as such : </p>
+<pre><code>- WinWM.exe
+- modules &lt;DIR&gt;
+	- winapi &lt;DIR&gt;
+	- winapi.lua
+	- glua.lua
+	- events.lua
+
+</code></pre>
+<p>my logger script looks like this</p>
+<p><code>logger.lua</code></p>
+<pre><code class="language-lua">
+require 'io'
+
+package.path = package.path .. ';./modules/?.lua'; -- Include modules in path.
+local window = require 'modules.winapi'
+require 'modules.winapi.window'
+
+
+
+FileHandle = io.open(&quot;C:\\Users\\Admin\\lua.txt&quot;, &quot;a&quot;)
+io.output(FileHandle)
+
+function on_change_workspace(number)
+	io.write(&quot;wk : &quot;, number, '\n')
+end
+
+function on_new_window(hwnd)
+	window_text = window.GetWindowText(hwnd)
+	io.write('on_new_window: ', window_text, '\n')
+end
+
+
+function on_destroy_window(hwnd)
+	window_text = window.GetWindowText(hwnd)
+	io.write('on_destroy_window: ', window_text, '\n')
+end
+
+function on_fullscreen(IsFullScreen, hwnd)
+	window_text = window.GetWindowText(hwnd)
+	io.write('on_fullscreen: ', IsFullScreen,' ', window_text, '\n')
+end
+
+function on_exit()
+	io.close(FileHandle)
+end
+
+</code></pre>
+<p>lua.txt</p>
+<pre><code>wk : 2
+wk : 1
+wk : 2
+wk : 3
+wk : 4
+wk : 1
+wk : 3
+on_fullscreen: 1 lua.md + (~\Desktop\Tech\WinWMBook\src) - GVIM1
+on_fullscreen: 0 lua.md + (~\De...k\src) - GVIM1
+wk : 4
+on_fullscreen: 1 config.json (~\source\repos\REDACTED) - GVIM2
+on_fullscreen: 0 config.json (~\source\repos\REDACTED) - GVIM2
+wk : 1
+wk : 2
+wk : 3
+wk : 4
+on_new_window: Administrator: C:\Windows\system32\cmd.exe
+on_destroy_window: 
+wk : 1
+on_fullscreen: 1 #my-channel - Google Chrome
+on_fullscreen: 0 #my-channel - Google Chrome
+on_fullscreen: 1 #my-channel - Google Chrome
+on_fullscreen: 0 #my-channel - Google Chrome
+</code></pre>
+<h2><a class="header" href="#warning" id="warning">Warning</a></h2>
+<p>If there is an error in the lua code, a message box should prompt with the error and backtrace. 
+There are many bugs in luajit that will crash it, which will crash WinWM. If you encounter a line of lua code that crashes WinWM, then it is Luajit crashing.</p>
+<p><strong>Example</strong> : </p>
+<pre><code class="language-lua">require 'io'
+io.open('crash.txt', 'crash') -- crashes Luajit and WinWM
+</code></pre>
+<h1><a class="header" href="#multi-monitor-workflow" id="multi-monitor-workflow">Multi-Monitor Workflow</a></h1>
+<p>This will be a little guide on understanding &amp; optimizing the workflow on multi-monitor setups.</p>
+<p>This is my current setup, monitor 1 is my primary display.</p>
+<p><img src="dsp.png" alt="Monitor" /></p>
+<p>When you start WinWM on a multi-monitor setup, it creates a set of trees.</p>
+<p>Trees can be though of like folders and directories.
+Each Workspace holds the same number of trees as displays.</p>
+<pre><code>- Workspaces
+	- Workspace 1
+		- Tree 1 (Display 1) &lt;- Primary Display &lt;- Focused Monitor
+		- Tree 2
+	- Workspace 2
+	- ..
+	- Workspace 9
+</code></pre>
+<p>When WinWM starts it performs an initial regrouping of all the windows, and it groups them into vertical splits. On a multi-monitor system, WinWM will perform the regrouping exactly the same except it only regroups to the primary display.</p>
+<p><img src="mtregroup.png" alt="New" /></p>
+<p>At the current moment WinWM has the primary display as the focused monitor, this is visible from the blue button on the status bar, which is the default color of the active-primary workspace button. On the other side, the second monitor has a red button, which signifies that it is not in focus.</p>
+<p>By executing <code>go_monitor_right</code> (by default <code>mod+m</code>), we can change the the current focused monitor to the Display 2</p>
+<p><img src="mtswitch.png" alt="two" /></p>
+<p>The colors of the buttons on the status bar has changed. Display 2 now has a blue button on its status bar, showing that it is now in focus.</p>
+<p>if we create a new window then it will place itself in display 2</p>
+<p><img src="mtnew.png" alt="three" /></p>
+<p>each workspace starts off with the primary display as the active monitor, and each workspace remembers the monitor in focus.</p>
+<p>you can move windows across monitors in a workspace by executing the actions </p>
+<ul>
+<li><code>move_monitor_left</code> (by default <code>mod+shift+m</code>)</li>
+<li><code>move_monitor_right</code> (by default <code>mod+shift+n</code>)</li>
+</ul>
+<h1><a class="header" href="#faq" id="faq">FAQ</a></h1>
+<h2><a class="header" href="#q-application-wont-run-because-msvcp140dll-is-missing" id="q-application-wont-run-because-msvcp140dll-is-missing">Q: Application won't run because MSVCP140.dll is missing</a></h2>
+<h3><a class="header" href="#a-install-the-visual-c-redistributable-any-version-from-2015-2019-works" id="a-install-the-visual-c-redistributable-any-version-from-2015-2019-works">A: Install the Visual C++ Redistributable (Any version from 2015-2019 works)</a></h3>
+<h2><a class="header" href="#q-the-window-manager-isnt-resizing-windows-snapped-to-the-sidecorner-of-the-desktop" id="q-the-window-manager-isnt-resizing-windows-snapped-to-the-sidecorner-of-the-desktop">Q: The Window Manager isn't resizing windows snapped to the side/corner of the desktop</a></h2>
+<h3><a class="header" href="#a-unsnap-the-windows-and-force-a-re-render-altr-default-keybind-verify_workspace-keybinding-in-the-configs-you-could-also-move-some-tiles-around-to-force-a-re-render" id="a-unsnap-the-windows-and-force-a-re-render-altr-default-keybind-verify_workspace-keybinding-in-the-configs-you-could-also-move-some-tiles-around-to-force-a-re-render">A: Unsnap the windows and force a re-render (alt+r default keybind/ verify_workspace keybinding in the configs), you could also move some tiles around to force a re-render</a></h3>
+<h2><a class="header" href="#q-the-window-manager-doesnt-work-with-certain-games-protected-by-certain-anti-cheats" id="q-the-window-manager-doesnt-work-with-certain-games-protected-by-certain-anti-cheats">Q: The Window Manager doesn't work with certain games protected by certain anti-cheats</a></h2>
+<h3><a class="header" href="#a-winwm-needs-to-be-able-to-access-processes-in-order-to-force-the-game-to-adhere" id="a-winwm-needs-to-be-able-to-access-processes-in-order-to-force-the-game-to-adhere">A: WinWM needs to be able to access processes in-order to force the game to adhere</a></h3>
+<h2><a class="header" href="#q-how-do-the-focus-rules-work" id="q-how-do-the-focus-rules-work">Q: How do the focus rules work?</a></h2>
+<h3><a class="header" href="#a-the-focus-rules-are-quite-simple" id="a-the-focus-rules-are-quite-simple">A: The focus rules are quite simple</a></h3>
+<p>WinWM is a tree-based Window Manager, which means every split
+goes one layer deeper </p>
+<p>A good visualisation of the focus rules is a 2x2 workspace, and a diagram showing how it works.</p>
+<ul>
+<li>H reprents a Horizontal Split</li>
+<li>V reprents a Vertical Split</li>
+<li>T reprents an end terminal</li>
+</ul>
+<p><img src="diag.png" alt="diag" /></p>
+<p>say you are on Tile 4.
+if you try to focus left, WinWM will check the current split, 
+and since it cannot go left because the current split is vertical it will go up a level.
+it will the go up until it finds a horizontal split, then it will then traverse the split and
+follow the graph downwards sticking to the left side. In this case this lands you at Tile 1.</p>
+<h2><a class="header" href="#q-the-focus-bar-will-sometimes-disappear" id="q-the-focus-bar-will-sometimes-disappear">Q: The Focus bar will sometimes disappear</a></h2>
+<h3><a class="header" href="#a-certain-applications-like-to-override-the-focus-bar-every-075-seconds-a-watchdog-makes-sure-that-the-focus-bar-is-still-on-top" id="a-certain-applications-like-to-override-the-focus-bar-every-075-seconds-a-watchdog-makes-sure-that-the-focus-bar-is-still-on-top">A: Certain applications like to override the focus bar, every 0.75 seconds a watchdog makes sure that the focus bar is still on top.</a></h3>
+<h2><a class="header" href="#q-anti-virus-flags-winwm-software-as-malware-or-disables-it" id="q-anti-virus-flags-winwm-software-as-malware-or-disables-it">Q: Anti-virus flags WinWM software as malware, or disables it</a></h2>
+<h3><a class="header" href="#a-winwm-injects-code-into-every-window-that-it-controls-to-regulate-window-behaviour-this-can-flag-anti-viruses-because-some-malware-will-attempt-to-inject-itself-into-many-processes-to-hide-itself-anti-viruses-cannot-tell-the-difference" id="a-winwm-injects-code-into-every-window-that-it-controls-to-regulate-window-behaviour-this-can-flag-anti-viruses-because-some-malware-will-attempt-to-inject-itself-into-many-processes-to-hide-itself-anti-viruses-cannot-tell-the-difference">A: WinWM injects code into every window that it controls, to regulate window behaviour, this can flag anti-viruses, because some malware will attempt to inject itself into many processes to hide itself. Anti-viruses cannot tell the difference.</a></h3>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
+        
+
+    </body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Hotkeys - WinWM Documentation</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="config.html"><strong aria-hidden="true">1.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="hotkeys.html" class="active"><strong aria-hidden="true">1.1.</strong> Hotkeys</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">1.2.</strong> Options</a></li><li class="chapter-item expanded "><a href="gaps.html"><strong aria-hidden="true">1.3.</strong> Gaps</a></li><li class="chapter-item expanded "><a href="customization.html"><strong aria-hidden="true">1.4.</strong> Customization</a></li><li class="chapter-item expanded "><a href="wtig.html"><strong aria-hidden="true">1.5.</strong> Filtering</a></li><li class="chapter-item expanded "><a href="prefs.html"><strong aria-hidden="true">1.6.</strong> Preferences</a></li></ol></li><li class="chapter-item expanded "><a href="lua.html"><strong aria-hidden="true">2.</strong> Lua Scripting</a></li><li class="chapter-item expanded "><a href="multwkflw.html"><strong aria-hidden="true">3.</strong> Multi-Monitor Workflow</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">4.</strong> FAQ</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">WinWM Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#hotkeys" id="hotkeys">Hotkeys</a></h1>
+<h2><a class="header" href="#modifier" id="modifier"><code>Modifier</code></a></h2>
+<p>modifier is the option that dictates what the modifier/super key for WinWM is.
+It is a string that only has 2 possible values</p>
+<ul>
+<li><code>&quot;alt&quot;</code> - the left alt key on the keyboard as the modifier key</li>
+<li><code>&quot;win&quot;</code> - the left windows key on the keyboard as the modifier key</li>
+</ul>
+<p><code>&quot;alt&quot;</code> is the default value for this option.</p>
+<h2><a class="header" href="#destroy_tile" id="destroy_tile"><code>destroy_tile</code></a></h2>
+<p><code>destroy_tile</code> is the hotkey designated to closing/destroying the current tile that is focused.</p>
+<p>By default, this value is <code>&quot;mod+shift+q&quot;</code></p>
+<h2><a class="header" href="#create_tile" id="create_tile"><code>create_tile</code></a></h2>
+<p><code>create_tile</code> is the hotkey designated to creating a new tile, running the <code>&quot;start_command&quot;</code> config </p>
+<p>By default, this value is <code>&quot;mod+shift+enter&quot;</code></p>
+<h2><a class="header" href="#set_layout_vertical" id="set_layout_vertical"><code>set_layout_vertical</code></a></h2>
+<p><code>set_layout_vertical</code> is the hotkey designated to setting the current layout to vertical (vertical split)</p>
+<p>By default, this value is <code>&quot;mod+v&quot;</code></p>
+<h2><a class="header" href="#set_layout_horizontal" id="set_layout_horizontal"><code>set_layout_horizontal</code></a></h2>
+<p><code>set_layout_horizontal</code> is the hotkey designated to setting the current layout to horizontal (horizontal split)</p>
+<p>By default, this value is <code>&quot;mod+h&quot;</code></p>
+<h2><a class="header" href="#change_workspace_" id="change_workspace_"><code>change_workspace_*</code></a></h2>
+<blockquote>
+<p><strong>NOTE</strong>: * is a placeholder for a number in this context.</p>
+</blockquote>
+<p>&quot;change_workspace_*&quot; designates the group of hotkeys to change the current desktop view to workspace *</p>
+<p>By default, this value is <code>&quot;mod+\*&quot;</code></p>
+<h2><a class="header" href="#move_workspace_" id="move_workspace_"><code>move_workspace_\*</code></a></h2>
+<blockquote>
+<p><strong>NOTE</strong>: * is a placeholder for a number in this context</p>
+</blockquote>
+<p>&quot;move_workspace_*&quot; designates the group of hotkeys to change the current desktop view to workspace *</p>
+<p>By default, this value is <code>&quot;mode+shift+\*&quot;</code></p>
+<h2><a class="header" href="#focus_left" id="focus_left"><code>focus_left</code></a></h2>
+<p><code>focus_left</code> is the hotkey designated to changing the focus to the window on the left</p>
+<p>By default, this value is <code>&quot;mod+left&quot;</code></p>
+<h2><a class="header" href="#focus_right" id="focus_right"><code>focus_right</code></a></h2>
+<p><code>focus_right</code> is the hotkey designated to changing the focus to the window on the right</p>
+<p>By default, this value is <code>&quot;mod+right&quot;</code></p>
+<h2><a class="header" href="#focus_up" id="focus_up"><code>focus_up</code></a></h2>
+<p><code>focus_up</code> is the hotkey designated to changing the focus to the window above</p>
+<p>By default, this value is <code>&quot;mod+up&quot;</code></p>
+<h2><a class="header" href="#focus_down" id="focus_down"><code>focus_down</code></a></h2>
+<p><code>focus_down</code> is the hotkey designated to changing the focus to the window below</p>
+<p>By default, this value is <code>&quot;mod+down&quot;</code></p>
+<h2><a class="header" href="#swap_left" id="swap_left"><code>swap_left</code></a></h2>
+<p><code>swap_left</code> is the hotkey designated to swapping the current window with the window on the left</p>
+<p>By default, this value is <code>&quot;mod+shift+left&quot;</code></p>
+<h2><a class="header" href="#swap_right" id="swap_right"><code>swap_right</code></a></h2>
+<p><code>swap_right</code> is the hotkey designated to swapping the current window with the window on the right</p>
+<p>By default, this value is <code>&quot;mod+shift+right&quot;</code></p>
+<h2><a class="header" href="#swap_up" id="swap_up"><code>swap_up</code></a></h2>
+<p><code>swap_up</code> is the hotkey designated to swapping the current window with the window above</p>
+<p>By default, this value is <code>&quot;mod+shift+up&quot;</code></p>
+<h2><a class="header" href="#swap_down" id="swap_down"><code>swap_down</code></a></h2>
+<p><code>swap_down</code> is the hotkey designated to swapping the current window with the window on the left</p>
+<p>By default, this value is <code>&quot;mod+shift+down&quot;</code></p>
+<h2><a class="header" href="#flip_workspace" id="flip_workspace"><code>flip_workspace</code></a></h2>
+<p>flips the workspace orientation, for example take the workspace below.</p>
+<p><img src="ex1.png" alt="Pre-Flip" /></p>
+<p>Flipping this workspace will result in the orientation below</p>
+<p><img src="ex2.png" alt="Post-Flip" /></p>
+<p>By default, this value is <code>mod+shift+d</code></p>
+<h2><a class="header" href="#verify_workspace" id="verify_workspace"><code>verify_workspace</code></a></h2>
+<p>verify_workspace is used for re-rendering the workspace, incase there are any windows out of place, or windows have to been manually moved out of order.</p>
+<h2><a class="header" href="#fullscreen" id="fullscreen"><code>fullscreen</code></a></h2>
+<p>fullscreen is the hotkey designated to entering fullscreen mode, or if already in fullscreen mode, exiting fullscreen mode.</p>
+<p>By default this value is <code>&quot;mod+f&quot;</code></p>
+<h2><a class="header" href="#go_monitor_left" id="go_monitor_left"><code>go_monitor_left</code></a></h2>
+<p><code>go_monitor_left</code> is the hotkey designated to changed the current focused monitor to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+n&quot;</code></p>
+<h2><a class="header" href="#go_monitor_right" id="go_monitor_right"><code>go_monitor_right</code></a></h2>
+<p><code>go_monitor_right</code> is the hotkey designated to changed the current focused monitor to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+m&quot;</code></p>
+<h2><a class="header" href="#move_monitor_left" id="move_monitor_left"><code>move_monitor_left</code></a></h2>
+<p><code>move_monitor_left</code> is the hotkey designated to move the current focused window (if there is any) to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+shift+n&quot;</code></p>
+<h2><a class="header" href="#move_monitor_right" id="move_monitor_right"><code>move_monitor_right</code></a></h2>
+<p><code>move_monitor_right</code> is the hotkey designated to move the current focused window to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+shift+m&quot;</code></p>
+<h2><a class="header" href="#carry_monitor_left" id="carry_monitor_left"><code>carry_monitor_left</code></a></h2>
+<p><code>carry_monitor_left</code> is the hotkey designated to carry the current focused window (if there is any) to the monitor on the left.</p>
+<p>By default this value is <code>&quot;mod+shift+b&quot;</code></p>
+<h2><a class="header" href="#carry_monitor_right" id="carry_monitor_right"><code>carry_monitor_right</code></a></h2>
+<p><code>carry_monitor_right</code> is the hotkey designated to carry the current focused window to the monitor on the right.</p>
+<p>By default this value is <code>&quot;mod+shift+v&quot;</code></p>
+<h2><a class="header" href="#shutdown" id="shutdown"><code>shutdown</code></a></h2>
+<p><code>shutdown</code> is the hotkey designated for exiting WinWM, it also restores all windows styles to how they spawned and merges all virtual desktops.</p>
+<p>By default this value is <code>&quot;mod+shift+t&quot;</code></p>
+<h2><a class="header" href="#focus_mouse" id="focus_mouse"><code>focus_mouse</code></a></h2>
+<p><code>focus_mouse</code> is the hotkey designated to change focus to the current tile under the cursor</p>
+<p>By default this value is <code>&quot;mod+q&quot;</code></p>
+<h2><a class="header" href="#bsplit" id="bsplit"><code>bsplit</code></a></h2>
+<p><code>bsplit</code> is the hotkey designated to spawn a binary split window</p>
+<p>By default this value is <code>&quot;mod+x&quot;</code></p>
+<h2><a class="header" href="#remove_titlebars" id="remove_titlebars"><code>remove_titlebars</code></a></h2>
+<p><code>remove_titlebars</code> is the hotkey designated to remove the titlebars on the tile under the cursor</p>
+<p>By default this value is <code>&quot;mod+g&quot;</code></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="config.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="options.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="config.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="options.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
