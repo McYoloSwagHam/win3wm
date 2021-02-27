@@ -6,8 +6,8 @@ for the config options please check the page [here](https://mcyoloswagham.github
 
 ## Architecture
  * twm - is the actual Tiling Window Manager logic, that handles the trees, layouts, Config, input, etc...
- * ForceResize - is the DLL that is to be injected in all applications to allow resizing a window past its limiits
- * WinHook - is the DLL that is to be injected in all applications to notify the man application 
+ * ForceResize - is the DLL that is to be injected in all applications to allow resizing a window past its limits
+ * WinHook - is the DLL that is to be injected in all applications to notify the main application of window creation/destruction.
  * x86ipc - Due to WinAPI constraints, there needs to be a child process for interacting with x86 processes
  * WinWMGUI - was the C# gui that was to be used for licensing purposes.
  
