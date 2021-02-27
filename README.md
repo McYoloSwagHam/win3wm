@@ -2,7 +2,7 @@
 WinWM is a tiling window manager inspired by i3wm, it was initially private and commerical, but I decided to opensource it.
 
 ## Manual
-for the config options please check the page [here](mcyoloswagham.github.io/win3wm)
+for the config options please check the page [here](https://mcyoloswagham.github.io/win3wm)
 
 ## Architecture
  * twm - is the actual Tiling Window Manager logic, that handles the trees, layouts, Config, input, etc...
