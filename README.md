@@ -26,3 +26,13 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
 - [ ] save tree layout and restore on restart.
 - [ ] CrashHandling (restart on crash)
 - [ ] Focus system similar to i3wm (current focus system is basic)
+## Showcase
+
+
+![Basic Showcase](images/showcase_1.png)
+A basic image showing the status bar on the bottom left, the windows, the gapping functionality and the ability to remove titlebars from application (top right command prompt)
+and the yellow focus bar on the bottom of the current focused window.
+
+
+![Multimonitor Showcase](images/showcase_2.png)
+A image showing the multimonitor version, a status bar for each monitor, with the active monitor having the color blue on the statusbar
