@@ -5,6 +5,8 @@ WinWM is a tiling window manager inspired by i3wm, it was initially private and 
 for the config options and explanations, and a tutorial on the luajit scripting.
 please check the page [here](https://mcyoloswagham.github.io/win3wm)
 
+## Documentation
+ [Documentation](https://mcyoloswagham.github.io/win3wm)
 ## Architecture
  * twm - is the actual Tiling Window Manager logic, that handles the trees, layouts, Config, input, etc...
  * ForceResize - is the DLL that is to be injected in all applications to allow resizing a window past its limits
