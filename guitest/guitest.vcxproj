@@ -172,7 +172,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="license_gui.cpp" />
-    <ClCompile Include="tracy\TracyClient.cpp" />
     <ClCompile Include="wm.cpp" />
   </ItemGroup>
   <ItemGroup>

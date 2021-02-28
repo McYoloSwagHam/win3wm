@@ -229,6 +229,7 @@ std::vector<unsigned char> ColorInactiveWorkspaceButton;
 std::vector<unsigned char> ColorInactiveMonitorButton;
 std::vector<unsigned char> ColorActiveButtonText;
 std::vector<unsigned char> ColorInActiveButtonText;
+std::vector<unsigned char> FocusBarColor;
 
 DWORD ClrActWk;
 DWORD ClrInActWk;
@@ -2440,6 +2441,7 @@ VOID HandleShutdown()
 	switch(VDesktopWrapper.VersionNumber)
 	{
 	case 21313:
+	case 21318:
 		VDesktopWrapper.VDesktopManagerInternal_21313->Release();
 		break;
 	case 20241:
@@ -3252,6 +3254,7 @@ VOID CreateFocusOverlay()
 {
 
 	WNDCLASSEXA WindowClass;
+	DWORD FocusBarColorRGB = RGB(FocusBarColor[0], FocusBarColor[1], FocusBarColor[2]);
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL;
@@ -3261,7 +3264,7 @@ VOID CreateFocusOverlay()
 	WindowClass.hInstance = NULL;
 	WindowClass.hIcon = NULL;
 	WindowClass.hCursor = NULL;
-	WindowClass.hbrBackground = CreateSolidBrush(RGB(0xff, 0xff, 0));
+	WindowClass.hbrBackground = CreateSolidBrush(FocusBarColorRGB);
 	WindowClass.lpszMenuName = NULL;
 	WindowClass.lpszClassName = FocusAppWindowName;
 	WindowClass.hIconSm = NULL;
@@ -4319,31 +4322,37 @@ VOID InitConfig()
 		//ColorActiveWorkspaceButton = GetJsonEx("active_workspace_color_button");
 
 		if (ColorActiveWorkspaceButton.size() != 3)
-			Fail("active_workspace_color_button should be an array of 3 unsigned chars");
+			Fail("active_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_workspace_color_button";
 		ColorInactiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInactiveWorkspaceButton.size() != 3)
-			Fail("inactive_workspace_color_button should be an array of 3 unsigned chars");
+			Fail("inactive_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_monitor_color_button";
-		ColorInactiveMonitorButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+		ColorInactiveMonitorButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInactiveMonitorButton.size() != 3)
-			Fail("inactive_monitor_color_button should be an array of 3 unsigned chars");
+			Fail("inactive_monitor_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "active_text_color_button";
-		ColorActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+		ColorActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorActiveButtonText.size() != 3)
-			Fail("active_text_color_button should be an array of 3 unsigned chars");
+			Fail("active_text_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_text_color_button";
-		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();;
+		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInActiveButtonText.size() != 3)
-			Fail("inactive_text_color_button should be an array of 3 unsigned chars");
+			Fail("inactive_text_color_button should be an array of 3 unsigned numbers from 0-255");
+
+		CurrentKey = "focus_bar_color";
+		FocusBarColor = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
+
+		if (FocusBarColor.size() != 3)
+			Fail("focus_bar_color should be an array of 3 unsigned numbers from 0-255");
 
 	}
 	catch (json::type_error& e)
