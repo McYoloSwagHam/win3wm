@@ -21,6 +21,7 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
 ## Features
 - [x] Multi monitor support
 - [x] LuaJit Scripting
+- [x] Uses virtual desktops instead of just moving around windows
 - [x] Performance (happy enough with it, some optimizations could be done somehow for really heavy windows like file explorer)  
  
 ## TODO
@@ -28,6 +29,11 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
 - [ ] save tree layout and restore on restart.
 - [ ] CrashHandling (restart on crash)
 - [ ] Focus system similar to i3wm (current focus system is basic)
+- [ ] Handle disconnecting and reconnecting displays during runtime
+## Issues
+feel free to ask questions or put suggestions by opening an issue. I'd be glad to discuss these things
+## Prerequisites
+The task bar must be at the bottom of the screen and not on the sides, this is something that will hopefully be fixed soon  
 ## Showcase
 
 
