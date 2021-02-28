@@ -30,6 +30,8 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
 - [ ] CrashHandling (restart on crash)
 - [ ] Focus system similar to i3wm (current focus system is basic)
 - [ ] Handle disconnecting and reconnecting displays during runtime
+## issues
+feel free to ask questions or put suggestions by opening an issue. I'd be glad to discuss these things
 ## Showcase
 
 
