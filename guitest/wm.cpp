@@ -2024,7 +2024,8 @@ VOID RenderWorkspace(INT WorkspaceNumber)
 	}
 
 	RenderStatusBar();
-	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+	RenderFocusWindowEx(Workspace);
+	//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 	LogEx("Finished Rendering Workspace : %u\n", WorkspaceNumber);
 
 }
@@ -2324,7 +2325,8 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 	{
 	}
 
-	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+	RenderFocusWindowEx(Workspace);
+	//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	//The first time you switch to a VDesktop it minizimes all windows
 	//Unless you render the desktop during the switch, for every workspace
@@ -2789,7 +2791,8 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	RemoveTileFromTree(Tree, TileToRemove);
 	RenderWorkspace(CurWk);
 
-	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+	RenderFocusWindowEx(Workspace);
+	//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	LuaDispatchEx("on_destroy_window", (PVOID)WindowHandle);
 
@@ -3809,7 +3812,8 @@ VOID FocusMouseEx()
 	if (SrcTree == TargetTree)
 	{
 		Workspace->Tree->Focus = TargetTile;
-		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+		RenderFocusWindowEx(Workspace);
+		//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 		return;
 	}
 
@@ -3818,7 +3822,8 @@ VOID FocusMouseEx()
 	Workspace->Tree = TargetTree;
 	Workspace->TileInFocus = TargetTile;
 	RenderStatusBar();
-	CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+	RenderFocusWindowEx(Workspace);
+	//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 
 }
@@ -4078,7 +4083,8 @@ VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 		Workspace->Dsp = &DisplayList[DispIdx - 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
-		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+		RenderFocusWindowEx(Workspace);
+		//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 		if (RetEarly)
 			return;
 	}
@@ -4108,7 +4114,8 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 		Workspace->Dsp = &DisplayList[DispIdx + 1];
 		Workspace->Tree = &Workspace->Trees[Workspace->Dsp->Handle];
 		RenderStatusBar();
-		CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
+		RenderFocusWindowEx(Workspace);
+		//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 		if (RetEarly)
 			return;
