@@ -30,8 +30,10 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
 - [ ] CrashHandling (restart on crash)
 - [ ] Focus system similar to i3wm (current focus system is basic)
 - [ ] Handle disconnecting and reconnecting displays during runtime
-## issues
+## Issues
 feel free to ask questions or put suggestions by opening an issue. I'd be glad to discuss these things
+## Prerequisites
+The task bar must be at the bottom of the screen and not on the sides, this is something that will hopefully be fixed soon  
 ## Showcase
 
 
