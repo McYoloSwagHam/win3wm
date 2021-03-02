@@ -305,6 +305,7 @@ struct VirtualDesktopWrapper {
 		{
 		case 21313:
 		case 21318:
+		case 21322:
 			Result = VDesktopManagerInternal_21313->MoveViewToDesktop(TargetView, TargetDesktop);
 			break;
 		case 20241:
@@ -327,6 +328,7 @@ struct VirtualDesktopWrapper {
 		{
 		case 21313:
 		case 21318:
+		case 21322:
 			Result = VDesktopManagerInternal_21313->CreateDesktopW(NULL, VirtualDesktop);
 			break;
 		case 20241:
@@ -348,6 +350,7 @@ struct VirtualDesktopWrapper {
 		{
 		case 21313:
 		case 21318:
+		case 21322:
 			Result = VDesktopManagerInternal_21313->SwitchDesktop(NULL, VirtualDesktop);
 			break;
 		case 20241:
@@ -370,6 +373,7 @@ struct VirtualDesktopWrapper {
 		{
 		case 21313:
 		case 21318:
+		case 21322:
 			Result = VDesktopManagerInternal_21313->GetDesktops(NULL, ObjectArray);
 			break;
 		case 20241:
@@ -391,6 +395,7 @@ struct VirtualDesktopWrapper {
 		{
 		case 21313:
 		case 21318:
+		case 21322:
 			Result = VDesktopManagerInternal_21313->RemoveDesktop(Desktop, Fallback);
 			break;
 		case 20241:

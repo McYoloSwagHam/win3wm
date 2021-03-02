@@ -164,9 +164,6 @@ HANDLE AppMutex;
 INT ScreenWidth;
 INT ScreenHeight;
 
-INT RealScreenWidth;
-INT RealScreenHeight;
-
 // ------------------------------------------------------------------
 // Application Globals
 // ------------------------------------------------------------------
@@ -175,7 +172,6 @@ INT RealScreenHeight;
 //
 HMODULE ForceResize64;
 HMODULE ForceResize86;
-HMODULE WinHook64;
 HOOKPROC DllHookProc;
 HHOOK KeyboardHook;
 HHOOK NewWindowHook;
@@ -192,8 +188,8 @@ unsigned char LastButtonArray[10] = { 0 };
 // ------------------------------------------------------------------
 
 //Windows to ignore
-const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio", L"Windows.UI.Core.CoreWindow" };
-std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDialogProxy", L"Shell_SystemDim", L"The Event Managment Dashboard", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"Windows.UI.Core.CoreWindow" };
+const wchar_t* Win32kDefaultWindowNamesDebug[] = { L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"ConsoleWindowClass", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow", L"lul", L"Visual Studio"};
+std::vector<std::wstring> Win32kDefaultWindowNames = { L"Shell_SystemDialogProxy", L"Shell_SystemDim", L"The Event Managment Dashboard", L"FocusWin3WM",  L"Win3wmStatusBar", L"FocusDebugOverlay", L"Shell_TrayWnd", L"WorkerW", L"Progman", L"Win3wmWindow", L"NarratorHelperWindow" };
 //windows console clearly is a special one
 const SPECIFIC_WINDOW WeirdWindowsList[] =
 {
@@ -1561,84 +1557,6 @@ DWORD HandleWeirdWindowState(HWND WindowHandle)
 
 }
 
-VOID RenderFocusWindow(TILE_INFO* Tile)
-{
-
-	HWND WindowHandle = Tile->WindowHandle;
-
-	if (GetForegroundWindow() != Tile->WindowHandle)
-	{
-		ForceToForeground(WindowHandle);
-	}
-
-	RECT ClientRect;
-	PRECT TileRect = &Tile->Placement.rcNormalPosition;
-	HRESULT Result;
-
-	GetClientRect(WindowHandle, &ClientRect);
-
-	INT Width = ClientRect.right - ClientRect.left;
-	INT BorderSize = 5;
-
-	POINT TopLeftClientArea = { 0 };
-
-	if (!ClientToScreen(WindowHandle, &TopLeftClientArea))
-		return;
-
-	ClientRect.left += TopLeftClientArea.x;
-	ClientRect.top += TopLeftClientArea.y;
-	ClientRect.bottom += TopLeftClientArea.y;
-
-
-	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
-		FailWithCode("SetWindowPos Focus Window");
-
-	if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
-		FailWithCode("SetWindowPos Focus Window");
-
-	ShowWindow(FocusWindow, SW_SHOW);
-
-}
-
-
-VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
-{
-
-	Sleep(0);
-
-	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
-		RenderFocusWindow(Workspace->Tree->Focus);
-	else
-		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
-}
-
-DWORD WINAPI RenderFocusWindowExThread(PVOID Workspace) {
-
-	RenderFocusWindowEx((WORKSPACE_INFO*)Workspace);
-
-	return 0;
-	
-}
-
-VOID AdjustForGaps(RECT* PrintRect, DISPLAY_INFO* Display)
-{
-
-	//Adjust for OuterGaps
-	PrintRect->left +=OuterGapsHorizontal / 2;
-	PrintRect->right += OuterGapsHorizontal / 2;
-
-	PrintRect->top += OuterGapsVertical / 2;
-	PrintRect->bottom += OuterGapsVertical / 2;
-
-	//Adjust for InnerGaps
-	PrintRect->left += InnerGapsHorizontal / 2;
-	PrintRect->right -= InnerGapsHorizontal / 2;
-
-	PrintRect->top += InnerGapsVertical / 2;
-	PrintRect->bottom -= InnerGapsVertical / 2;
-
-}
-
 VOID AdjustForBorder(TILE_INFO* Tile, RECT* PrintRect)
 {
 
@@ -1674,6 +1592,83 @@ VOID AdjustForBorder(TILE_INFO* Tile, RECT* PrintRect)
 	PrintRect->bottom += BorderRect.bottom;
 
 }
+
+VOID RenderFocusWindow(TILE_INFO* Tile)
+{
+
+	HWND WindowHandle = Tile->WindowHandle;
+
+	if (GetForegroundWindow() != Tile->WindowHandle)
+	{
+		ForceToForeground(WindowHandle);
+	}
+
+	RECT ClientRect;
+	PRECT TileRect = &Tile->Placement.rcNormalPosition;
+	HRESULT Result;
+
+	GetClientRect(WindowHandle, &ClientRect);
+
+	INT BorderSize = 5;
+	INT Width = ClientRect.right - ClientRect.left;
+
+	POINT TopLeftClientArea = { 0 };
+
+	if (!ClientToScreen(WindowHandle, &TopLeftClientArea))
+		return;
+
+	ClientRect.left += TopLeftClientArea.x;
+	ClientRect.top += TopLeftClientArea.y;
+	ClientRect.bottom += TopLeftClientArea.y;
+
+
+	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
+		FailWithCode("SetWindowPos Focus Window");
+
+	if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
+		FailWithCode("SetWindowPos Focus Window");
+
+	ShowWindow(FocusWindow, SW_SHOW);
+
+}
+
+
+VOID RenderFocusWindowEx(WORKSPACE_INFO* Workspace)
+{
+
+	if (TreeHas(Focus) && !Workspace->Tree->IsFullScreen)
+		RenderFocusWindow(Workspace->Tree->Focus);
+	else
+		SetWindowPos(FocusWindow, HWND_BOTTOM, 0, 0, 0, 0, SWP_HIDEWINDOW);
+}
+
+DWORD WINAPI RenderFocusWindowExThread(PVOID Workspace) {
+
+	RenderFocusWindowEx((WORKSPACE_INFO*)Workspace);
+
+	return 0;
+	
+}
+
+VOID AdjustForGaps(RECT* PrintRect, DISPLAY_INFO* Display)
+{
+
+	//Adjust for OuterGaps
+	PrintRect->left +=OuterGapsHorizontal / 2;
+	PrintRect->right += OuterGapsHorizontal / 2;
+
+	PrintRect->top += OuterGapsVertical / 2;
+	PrintRect->bottom += OuterGapsVertical / 2;
+
+	//Adjust for InnerGaps
+	PrintRect->left += InnerGapsHorizontal / 2;
+	PrintRect->right -= InnerGapsHorizontal / 2;
+
+	PrintRect->top += InnerGapsVertical / 2;
+	PrintRect->bottom -= InnerGapsVertical / 2;
+
+}
+
 
 INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 {
@@ -2444,6 +2439,7 @@ VOID HandleShutdown()
 	{
 	case 21313:
 	case 21318:
+	case 21322:
 		VDesktopWrapper.VDesktopManagerInternal_21313->Release();
 		break;
 	case 20241:
@@ -2625,7 +2621,6 @@ VOID GetRidOfFade(HWND WindowHandle)
 extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 {
 
-
 	if (IsIgnoreWindowEx(WindowHandle) || !IsWindow(WindowHandle))
 	{
 		LogEx("Ignoring Window : %X\n", WindowHandle);
@@ -2772,13 +2767,13 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 	TILE_INFO* TileToRemove = NULL;
 
-	// If the tile doesn't exist in the workspace something wrong happened.
 
 	TILE_TREE* Tree = GetTileWindowTree(Workspace, WindowHandle);
 
 	if (!Tree)
 		return;
 
+	// If the tile doesn't exist in the workspace something wrong happened.
 	TileToRemove = VerifyExistingWindow(Tree->Root, WindowHandle);
 
 	if (!TileToRemove)
@@ -2791,7 +2786,6 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	RemoveTileFromTree(Tree, TileToRemove);
 	RenderWorkspace(CurWk);
 
-	RenderFocusWindowEx(Workspace);
 	//CreateThread(NULL, 0, RenderFocusWindowExThread, Workspace, NULL, NULL);
 
 	LuaDispatchEx("on_destroy_window", (PVOID)WindowHandle);
@@ -2893,13 +2887,24 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	return 0;
 }
 
-LRESULT CALLBACK WindowMessageHandler2(
+LRESULT CALLBACK ShellHookDispatcher(
 	HWND WindowHandle,
 	UINT Message,
 	WPARAM WParam,
 	LPARAM LParam
 )
 {
+
+	switch (WParam)
+	{
+	case HSHELL_WINDOWCREATED:
+		OnNewWindow((HWND)LParam);
+		break;
+	case HSHELL_WINDOWDESTROYED:
+		OnDestroyWindow((HWND)LParam);
+		break;
+	}
+
 	return DefWindowProcA(WindowHandle, Message, WParam, LParam);
 }
 
@@ -3011,22 +3016,11 @@ LRESULT CALLBACK FocusMessageHandler(
 
 				//There is a fullscreen window
 				//don't render focus bar
-				if ((TileRect.bottom - TileRect.top) > RealScreenHeight)
+				if ((TileRect.bottom - TileRect.top) > Workspace->Dsp->RealScreenHeight)
 					return 0;
 			}
 
-			RECT FocusRect;
-
-			GetWindowRect(FocusWindow, &FocusRect);
-
-			Width = FocusRect.right - FocusRect.left;
-			Height = FocusRect.bottom - FocusRect.top;
-
-			if (!SetWindowPos(FocusWindow, HWND_TOPMOST, FocusRect.left, FocusRect.top, Width, Height, 0))
-				FailWithCode("SetWindowPos Focus Window");
-
-			if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, FocusRect.left, FocusRect.top, Width, Height, 0))
-				FailWithCode("SetWindowPos Focus Window");
+			RenderFocusWindowEx(Workspace);
 
 			return 0;
 		default:
@@ -3062,22 +3056,7 @@ LRESULT CALLBACK NewWindowHookProc(int nCode, WPARAM WParam, LPARAM LParam)
 
 VOID InstallNewWindowHook()
 {
-
-	WinHook64 = LoadLibraryA("winhook64.dll");
-
-	if (!WinHook64)
-		FailWithCode("Couldn't load WinHook64.dll");
-
-	HOOKPROC NewWindowHookProc = (HOOKPROC)GetProcAddress(WinHook64, "OnWindowAction");
-
-	if (!NewWindowHookProc)
-		FailWithCode("Couldn't find (x64)NewWindowHookProc");
-
-	NewWindowHook = SetWindowsHookExA(WH_SHELL, NewWindowHookProc, WinHook64, 0);
-
-	if (!NewWindowHook)
-		FailWithCode("Couldn't set NewWindowHook");
-
+	RegisterShellHookWindow(MainWindow);
 }
 
 VOID HandleWindowMessage(MSG* Message)
@@ -3101,7 +3080,7 @@ VOID CreateInitialWindow()
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL_STYLE;
-	WindowClass.lpfnWndProc = WindowMessageHandler2;
+	WindowClass.lpfnWndProc = ShellHookDispatcher;
 	WindowClass.cbClsExtra = 0;
 	WindowClass.cbWndExtra = 0;
 	WindowClass.hInstance = NULL;
