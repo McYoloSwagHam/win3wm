@@ -47,19 +47,6 @@ const char* MakeFormatString(const char* Format, ...)
 int main()
 {
 
-	NewWindowDll = LoadLibraryA("winhook86.dll");
-
-	if (!NewWindowDll)
-		FailWithCode("Couldn't load winhook86.dll");
-
-	HOOKPROC NewWindowProc = (HOOKPROC)GetProcAddress(NewWindowDll, "_OnWindowAction@12");
-
-	if (!NewWindowProc)
-		FailWithCode("Couldn't find NewWindowProc");
-
-	if (!SetWindowsHookExA(WH_SHELL, NewWindowProc, (HINSTANCE)NewWindowDll, 0))
-		FailWithCode("Couldn't set hook NewWindowProc");
-
     ForceResize86 = LoadLibraryA("ForceResize86.dll");
 
 	HOOKPROC DllHookProc = (HOOKPROC)GetProcAddress(ForceResize86, "HookProc");
