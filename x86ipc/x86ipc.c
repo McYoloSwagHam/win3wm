@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <windows.h>
 
-#define WIN3M_PIPE_NAME "\\\\.\\pipe\\Win3WMPipe"
-#define RtlFormatPrint snprintf
+#define WIN3M_PIPE_NAME L"\\\\.\\pipe\\Win3WMPipe"
+#define RtlFormatPrint _snwprintf
 
 HMODULE ForceResize86;
 HMODULE NewWindowDll;
 HANDLE ServerPipe;
 
-VOID FailWithCode(const char* ErrorMessage)
+VOID FailWithCode(const wchar_t* ErrorMessage)
 {
 
 	CHAR ErrorMsgBuffer[1024] = { 0 };
@@ -16,14 +16,14 @@ VOID FailWithCode(const char* ErrorMessage)
 	RtlFormatPrint(ErrorMsgBuffer, sizeof(ErrorMsgBuffer),
 		"%s : %u", ErrorMessage, GetLastError());
 
-	MessageBoxA(NULL, ErrorMsgBuffer, NULL, MB_OK);
+	MessageBoxW(NULL, ErrorMsgBuffer, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
 
-VOID Fail(const char* ErrorMessage)
+VOID Fail(const wchar_t* ErrorMessage)
 {
-	MessageBoxA(NULL, ErrorMessage, NULL, MB_OK);
+	MessageBoxW(NULL, ErrorMessage, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
@@ -32,7 +32,7 @@ const char* MakeFormatString(const char* Format, ...)
 	char* StringMemory = (char*)malloc(1024);
 
 	if (!StringMemory)
-		Fail("Couldn't allocate memory for error print????");
+		Fail(L"Couldn't allocate memory for error print????");
 
 	va_list Args;
 	va_start(Args, Format);
@@ -47,17 +47,17 @@ const char* MakeFormatString(const char* Format, ...)
 int main()
 {
 
-    ForceResize86 = LoadLibraryA("ForceResize86.dll");
+    ForceResize86 = LoadLibraryW(L"ForceResize86.dll");
 
 	HOOKPROC DllHookProc = (HOOKPROC)GetProcAddress(ForceResize86, "HookProc");
 
 	if (!DllHookProc)
-        FailWithCode("Couldn't find DLL HookProc");
+        FailWithCode(L"Couldn't find DLL HookProc");
 
     if (!ForceResize86)
-        FailWithCode("Couldn't load ForceResizeX86.dll ");
+        FailWithCode(L"Couldn't load ForceResizeX86.dll ");
 
-    ServerPipe = CreateNamedPipeA(  WIN3M_PIPE_NAME,
+    ServerPipe = CreateNamedPipeW(  WIN3M_PIPE_NAME,
                                     PIPE_ACCESS_DUPLEX,
                                     PIPE_TYPE_BYTE,
                                     2,
@@ -67,17 +67,17 @@ int main()
                                     NULL);
 
     if (ServerPipe == INVALID_HANDLE_VALUE)
-        FailWithCode("Coudln't Create ServerPipe");
+        FailWithCode(L"Coudln't Create ServerPipe");
 
-	HANDLE PipeEvent = OpenEventA(EVENT_MODIFY_STATE, FALSE, "Win3WMEvent");
+	HANDLE PipeEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, L"Win3WMEvent");
 
 	if (!PipeEvent)
-		FailWithCode("Could not open Pipe Event");
+		FailWithCode(L"Could not open Pipe Event");
 
 	printf("Signalling pipe\n");
 
 	if (!SetEvent(PipeEvent))
-		FailWithCode("Couldn't Signal Pipe Event");
+		FailWithCode(L"Couldn't Signal Pipe Event");
 
 	ResetEvent(PipeEvent);
 
@@ -103,7 +103,7 @@ int main()
 
 		HWND WindowHandle = (HWND)TargetWindow;
 
-		if (!SetWindowsHookExA(WH_CALLWNDPROC, DllHookProc, ForceResize86, 0))
+		if (!SetWindowsHookExW(WH_CALLWNDPROC, DllHookProc, ForceResize86, 0))
 			FailWithCode(MakeFormatString("Couldn't SetWindowsHookExA : %X", WindowHandle));
 
     }

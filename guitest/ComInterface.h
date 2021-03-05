@@ -22,7 +22,7 @@ UINT16 GetWinBuildNumber()
 	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241, 21313, 21318, 21322};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
     NTSTATUS(WINAPI *RtlVerifyVersionInfo)(LPOSVERSIONINFOEXW, ULONG, ULONGLONG);
-    *(FARPROC*)&RtlVerifyVersionInfo = GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlVerifyVersionInfo");
+    *(FARPROC*)&RtlVerifyVersionInfo = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlVerifyVersionInfo");
 	ULONGLONG mask = ::VerSetConditionMask(0, VER_BUILDNUMBER, VER_EQUAL);
 
 	for (size_t i = 0; i < sizeof(buildNumbers) / sizeof(buildNumbers[0]); i++)
@@ -37,27 +37,27 @@ UINT16 GetWinBuildNumber()
 	return 0;
 }
 
-const char* InitCom()
+const wchar_t* InitCom()
 {
 	HRESULT hr = CoInitialize(NULL);
 
 	if (FAILED(hr))
-		return "CoInitialize";
+		return L"CoInitialize";
 
 	hr = CoCreateInstance(CLSID_ImmersiveShell, NULL, CLSCTX_LOCAL_SERVER, __uuidof(IServiceProvider), (PVOID*)&ServiceProvider);
 
 	if (FAILED(hr))
-		return "CoCreateInstance";
+		return L"CoCreateInstance";
 
 	ServiceProvider->QueryService(__uuidof(IVirtualDesktopManager), &VDesktopManager);
 	ServiceProvider->QueryService(__uuidof(IApplicationViewCollection), &ViewCollection);
 
 
 	if (!VDesktopManager)
-		return "VDesktopManager";
+		return L"VDesktopManager";
 
 	if (!ViewCollection)
-		return "ViewCollection";
+		return L"ViewCollection";
 
 	UINT16 buildNumber = GetWinBuildNumber();
 
@@ -104,12 +104,12 @@ const char* InitCom()
 	}
 
 	if (FAILED(hr))
-		return "QueryService VDM";
+		return L"QueryService VDM";
 
 	if (!VDesktopWrapper.VDesktopManagerInternal && 
 		!VDesktopWrapper.VDesktopManagerInternal_20241 && 
 		!VDesktopWrapper.VDesktopManagerInternal_21313)
-		return "PinnedApps";
+		return L"PinnedApps";
 
 	VDesktopWrapper.CurrentIID = CurrentIID;
 	VDesktopWrapper.VersionNumber = buildNumber;
@@ -160,7 +160,7 @@ HRESULT EnumVirtualDesktops(HMONITOR Handle, VirtualDesktopWrapper* pDesktopMana
 	return hr;
 }
 
-const char* RemoveOtherVDesktops()
+const wchar_t* RemoveOtherVDesktops()
 {
 	
 	IObjectArray* DesktopObjectArray;
@@ -169,22 +169,22 @@ const char* RemoveOtherVDesktops()
 	hr = VDesktopWrapper.GetDesktops(&DesktopObjectArray);
 
 	if (FAILED(hr))
-		return "DesktopObjectArray";
+		return L"DesktopObjectArray";
 
 	UINT NumDesktops;
 
 	if (FAILED(DesktopObjectArray->GetCount(&NumDesktops)))
-		return "NumDesktops";
+		return L"NumDesktops";
 
 	if (FAILED(DesktopObjectArray->GetAt(0, VDesktopWrapper.CurrentIID, (PVOID*)&FirstDesktop)))
-		return "No FirstDesktop.";
+		return L"No FirstDesktop.";
 
 	IVirtualDesktop* CurrentDesktop = NULL;
 	for (unsigned int i = 1; i < NumDesktops && i < 255; i++)
 	{
 	
 		if (FAILED(DesktopObjectArray->GetAt(i, VDesktopWrapper.CurrentIID, (PVOID*)&CurrentDesktop)))
-			return "DesktopObjectArray->GetAt";
+			return L"DesktopObjectArray->GetAt";
 
 		VDesktopWrapper.RemoveDesktop(CurrentDesktop, FirstDesktop);
 
@@ -194,7 +194,7 @@ const char* RemoveOtherVDesktops()
 
 }
 
-const char* SetupVDesktops(std::vector<WORKSPACE_INFO>& WorkspaceList)
+const wchar_t* SetupVDesktops(std::vector<WORKSPACE_INFO>& WorkspaceList)
 {
 
 	WorkspaceList[1].VDesktop = FirstDesktop;
@@ -204,14 +204,14 @@ const char* SetupVDesktops(std::vector<WORKSPACE_INFO>& WorkspaceList)
 		HRESULT Hr;
 		Hr = VDesktopWrapper.CreateDesktopW(&WorkspaceList[i].VDesktop); 
 		if (FAILED(Hr) || !WorkspaceList[i].VDesktop)
-			return "CreateDesktopW";
+			return L"CreateDesktopW";
 	}
 
 	return NULL;
 
 }
 
-const char* MoveWindowToVDesktop(HWND WindowHandle, IVirtualDesktop* VDesktop)
+const wchar_t* MoveWindowToVDesktop(HWND WindowHandle, IVirtualDesktop* VDesktop)
 {
 
 	IApplicationView* ApplicationView;
@@ -219,24 +219,24 @@ const char* MoveWindowToVDesktop(HWND WindowHandle, IVirtualDesktop* VDesktop)
 	HRESULT Result = ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView);
 
 	if (FAILED(Result))
-		return "GetViewForHwnd";
+		return L"GetViewForHwnd";
 
 	Result = VDesktopWrapper.MoveViewToDesktop(ApplicationView, VDesktop);
 
 	ApplicationView->Release();
 
 	if (FAILED(Result))
-		return "MoveViewToDesktop";
+		return L"MoveViewToDesktop";
 	
 	return NULL;
 }
 
-const char* CheckViewPinned(HWND WindowHandle, BOOL* IsPinned)
+const wchar_t* CheckViewPinned(HWND WindowHandle, BOOL* IsPinned)
 {
 	IApplicationView* ApplicationView;
 
 	if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
-		return "GetViewForHwnd";
+		return L"GetViewForHwnd";
 
 	WCHAR ApplicationIdBuffer[1024];
 	PWSTR ApplicationId = ApplicationIdBuffer;
@@ -246,18 +246,18 @@ const char* CheckViewPinned(HWND WindowHandle, BOOL* IsPinned)
 	ApplicationView->Release();
 
 	if (FAILED(Result))
-		return "IsAppIdPinned";
+		return L"IsAppIdPinned";
 
 	return NULL;
 }
 
 
-const char* CheckAppPinned(HWND WindowHandle, BOOL* IsPinned)
+const wchar_t* CheckAppPinned(HWND WindowHandle, BOOL* IsPinned)
 {
 	IApplicationView* ApplicationView;
 
 	if (FAILED(ViewCollection->GetViewForHwnd(WindowHandle, &ApplicationView)))
-		return "GetViewForHwnd";
+		return L"GetViewForHwnd";
 
 	WCHAR ApplicationIdBuffer[1024];
 	PWSTR ApplicationId = ApplicationIdBuffer;
@@ -267,23 +267,23 @@ const char* CheckAppPinned(HWND WindowHandle, BOOL* IsPinned)
 	ApplicationView->Release();
 
 	if (FAILED(Result))
-		return "GetAppUserModelId";
+		return L"GetAppUserModelId";
 
 	Result = PinnedApps->IsAppIdPinned(ApplicationId, IsPinned);
 
 	if (FAILED(Result))
-		return "IsAppIdPinned";
+		return L"IsAppIdPinned";
 
 	return NULL;
 }
 
-const char* SwitchToWorkspace(WORKSPACE_INFO* Workspace)
+const wchar_t* SwitchToWorkspace(WORKSPACE_INFO* Workspace)
 {
 	
 	HRESULT Result = VDesktopWrapper.SwitchDesktop(Workspace->VDesktop);
 
 	if (FAILED(Result))
-		return "SwitchToWorkspace";
+		return L"SwitchToWorkspace";
 
 	return NULL;
 }

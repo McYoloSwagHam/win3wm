@@ -40,7 +40,7 @@
 // ------------------------------------------------------------------
 // NT Aesthetic
 // ------------------------------------------------------------------
-#define RtlFormatPrint snprintf
+#define RtlFormatPrint _snwprintf
 #define RtlAlloc malloc
 #define ForegroundClass 25
 FILE* FilePointer;
@@ -48,7 +48,7 @@ FILE* FilePointer;
 //------------------------------------------------------------------
 // COM Variables
 //------------------------------------------------------------------
-#define ComOk(x) if (const char* com_error = x)\
+#define ComOk(x) if (const wchar_t* com_error = x)\
 	FailWithCode(com_error);
 
 BOOL FirstDesktopRender;
@@ -62,7 +62,7 @@ BOOL IsConsoleMessage;
 #define MAX_WORKSPACES 10
 #define MAX_INIT_TILES 40
 #define ARRAY_SIZEOF(A) (sizeof(A)/sizeof(*A))
-#define WIN3M_PIPE_NAME "\\\\.\\pipe\\Win3WMPipe"
+#define WIN3M_PIPE_NAME L"\\\\.\\pipe\\Win3WMPipe"
 #define MINIMUM_CONSIDERED_AREA 10000
 #define DO_NOT_PASS_KEY TRUE
 
@@ -118,12 +118,12 @@ enum MODKEY {
 //------------------------------------------------------------------
 // Window Definitions
 //------------------------------------------------------------------
-CHAR AppCheckName[] = "Win3WM"; //Mutex Check
-CHAR AppWindowName[] = "Win3wmWindow";
-CHAR DebugAppWindowName[] = "FocusDebugOverlay";
-CHAR FocusAppWindowName[] = "FocusWin3WM";
-CHAR NotifAppWindowName[] = "NotifWin3WM";
-CHAR StatusBarWindowName[] = "Win3wmStatus";
+WCHAR AppCheckName[] = L"Win3WM"; //Mutex Check
+WCHAR AppWindowName[] = L"Win3wmWindow";
+WCHAR DebugAppWindowName[] = L"FocusDebugOverlay";
+WCHAR FocusAppWindowName[] = L"FocusWin3WM";
+WCHAR NotifAppWindowName[] = L"NotifWin3WM";
+WCHAR StatusBarWindowName[] = L"Win3wmStatus";
 
 // ------------------------------------------------------------------
 // Window Globals
@@ -216,6 +216,7 @@ BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
 BOOL IsFullScreenMax;
 BOOL ShouldLog;
+BOOL ShouldForceFocus;
 BOOL ShouldBSplit;
 POINT NewOrigin;
 
@@ -264,29 +265,38 @@ void logc(unsigned char color, const char* format, ...)
 }
 
 
-VOID FailWithCode(const char* ErrorMessage)
+VOID FailWithCode(const wchar_t* ErrorMessage)
 {
 
-	CHAR ErrorMsgBuffer[1024] = { 0 };
+	WCHAR ErrorMsgBuffer[1024] = { 0 };
 
 	RtlFormatPrint(ErrorMsgBuffer, sizeof(ErrorMsgBuffer),
-		"%s : %u", ErrorMessage, GetLastError());
+		L"%s : %u", ErrorMessage, GetLastError());
 
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 327);
 
-	MessageBoxA(NULL, ErrorMsgBuffer, NULL, MB_OK);
+	MessageBoxW(NULL, ErrorMsgBuffer, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
-
-VOID Fail(const char* ErrorMessage)
+VOID FailCString(const char* ErrorMessage)
 {
 
 	if (x86ProcessHandle)
 		TerminateProcess(x86ProcessHandle, 327);
 
 	MessageBoxA(NULL, ErrorMessage, NULL, MB_OK);
+	TerminateProcess(GetCurrentProcess(), 327);
+}
+
+VOID Fail(const wchar_t* ErrorMessage)
+{
+
+	if (x86ProcessHandle)
+		TerminateProcess(x86ProcessHandle, 327);
+
+	MessageBoxW(NULL, ErrorMessage, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
@@ -305,7 +315,7 @@ void LuaDispatchEx(const char* functionName, Args &&... args)
 		{
 			sol::error err = Result;
 			std::string what = err.what();
-			Fail(what.c_str());
+			FailCString(what.c_str());
 		}
 
 	}
@@ -318,7 +328,7 @@ void LogEx(const char* Format, ...) {
 		return;
 
 	if (!FilePointer)
-		Fail("Error, No File Pointer!");
+		Fail(L"Error, No File Pointer!");
 
 	va_list args;
 	va_start(args, Format);
@@ -328,12 +338,28 @@ void LogEx(const char* Format, ...) {
 
 }
 
-const char* MakeFormatString(const char* Format, ...)
+const wchar_t* MakeFormatString(const wchar_t* Format, ...)
+{
+	wchar_t* StringMemory = (wchar_t*)malloc(1024);
+
+	if (!StringMemory)
+		Fail(L"Couldn't allocate memory for error print????");
+
+	va_list Args;
+	va_start(Args, Format);
+	_vsnwprintf(StringMemory, 512, Format, Args);
+	va_end(Args);
+
+	return StringMemory;
+
+}
+
+const char* MakeFormatCString(const char* Format, ...)
 {
 	char* StringMemory = (char*)malloc(1024);
 
 	if (!StringMemory)
-		Fail("Couldn't allocate memory for error print????");
+		Fail(L"Couldn't allocate memory for error print????");
 
 	va_list Args;
 	va_start(Args, Format);
@@ -349,7 +375,7 @@ BOOL AppRunningCheck()
 	DWORD LastError;
 	BOOL Result;
 
-	AppMutex = CreateMutexA(NULL, FALSE, AppCheckName);
+	AppMutex = CreateMutexW(NULL, FALSE, AppCheckName);
 	LastError = GetLastError();
 	Result = (LastError != 0);
 
@@ -364,7 +390,7 @@ VOID FixFS(TILE_TREE* Tree)
 
 	if (Tree->IsFullScreen && IsFullScreenMax)
 	{
-		SetWindowLongPtrA(Tree->Focus->WindowHandle, GWL_STYLE, Tree->FullScreenStyle);
+		SetWindowLongPtrW(Tree->Focus->WindowHandle, GWL_STYLE, Tree->FullScreenStyle);
 		Tree->FullScreenStyle = NULL;
 	}
 
@@ -378,7 +404,7 @@ BOOL IsWindowRectVisible(HWND WindowHandle)
 	WindowPlacement.length = sizeof(WindowPlacement);
 
 	if (!GetWindowPlacement(WindowHandle, &WindowPlacement))
-		FailWithCode("Did not manage to get WindowRect");
+		FailWithCode(L"Did not manage to get WindowRect");
 
 	WindowRect = WindowPlacement.rcNormalPosition;
 
@@ -441,7 +467,7 @@ BOOL IsIgnoreWindowEx(HWND WindowHandle)
 
 BOOL TransparentWindow(HWND WindowHandle)
 {
-	if (GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE) & WS_EX_LAYERED)
+	if (GetWindowLongPtrW(WindowHandle, GWL_EXSTYLE) & WS_EX_LAYERED)
 	{
 
 		COLORREF WindowColorRef;
@@ -470,24 +496,24 @@ VOID ConnectTox86Pipe()
 	switch (RetVal)
 	{
 	case WAIT_TIMEOUT:
-		Fail("Win3WMServer did not signal event");
+		Fail(L"Win3WMServer did not signal event");
 		break;
 	case WAIT_FAILED:
-		FailWithCode("Wait for event failed");
+		FailWithCode(L"Wait for event failed");
 		break;
 	case WAIT_ABANDONED:
-		Fail("Wait Abandoned????? Contact Developor");
+		Fail(L"Wait Abandoned????? Contact Developor");
 		break;
 	case WAIT_OBJECT_0: //success
 		break;
 	default:
-		Fail("Wait Event Magic Failure");
+		Fail(L"Wait Event Magic Failure");
 	}
 
-	PipeHandle = CreateFileA(WIN3M_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	PipeHandle = CreateFileW(WIN3M_PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 
 	if (PipeHandle == INVALID_HANDLE_VALUE)
-		FailWithCode("Could not open Win3WM PipeHandle");
+		FailWithCode(L"Could not open Win3WM PipeHandle");
 
 }
 
@@ -499,12 +525,12 @@ VOID ConnectTox86Pipe()
 VOID CreateX86Process()
 {
 
-	PipeEvent = CreateEventA(NULL, FALSE, 0, "Win3WMEvent");
+	PipeEvent = CreateEventW(NULL, FALSE, 0, L"Win3WMEvent");
 
 	if (!PipeEvent)
-		FailWithCode("Couldn't Create Pipe Event");
+		FailWithCode(L"Couldn't Create Pipe Event");
 
-	STARTUPINFOA StartUpInfo = { 0 };
+	STARTUPINFOW StartUpInfo = { 0 };
 	PROCESS_INFORMATION ProcInfo = { 0 };
 
 	StartUpInfo.cb = sizeof(StartUpInfo);
@@ -519,9 +545,9 @@ VOID CreateX86Process()
 
 	GetCurrentDirectoryW(sizeof(DirLength), DirLength);
 
-	CHAR CmdLine[] = "";
-	if (!CreateProcessA("x86ipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
-		FailWithCode("Couldn't Start x86ipc.exe");
+	WCHAR CmdLine[] = L"";
+	if (!CreateProcessW(L"x86ipc.exe", CmdLine, NULL, NULL, NULL, NULL, NULL, NULL, &StartUpInfo, &ProcInfo))
+		FailWithCode(L"Couldn't Start x86ipc.exe");
 
 	x86ProcessHandle = ProcInfo.hProcess;
 	x86ProcessId = ProcInfo.dwProcessId;
@@ -537,7 +563,7 @@ VOID IPCWindowHandle(HWND WindowHandle)
 {
 
 	if (!x86ProcessHandle)
-		Fail("Couldn't create x86 process earlier");
+		Fail(L"Couldn't create x86 process earlier");
 
 	if (PipeHandle == INVALID_HANDLE_VALUE)
 		ConnectTox86Pipe();
@@ -549,13 +575,13 @@ VOID IPCWindowHandle(HWND WindowHandle)
 	if (!RetVal)
 	{
 		if (GetLastError() == ERROR_BROKEN_PIPE)
-			Fail("Pipe closed on the other side");
+			Fail(L"Pipe closed on the other side");
 
-		FailWithCode("WriteFile to Pipe failed");
+		FailWithCode(L"WriteFile to Pipe failed");
 	}
 
 	if (BytesWritten != sizeof(Message))
-		Fail("Did not write HWND Bytes to Pipe");
+		Fail(L"Did not write HWND Bytes to Pipe");
 
 }
 
@@ -568,8 +594,8 @@ BOOL IsPopup(HWND WindowHandle)
 {
 
 	// we don't want tool windows
-	LONG_PTR Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
-	LONG_PTR ExStyle = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
+	LONG_PTR Style = GetWindowLongPtrW(WindowHandle, GWL_STYLE);
+	LONG_PTR ExStyle = GetWindowLongPtrW(WindowHandle, GWL_EXSTYLE);
 
 	BOOL IsPopup = (Style & WS_POPUP);
 	BOOL IsToolWindow = (ExStyle & WS_EX_TOOLWINDOW);
@@ -590,12 +616,12 @@ VOID InstallWindowSizeHook()
 		DllHookProc = (HOOKPROC)GetProcAddress(ModuleBase, "HookProc");
 
 	if (!DllHookProc)
-		FailWithCode("Init not found in ForceResize64.dll");
+		FailWithCode(L"Init not found in ForceResize64.dll");
 
-	HHOOK DllHookAddress = SetWindowsHookExA(WH_CALLWNDPROC, DllHookProc, ModuleBase, 0);
+	HHOOK DllHookAddress = SetWindowsHookExW(WH_CALLWNDPROC, DllHookProc, ModuleBase, 0);
 
 	if (!DllHookAddress)
-		FailWithCode("SetWindowsHookEx Failed");
+		FailWithCode(L"SetWindowsHookEx Failed");
 
 }
 
@@ -632,31 +658,31 @@ BOOL CALLBACK EnumWndProc(HWND WindowHandle, LPARAM LParam)
 		RtlZeroMemory(&TileInfo, sizeof(TileInfo));
 
 		TileInfo.WindowHandle = WindowHandle;
-		TileInfo.PreWMInfo.Style = GetWindowLongPtrA(WindowHandle, GWL_STYLE);
-		TileInfo.PreWMInfo.ExStyle = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
+		TileInfo.PreWMInfo.Style = GetWindowLongPtrW(WindowHandle, GWL_STYLE);
+		TileInfo.PreWMInfo.ExStyle = GetWindowLongPtrW(WindowHandle, GWL_EXSTYLE);
 		TileInfo.PreWMInfo.OldPlacement.length = sizeof(WINDOWPLACEMENT);
 
 
 		if (!GetWindowPlacement(WindowHandle, &TileInfo.PreWMInfo.OldPlacement))
-			FailWithCode("Couldn't get Window Placement");
+			FailWithCode(L"Couldn't get Window Placement");
 
 
 		DWORD WindowProcessId;
 
 		if (!GetWindowThreadProcessId(TileInfo.WindowHandle, &WindowProcessId))
-			FailWithCode(MakeFormatString("Couldnt get ProcessId for WindowHandle : %X ", TileInfo.WindowHandle));
+			FailWithCode(MakeFormatString(L"Couldnt get ProcessId for WindowHandle : %X ", TileInfo.WindowHandle));
 
 		HANDLE ProcessHandle;
 
 		ProcessHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, NULL, WindowProcessId);
 
 		if (!ProcessHandle)
-			FailWithCode(MakeFormatString("Couldnt get Process Handle for WindowHandle : %X "));
+			FailWithCode(MakeFormatString(L"Couldnt get Process Handle for WindowHandle : %X "));
 
 		BOOL IsX86Process;
 
 		if (!IsWow64Process(ProcessHandle, &IsX86Process))
-			FailWithCode(MakeFormatString("Couldnt get Bitness for WindowHandle : %X ", TileInfo.WindowHandle));
+			FailWithCode(MakeFormatString(L"Couldnt get Bitness for WindowHandle : %X ", TileInfo.WindowHandle));
 
 		if (IsX86Process)
 			IPCWindowHandle(TileInfo.WindowHandle);
@@ -1423,7 +1449,7 @@ VOID LinkNode(TILE_TREE* Tree, TILE_INFO* TileToAdd)
 VOID RestoreTitleBar(TILE_INFO* Tile)
 {
 	Tile->IsRemovedTitleBar = FALSE;
-	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+	SetWindowLongPtrW(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
 }
 
 
@@ -1432,9 +1458,9 @@ VOID RestoreTitleBar(TILE_INFO* Tile)
 VOID RemoveTitleBar(TILE_INFO* Tile)
 {
 	Tile->IsRemovedTitleBar = TRUE;
-	LONG_PTR WindowStyle = GetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE);
+	LONG_PTR WindowStyle = GetWindowLongPtrW(Tile->WindowHandle, GWL_STYLE);
 	WindowStyle &= ~WS_OVERLAPPEDWINDOW;
-	SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, WindowStyle);
+	SetWindowLongPtrW(Tile->WindowHandle, GWL_STYLE, WindowStyle);
 	
 }
 
@@ -1502,8 +1528,8 @@ VOID PerformInitialRegroupring()
 			*TileToAdd = *CurrentTileInfo;
 			TileToAdd->BranchTile = NULL;
 
-			TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
-			TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
+			TileToAdd->PreWMInfo.Style = GetWindowLongPtrW(TileToAdd->WindowHandle, GWL_STYLE);
+			TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrW(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
 			if (!IsOnPrimaryDisplay(TileToAdd))
 			{
@@ -1598,7 +1624,7 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 
 	HWND WindowHandle = Tile->WindowHandle;
 
-	if (GetForegroundWindow() != Tile->WindowHandle)
+	if (ShouldForceFocus && GetForegroundWindow() != Tile->WindowHandle)
 	{
 		ForceToForeground(WindowHandle);
 	}
@@ -1623,10 +1649,10 @@ VOID RenderFocusWindow(TILE_INFO* Tile)
 
 
 	if (!SetWindowPos(FocusWindow, HWND_TOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
-		FailWithCode("SetWindowPos Focus Window");
+		FailWithCode(L"SetWindowPos Focus Window");
 
 	if (!SetWindowPos(FocusWindow, HWND_NOTOPMOST, ClientRect.left, ClientRect.bottom - BorderSize, Width, BorderSize, 0))
-		FailWithCode("SetWindowPos Focus Window");
+		FailWithCode(L"SetWindowPos Focus Window");
 
 	ShowWindow(FocusWindow, SW_SHOW);
 
@@ -1712,7 +1738,7 @@ INT RenderWindows(TILE_INFO* Tile, DISPLAY_INFO* Display)
 				return ++Count;
 			}
 
-			FailWithCode(MakeFormatString("SetWindowPos : %X\n", Tile->WindowHandle));
+			FailWithCode(MakeFormatString(L"SetWindowPos : %X\n", Tile->WindowHandle));
 
 		}
 
@@ -1770,7 +1796,7 @@ VOID RenderFullscreenWindow(TILE_TREE* Tree, DISPLAY_INFO* Display)
 	DWORD RetVal = SetWindowPos(Tree->Focus->WindowHandle, HWND_TOP, PrintRect.left, PrintRect.top, Width, Height, 0);
 
 	if (!RetVal)
-		FailWithCode(MakeFormatString("SetWindowPos : %u\n", Tree->Focus->WindowHandle));
+		FailWithCode(MakeFormatString(L"SetWindowPos : %u\n", Tree->Focus->WindowHandle));
 
 }
 
@@ -1830,12 +1856,12 @@ VOID DrawTransparentRectangle(HMONITOR DisplayHandle, HWND StatusBarWindow)
 	BitMap = CreateDIBSection(GeneralDC, &BitMapInfo, DIB_RGB_COLORS, &Bits, 0, 0);
 
 	if (!BitMap)
-		Fail("Couldn't Create BitMap");
+		Fail(L"Couldn't Create BitMap");
 
 	CompatDC = CreateCompatibleDC(GeneralDC);
 
 	if (!CompatDC)
-		Fail("Couldn't Create Compatible DC");
+		Fail(L"Couldn't Create Compatible DC");
 
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
 
@@ -2036,10 +2062,10 @@ VOID InitWorkspaceList()
 
 VOID LoadNecessaryModules()
 {
-	ForceResize64 = LoadLibraryA("ForceResize64.dll");
+	ForceResize64 = LoadLibraryW(L"ForceResize64.dll");
 
 	if (!ForceResize64)
-		FailWithCode("Couldn't load ForceResize64.dll");
+		FailWithCode(L"Couldn't load ForceResize64.dll");
 
 }
 
@@ -2344,7 +2370,7 @@ VOID HandleSwitchDesktop(INT WorkspaceNumber)
 		ForceToForeground(Workspace->Tree->Focus->WindowHandle);
 
 	if (FAILED(Result))
-		Fail("SwitchDesktop");
+		Fail(L"SwitchDesktop");
 
 	LuaDispatchEx("on_change_workspace", CurWk);
 
@@ -2357,8 +2383,8 @@ VOID Restore(TILE_INFO* Tile)
 		if (Tile->BranchTile)
 			Restore(Tile->BranchTile);
 
-		SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
-		SetWindowLongPtrA(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
+		SetWindowLongPtrW(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+		SetWindowLongPtrW(Tile->WindowHandle, GWL_EXSTYLE, Tile->PreWMInfo.ExStyle);
 	}
 }
 
@@ -2377,7 +2403,7 @@ VOID RestoreEx()
 				if (Tile->BranchTile)
 					Restore(Tile->BranchTile);
 
-				SetWindowLongPtrA(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
+				SetWindowLongPtrW(Tile->WindowHandle, GWL_STYLE, Tile->PreWMInfo.Style);
 			}
 		}
 	}
@@ -2426,7 +2452,7 @@ VOID HandleShutdown()
 			HRESULT Result = VDesktopWrapper.RemoveDesktop(WorkspaceList[i].VDesktop, WorkspaceList[1].VDesktop);
 
 			if (FAILED(Result))
-				MessageBoxA(NULL, "wtf RemoveDesktop", NULL, MB_OK);
+				MessageBoxW(NULL, L"wtf RemoveDesktop", NULL, MB_OK);
 			WorkspaceList[i].VDesktop->Release();
 		}
 
@@ -2462,7 +2488,7 @@ VOID HandleChangeWorkspace(INT WorkspaceNumber)
 		return;
 
 	LogEx("Change to Workspace : %u\n", CurWk);
-	PostThreadMessageA(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
+	PostThreadMessageW(GetCurrentThreadId(), WM_SWITCH_DESKTOP, WorkspaceNumber, NULL);
 }
 
 VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
@@ -2489,7 +2515,7 @@ VOID HandleMoveWindowWorkspace(INT WorkspaceNumber)
 	if (Workspace->Dsp->Handle != TargetWorkspace->Dsp->Handle)
 		NewNode->IsDisplayChanged = TRUE;
 
-	PostThreadMessageA(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
+	PostThreadMessageW(GetCurrentThreadId(), WM_MOVE_TILE, (WPARAM)NewNode->WindowHandle, (LPARAM)TargetWorkspace->VDesktop);
 	//ComOk(MoveWindowToVDesktop(NewNode->WindowHandle, TargetWorkspace->VDesktop));
 
 	if (TargetWorkspace->Tree->IsFullScreen &&
@@ -2592,10 +2618,10 @@ LRESULT WINAPI KeyboardCallback(int nCode, WPARAM WParam, LPARAM LParam)
 
 VOID InstallKeyboardHooks()
 {
-	KeyboardHook = SetWindowsHookExA(WH_KEYBOARD_LL, KeyboardCallback, NULL, 0);
+	KeyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyboardCallback, NULL, 0);
 
 	if (!KeyboardHook)
-		FailWithCode("Couldn't set keyboard hook");
+		FailWithCode(L"Couldn't set keyboard hook");
 }
 
 LONG WINAPI OnCrash(PEXCEPTION_POINTERS* ExceptionInfo)
@@ -2669,8 +2695,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 
 	TileToAdd->WindowHandle = WindowHandle;
 	TileToAdd->IsConsole = IsConsole;
-	TileToAdd->PreWMInfo.Style = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_STYLE);
-	TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrA(TileToAdd->WindowHandle, GWL_EXSTYLE);
+	TileToAdd->PreWMInfo.Style = GetWindowLongPtrW(TileToAdd->WindowHandle, GWL_STYLE);
+	TileToAdd->PreWMInfo.ExStyle = GetWindowLongPtrW(TileToAdd->WindowHandle, GWL_EXSTYLE);
 
 	if (Workspace->Tree->Display->Handle != PrimaryDisplay->Handle)
 		TileToAdd->IsDisplayChanged = TRUE;
@@ -2682,7 +2708,7 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		Workspace->Tree->Root = TileToAdd;
 
 	if (!Workspace->Tree->Root)
-		FailWithCode("realloc Tiles failed\n");
+		FailWithCode(L"realloc Tiles failed\n");
 
 	//if (IsFullScreenMax && Workspace->Tree->IsFullScreen)
 	//	FixFS(Workspace->Tree);
@@ -2779,7 +2805,7 @@ extern "C" __declspec(dllexport) VOID OnDestroyWindow(HWND WindowHandle)
 	if (!TileToRemove)
 		return;
 
-	//FailWithCode("Got tile to remove but couldn't find it");
+	//FailWithCode(L"Got tile to remove but couldn't find it");
 
 	LogEx("DestroyWindow\n");
 
@@ -2881,7 +2907,7 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	}
 		break;
 	default:
-		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+		return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 	}
 
 	return 0;
@@ -2905,7 +2931,7 @@ LRESULT CALLBACK ShellHookDispatcher(
 		break;
 	}
 
-	return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+	return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 }
 
 VOID OnTrayRightClick()
@@ -2952,7 +2978,7 @@ LRESULT CALLBACK NotifMessageHandler(
 			TerminateProcess(GetCurrentProcess(), 0);
 		}
 		else
-			return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+			return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 	case WM_APP:
 		switch (LParam)
 		{
@@ -2960,11 +2986,11 @@ LRESULT CALLBACK NotifMessageHandler(
 			OnTrayRightClick();
 			return 0;
 		default:
-			return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+			return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 		}
 		break;
 	default:
-		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+		return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 	}
 
 	return 0;
@@ -2978,7 +3004,7 @@ LRESULT CALLBACK WindowMessageHandler(
 	LPARAM LParam
 )
 {
-	return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+	return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 }
 
 LRESULT CALLBACK FocusMessageHandler(
@@ -3024,13 +3050,13 @@ LRESULT CALLBACK FocusMessageHandler(
 
 			return 0;
 		default:
-			return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+			return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 		}
 
 	}
 
 	default:
-		return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+		return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 	}
 }
 
@@ -3076,7 +3102,7 @@ VOID HandleWindowMessage(MSG* Message)
 
 VOID CreateInitialWindow()
 {
-	WNDCLASSEXA WindowClass;
+	WNDCLASSEXW WindowClass;
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL_STYLE;
@@ -3091,15 +3117,15 @@ VOID CreateInitialWindow()
 	WindowClass.lpszClassName = AppWindowName;
 	WindowClass.hIconSm = NULL;
 
-	WindowAtom = RegisterClassExA(&WindowClass);
+	WindowAtom = RegisterClassExW(&WindowClass);
 
 	if (!WindowAtom)
-		FailWithCode("Couldn't Register Window Class");
+		FailWithCode(L"Couldn't Register Window Class");
 
-	MainWindow = CreateWindowExA(
+	MainWindow = CreateWindowExW(
 		NULL_EX_STYLE,
 		AppWindowName,
-		"Win3wm",
+		L"Win3wm",
 		NULL_STYLE,
 		0,
 		0,
@@ -3112,10 +3138,10 @@ VOID CreateInitialWindow()
 	);
 
 	if (!MainWindow)
-		FailWithCode("Could not create main window!");
+		FailWithCode(L"Could not create main window!");
 
 	if (!ChangeWindowMessageFilterEx(MainWindow, WM_INSTALL_HOOKS, MSGFLT_ALLOW, NULL))
-		FailWithCode("Change Window Perms");
+		FailWithCode(L"Change Window Perms");
 
 }
 
@@ -3127,7 +3153,7 @@ LRESULT CALLBACK DebugMessageHandler(
 	LPARAM LParam
 )
 {
-	return DefWindowProcA(WindowHandle, Message, WParam, LParam);
+	return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 }
 
 VOID CreateDebugOverlay()
@@ -3135,7 +3161,7 @@ VOID CreateDebugOverlay()
 
 	return;
 
-	WNDCLASSEXA WindowClass;
+	WNDCLASSEXW WindowClass;
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL;
@@ -3150,15 +3176,15 @@ VOID CreateDebugOverlay()
 	WindowClass.lpszClassName = DebugAppWindowName;
 	WindowClass.hIconSm = NULL;
 
-	DebugWindowAtom = RegisterClassExA(&WindowClass);
+	DebugWindowAtom = RegisterClassExW(&WindowClass);
 
 	if (!DebugWindowAtom)
-		FailWithCode("Couldn't Register DebugWindow Class");
+		FailWithCode(L"Couldn't Register DebugWindow Class");
 
-	DebugWindow = CreateWindowExA(
+	DebugWindow = CreateWindowExW(
 		WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
 		DebugAppWindowName,
-		"FocusDebugOverlayWindow",
+		L"FocusDebugOverlayWindow",
 		0,
 		0,
 		0,
@@ -3171,15 +3197,15 @@ VOID CreateDebugOverlay()
 	);
 
 	if (!DebugWindow)
-		FailWithCode("DebugWindow creation failed");
+		FailWithCode(L"DebugWindow creation failed");
 
 	if (!SetLayeredWindowAttributes(DebugWindow, 0, 100, LWA_ALPHA))
-		FailWithCode("SetWindowlayered attribs failed");
+		FailWithCode(L"SetWindowlayered attribs failed");
 
 
 	ShowWindow(DebugWindow, SW_SHOW);
-	SetWindowLongPtrA(DebugWindow, GWL_STYLE, 0);
-	SetWindowLongPtrA(DebugWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
+	SetWindowLongPtrW(DebugWindow, GWL_STYLE, 0);
+	SetWindowLongPtrW(DebugWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
 	UpdateWindow(DebugWindow);
 
 
@@ -3190,7 +3216,7 @@ VOID CreateDebugOverlay()
 VOID CreateNotificationWindow()
 {
 
-	WNDCLASSEXA WindowClass;
+	WNDCLASSEXW WindowClass;
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL;
@@ -3205,15 +3231,15 @@ VOID CreateNotificationWindow()
 	WindowClass.lpszClassName = NotifAppWindowName;
 	WindowClass.hIconSm = NULL;
 
-	NotifAtom = RegisterClassExA(&WindowClass);
+	NotifAtom = RegisterClassExW(&WindowClass);
 
 	if (!NotifAtom)
-		FailWithCode("Couldn't Register FocusWindow Class");
+		FailWithCode(L"Couldn't Register FocusWindow Class");
 
-	NotifWindow = CreateWindowExA(
+	NotifWindow = CreateWindowExW(
 		0,
 		NotifAppWindowName,
-		"NotifWin3WM",
+		L"NotifWin3WM",
 		0,
 		0,
 		0,
@@ -3226,7 +3252,7 @@ VOID CreateNotificationWindow()
 	);
 
 	if (!NotifWindow)
-		FailWithCode("FocusWindow creation failed");
+		FailWithCode(L"FocusWindow creation failed");
 
 	ShowWindow(NotifWindow, SW_HIDE);
 
@@ -3235,7 +3261,7 @@ VOID CreateNotificationWindow()
 VOID CreateFocusOverlay()
 {
 
-	WNDCLASSEXA WindowClass;
+	WNDCLASSEXW WindowClass;
 	DWORD FocusBarColorRGB = RGB(FocusBarColor[0], FocusBarColor[1], FocusBarColor[2]);
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
@@ -3251,15 +3277,15 @@ VOID CreateFocusOverlay()
 	WindowClass.lpszClassName = FocusAppWindowName;
 	WindowClass.hIconSm = NULL;
 
-	FocusAtom = RegisterClassExA(&WindowClass);
+	FocusAtom = RegisterClassExW(&WindowClass);
 
 	if (!FocusAtom)
-		FailWithCode("Couldn't Register FocusWindow Class");
+		FailWithCode(L"Couldn't Register FocusWindow Class");
 
-	FocusWindow = CreateWindowExA(
+	FocusWindow = CreateWindowExW(
 		WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
 		FocusAppWindowName,
-		"FocusWin3WM",
+		L"FocusWin3WM",
 		0,
 		0,
 		0,
@@ -3272,10 +3298,10 @@ VOID CreateFocusOverlay()
 	);
 
 	if (!FocusWindow)
-		FailWithCode("FocusWindow creation failed");
+		FailWithCode(L"FocusWindow creation failed");
 
-	SetWindowLongPtrA(FocusWindow, GWL_STYLE, WS_POPUP);
-	SetWindowLongPtrA(FocusWindow, GWL_EXSTYLE, WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
+	SetWindowLongPtrW(FocusWindow, GWL_STYLE, WS_POPUP);
+	SetWindowLongPtrW(FocusWindow, GWL_EXSTYLE, WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT);
 	ShowWindow(FocusWindow, SW_SHOW);
 	UpdateWindow(FocusWindow);
 
@@ -3307,16 +3333,16 @@ VOID InitScreenGlobals()
 		{
 
 			if (OuterGapsVertical > Display.RealScreenHeight)
-				Fail("outer_gaps_vertical cannot be bigger than screen height");
+				Fail(L"outer_gaps_vertical cannot be bigger than screen height");
 
 			if (OuterGapsHorizontal > Display.RealScreenWidth)
-				Fail("outer_gaps_horizontal cannot be bigger than screen height");
+				Fail(L"outer_gaps_horizontal cannot be bigger than screen height");
 
 			if (InnerGapsVertical > Display.RealScreenHeight)
-				Fail("inner_gaps_vertical cannot be bigger than screen height");
+				Fail(L"inner_gaps_vertical cannot be bigger than screen height");
 
 			if (InnerGapsHorizontal > Display.RealScreenWidth)
-				Fail("inner_gaps_horizontal cannot be bigger than screen height");
+				Fail(L"inner_gaps_horizontal cannot be bigger than screen height");
 
 			Display.HorizontalScalar = ((Display.Rect.right - Display.Rect.left) / (PrimaryDisplay->Rect.right - PrimaryDisplay->Rect.left));
 			Display.VerticalScalar = ((Display.Rect.bottom - Display.Rect.top) / (PrimaryDisplay->Rect.bottom - PrimaryDisplay->Rect.top));
@@ -3371,7 +3397,7 @@ VOID InitStatusBar()
 
 	INT WorkspaceCount = GetActiveWorkspace();
 
-	WNDCLASSEXA WindowClass;
+	WNDCLASSEXW WindowClass;
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
 	WindowClass.style = NULL_STYLE;
@@ -3386,7 +3412,7 @@ VOID InitStatusBar()
 	WindowClass.lpszClassName = StatusBarWindowName;
 	WindowClass.hIconSm = NULL;
 
-	StatusBarAtom = RegisterClassExA(&WindowClass);
+	StatusBarAtom = RegisterClassExW(&WindowClass);
 
 	for (int Idx = 0; Idx < DisplayList.size(); Idx++)
 	{
@@ -3418,10 +3444,10 @@ VOID InitStatusBar()
 		StatusBarPosition.x = SearchBarRect.left;
 		StatusBarPosition.y = SearchBarRect.top;
 
-		Display->StatusBar = CreateWindowExA(
+		Display->StatusBar = CreateWindowExW(
 			WS_EX_LAYERED | WS_EX_TOOLWINDOW,
 			StatusBarWindowName,
-			"Win3wmStatusBar",
+			L"Win3wmStatusBar",
 			WS_POPUP,
 			StatusBarPosition.x,
 			StatusBarPosition.y - 25,
@@ -3465,7 +3491,7 @@ VOID InitIcon()
 	NotifyData.hIcon = hIcon;
 
 	if (!Shell_NotifyIcon(NIM_ADD, &NotifyData))
-		FailWithCode("Shell_NotifyIconW");
+		FailWithCode(L"Shell_NotifyIconW");
 
 }
 
@@ -3506,10 +3532,10 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 		const char* PlusLoc = strstr(HotkeyString.c_str(), "+");
 
 		if (!PlusLoc)
-			Fail(MakeFormatString("Couldn't parse \"%s\"", HotkeyString.c_str()));
+			FailCString(MakeFormatCString("Couldn't parse \"%s\"", HotkeyString.c_str()));
 
 		if (!(*++PlusLoc))
-			Fail("No key for config");
+			Fail(L"No key for config");
 
 		const char* NextToken = PlusLoc;
 
@@ -3529,7 +3555,7 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 		Hotkey = HotkeyString[0];
 
 		if (!Hotkey)
-			Fail("Empty string");
+			Fail(L"Empty string");
 
 		if (strlen(HotkeyString.c_str()) != 1)
 		{
@@ -3548,7 +3574,7 @@ VOID ParseConfig(std::string HotkeyString, HOTKEY_FN Callback)
 		Hotkey = toupper(Hotkey);
 
 	if (HotKeyCallbackTable[Hotkey][isShift].HotKeyCb)
-		Fail(MakeFormatString("Duplicate Key Bindings for binding \"%s\"", HotkeyString.c_str()));
+		FailCString(MakeFormatCString("Duplicate Key Bindings for binding \"%s\"", HotkeyString.c_str()));
 
 	HotKeyCallbackTable[Hotkey][isShift].HotKeyCb = Callback;
 
@@ -3603,7 +3629,7 @@ MoveWorkspaceEx(9);
 VOID ShutdownEx()
 {
 
-	PostThreadMessageA(GetCurrentThreadId(), WM_SHUTDOWN, 0, 0);
+	PostThreadMessageW(GetCurrentThreadId(), WM_SHUTDOWN, 0, 0);
 }
 
 VOID VerifyWorkspaceRecursive(WORKSPACE_INFO* Workspace, TILE_INFO* Tile, std::vector<TILE_INFO*>& HandleList, std::unordered_map<HWND, TILE_INFO*>& DupeMap)
@@ -3769,7 +3795,7 @@ VOID FocusMouseEx()
 	POINT TargetPoint;
 
 	if (!GetCursorPos(&TargetPoint))
-		FailWithCode("GetCursorPos");
+		FailWithCode(L"GetCursorPos");
 
 	HWND TargetUnknownWindow = WindowFromPoint(TargetPoint);
 	HWND TargetWindow = GetAncestor(TargetUnknownWindow, GA_ROOT);
@@ -3906,7 +3932,7 @@ VOID BSplitEx()
 VOID ParseModifier(std::string ModifierString)
 {
 	if (ModifierString != "alt" && ModifierString != "win")
-		Fail("\"modifier\" is not \"alt\" or \"win\" in configs.json");
+		Fail(L"\"modifier\" is not \"alt\" or \"win\" in configs.json");
 
 	if (ModifierString == "alt")
 		ModKey = ALT;
@@ -3935,7 +3961,7 @@ VOID ParseBoolOption(std::string UserInput, PBOOL Option, const char* OptionName
 	else if (UserInput == "n")
 		*Option = FALSE;
 	else
-		Fail(MakeFormatString("\"%s\" in configs.json can only be \"y\" or \"n\"", OptionName));
+		Fail(MakeFormatString(L"\"%s\" in configs.json can only be \"y\" or \"n\"", OptionName));
 
 
 }
@@ -4046,7 +4072,7 @@ VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 	INT DispIdx = GetDisplayIdx(Display);
 
 	if (DispIdx == -1)
-		Fail("Couldn't find a monitor for display??");
+		Fail(L"Couldn't find a monitor for display??");
 
 	//This doesn't mean that we couldn't find a display
 	//it just means that this is the very left display or DisaplyList[0]
@@ -4079,7 +4105,7 @@ VOID MoveMonitorRight(BOOL ShouldMove, BOOL RetEarly)
 	INT DispIdx = GetDisplayIdx(Display);
 
 	if (DispIdx == -1)
-		Fail("Couldn't find a monitor for display??");
+		Fail(L"Couldn't find a monitor for display??");
 
 	// if is last return, if is invalid then return
 	if ((DispIdx + 1) >= DisplayList.size())
@@ -4154,7 +4180,7 @@ VOID InitLogger()
 	FilePointer = fopen("log.txt", "a");
 
 	if (!FilePointer)
-		Fail("Couldn't create log.txt");
+		Fail(L"Couldn't create log.txt");
 
 }
 
@@ -4164,7 +4190,7 @@ VOID InitConfig()
 	InitKeyMap();
 
 	if (!PathFileExistsW(L"config.json"))
-		FailWithCode("Couldn't find config.json");
+		FailWithCode(L"Couldn't find config.json");
 
 	HANDLE ConfigHandle = CreateFileW(L"config.json",
 		GENERIC_READ,
@@ -4175,14 +4201,14 @@ VOID InitConfig()
 		NULL);
 
 	if (ConfigHandle == INVALID_HANDLE_VALUE)
-		FailWithCode("Config Json CreateFileW");
+		FailWithCode(L"Config Json CreateFileW");
 
 	PBYTE JsonBuffer = (PBYTE)RtlAlloc(16384);
 	RtlZeroMemory(JsonBuffer, 16384);
 	DWORD BytesRead;
 
 	if (!ReadFile(ConfigHandle, JsonBuffer, 16384, &BytesRead, NULL))
-		FailWithCode("Config Json ReadFile");
+		FailWithCode(L"Config Json ReadFile");
 
 	json JsonParsed;
 
@@ -4192,7 +4218,7 @@ VOID InitConfig()
 	}
 	catch (json::parse_error& e)
 	{
-		Fail(MakeFormatString("Couldn't parse json - %s", e.what()));
+		FailCString(MakeFormatCString("Couldn't parse json - %s", e.what()));
 	}
 
 
@@ -4287,6 +4313,7 @@ VOID InitConfig()
 		//ParseBoolOptionEx(GetJsonEx("remove_titlebar"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		ParseBoolOptionEx(GetJsonEx("enable_logs"), &ShouldLog);
+		ParseBoolOptionEx(GetJsonEx("force_focus"), &ShouldForceFocus);
 
 		if (ShouldLog)
 			InitLogger();
@@ -4308,42 +4335,42 @@ VOID InitConfig()
 		//ColorActiveWorkspaceButton = GetJsonEx("active_workspace_color_button");
 
 		if (ColorActiveWorkspaceButton.size() != 3)
-			Fail("active_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"active_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_workspace_color_button";
 		ColorInactiveWorkspaceButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInactiveWorkspaceButton.size() != 3)
-			Fail("inactive_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"inactive_workspace_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_monitor_color_button";
 		ColorInactiveMonitorButton = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInactiveMonitorButton.size() != 3)
-			Fail("inactive_monitor_color_button should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"inactive_monitor_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "active_text_color_button";
 		ColorActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorActiveButtonText.size() != 3)
-			Fail("active_text_color_button should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"active_text_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "inactive_text_color_button";
 		ColorInActiveButtonText = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (ColorInActiveButtonText.size() != 3)
-			Fail("inactive_text_color_button should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"inactive_text_color_button should be an array of 3 unsigned numbers from 0-255");
 
 		CurrentKey = "focus_bar_color";
 		FocusBarColor = JsonParsed[CurrentKey].get<std::vector<unsigned char>>();
 
 		if (FocusBarColor.size() != 3)
-			Fail("focus_bar_color should be an array of 3 unsigned numbers from 0-255");
+			Fail(L"focus_bar_color should be an array of 3 unsigned numbers from 0-255");
 
 	}
 	catch (json::type_error& e)
 	{
-		Fail(MakeFormatString("Couldn't parse config.json - %s : %s", CurrentKey, e.what()));
+		FailCString(MakeFormatCString("Couldn't parse config.json - %s : %s", CurrentKey, e.what()));
 	}
 
 	free(JsonBuffer);
@@ -4397,7 +4424,7 @@ BOOL VerifyLicense()
 	PWSTR AppFolderPath;
 
 	if (SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &AppFolderPath) != S_OK)
-		FailWithCode("Error 55");
+		FailWithCode(L"Error 55");
 
 	wcscat(LicensePath, AppFolderPath);
 	wcscat(LicensePath, L"\\a6js4r.txt");
@@ -4409,7 +4436,7 @@ BOOL VerifyLicense()
 		if (LicenseFile == INVALID_HANDLE_VALUE)
 		{
 			CloseHandle(LicenseFile);
-			Fail("Error 54");
+			Fail(L"Error 54");
 		}
 
 		CHAR LicenseContent[40];
@@ -4418,7 +4445,7 @@ BOOL VerifyLicense()
 		if (!ReadFile(LicenseFile, LicenseContent, 40, &BytesRead, NULL))
 		{
 			CloseHandle(LicenseFile);
-			FailWithCode("Error 53");
+			FailWithCode(L"Error 53");
 		}
 
 		CloseHandle(LicenseFile);
@@ -4432,7 +4459,7 @@ BOOL VerifyLicense()
 	const char* LastError = AskLicenseSpawn();
 
 	if (LastError)
-		Fail(LastError);
+		FailCString(LastError);
 
 	if (strcmp(UserBuffer, "athk3kf459idxz"))
 		TerminateProcess(GetCurrentProcess(), 369);
@@ -4442,13 +4469,13 @@ BOOL VerifyLicense()
 	if (LicenseFile == INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(LicenseFile);
-		FailWithCode("Error 52");
+		FailWithCode(L"Error 52");
 	}
 
 	DWORD BytesWritten;
 
 	if (!WriteFile(LicenseFile, "Win32kWindows", sizeof("Win32kWindows"), &BytesWritten, NULL))
-		FailWithCode("Error 52");
+		FailWithCode(L"Error 52");
 
 	CloseHandle(LicenseFile);
 
@@ -4491,7 +4518,7 @@ VOID InitLua()
 	}
 	catch (const std::exception& LuaException)
 	{
-		Fail(LuaException.what());
+		FailCString(LuaException.what());
 	}
 
 }
@@ -4523,12 +4550,12 @@ VOID GetTrays()
 {
 	EnumWindows(TrayProc, NULL);
 
-	TrayWindow = FindWindowA("Shell_TrayWnd", NULL);
+	TrayWindow = FindWindowW(L"Shell_TrayWnd", NULL);
 
 	HWND ShellWindow = TrayWindow;
 
 	if (!ShellWindow)
-		FailWithCode("No Primary Tray Window Found");
+		FailWithCode(L"No Primary Tray Window Found");
 
 	SortTrays(TrayWindow);
 
@@ -4559,7 +4586,7 @@ VOID GetMonitors()
 	}
 
 	if (!PrimaryDisplay)
-		Fail("No Primary Display?");
+		Fail(L"No Primary Display?");
 
 	LogEx("\n ---- Init Display -----\n");
 	int Count = 0;
@@ -4576,7 +4603,7 @@ INT main()
 {
 
 	if (AppRunningCheck())
-		Fail("Only a single instance of Win3m can be run");
+		Fail(L"Only a single instance of Win3m can be run");
 
 	DpiSet();
 	FreeConsole();
@@ -4618,7 +4645,7 @@ INT main()
 	SetPWD();
 
 	MSG Message;
-	while (int RetVal = GetMessageA(&Message, NULL, 0, 0))
+	while (int RetVal = GetMessageW(&Message, NULL, 0, 0))
 	{
 
 		if (RetVal == -1)

@@ -58,6 +58,7 @@
 	"true_fullscreen" : "n",
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
+	"force_focus" : "y",
 	
 	"gaps_enabled" : "y",
 	"outer_gaps_vertical" : 10,

@@ -75,7 +75,7 @@ extern "C" __declspec(dllexport) LRESULT HookProc(int nCode, WPARAM WParam, LPAR
 		if (pMessage->message == CustomMessage)
 		{
 
-			CHAR FormatString[1024] = { 0 };
+			WCHAR FormatString[1024] = { 0 };
 
 			HWND WindowToAdd = (HWND)pMessage->lParam;
 
@@ -98,8 +98,8 @@ extern "C" __declspec(dllexport) LRESULT HookProc(int nCode, WPARAM WParam, LPAR
 				TargetWindowList.push_back(WindowToAdd);
 				if (!SetWindowSubclass(WindowToAdd, SubclassHookProc, TargetWindowList.size(), NULL))
 				{
-					snprintf(FormatString, 1024, "SetWindowSubclass Failed %u : LPARAM : %p : WPARAM %p", GetLastError(), LParam, WParam);
-					MessageBoxA(GetForegroundWindow(), FormatString, NULL, MB_OK);
+					_snwprintf(FormatString, 1024, L"SetWindowSubclass Failed %u : LPARAM : %p : WPARAM %p", GetLastError(), LParam, WParam);
+					MessageBoxW(GetForegroundWindow(), FormatString, NULL, MB_OK);
 				}
 			}
 
@@ -132,11 +132,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-		MainWin3WMWindow = FindWindowA("Win3wmWindow", "Win3wm");
+		MainWin3WMWindow = FindWindowW(L"Win3wmWindow", L"Win3wm");
 
 		if (!MainWin3WMWindow)
 		{
-			MessageBoxA(GetForegroundWindow(), "Couldn't Find Main Window ForceResize", NULL, MB_OK);
+			MessageBoxW(GetForegroundWindow(), L"Couldn't Find Main Window ForceResize", NULL, MB_OK);
 			TerminateProcess(GetCurrentProcess(), 8069);
 		}
 
