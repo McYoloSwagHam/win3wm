@@ -1,0 +1,16 @@
+name: CI/CD Github actions
+
+on: [push, pull_request]
+
+jobs:
+
+  steps:
+    - uses: "actions/checkout@v1"
+    - name: "Build"
+      run: |
+        cmd "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+        build.bat
+
+
+
+
