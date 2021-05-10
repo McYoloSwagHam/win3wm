@@ -1,6 +1,10 @@
 name: CI/CD Github actions
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
 
 jobs:
   build:
@@ -8,7 +12,8 @@ jobs:
     runs-on: "windows-2016"
 
   steps:
-    name: "Build"
-    run: |
-      cmd "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
-      build.bat
+    - uses: actions/checkout@v2
+    - name: Build
+      run: |
+        cmd "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+        build.bat
