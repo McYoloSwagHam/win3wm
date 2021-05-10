@@ -3,7 +3,6 @@ name: CI/CD Github actions
 on: [push, pull_request]
 
 jobs:
-
   steps:
     - uses: "actions/checkout@v1"
     - name: "Build"
