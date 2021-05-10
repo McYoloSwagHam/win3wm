@@ -3,6 +3,10 @@ name: CI/CD Github actions
 on: [push, pull_request]
 
 jobs:
+  build:
+    name: "WinWM"
+    runs-on: "windows-2016"
+
   steps:
     - name: "Build"
       run: |
