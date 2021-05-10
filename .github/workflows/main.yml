@@ -8,7 +8,7 @@ jobs:
     runs-on: "windows-2016"
 
   steps:
-    - name: "Build"
-      run: |
-        cmd "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
-        build.bat
+    name: "Build"
+    run: |
+      cmd "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+      build.bat
