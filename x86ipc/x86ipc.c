@@ -8,24 +8,25 @@ HMODULE ForceResize86;
 HMODULE NewWindowDll;
 HANDLE ServerPipe;
 
+VOID Fail(const wchar_t* ErrorMessage)
+{
+	MessageBoxW(NULL, ErrorMessage, NULL, MB_OK);
+	TerminateProcess(GetCurrentProcess(), 327);
+}
+
 VOID FailWithCode(const wchar_t* ErrorMessage)
 {
 
-	CHAR ErrorMsgBuffer[1024] = { 0 };
+	WCHAR ErrorMsgBuffer[1024] = { 0 };
 
-	RtlFormatPrint(ErrorMsgBuffer, sizeof(ErrorMsgBuffer),
-		"%s : %u", ErrorMessage, GetLastError());
+	RtlFormatPrint(ErrorMsgBuffer, 1024,
+		L"%s : %u", ErrorMessage, GetLastError());
 
 	MessageBoxW(NULL, ErrorMsgBuffer, NULL, MB_OK);
 	TerminateProcess(GetCurrentProcess(), 327);
 }
 
 
-VOID Fail(const wchar_t* ErrorMessage)
-{
-	MessageBoxW(NULL, ErrorMessage, NULL, MB_OK);
-	TerminateProcess(GetCurrentProcess(), 327);
-}
 
 const char* MakeFormatString(const char* Format, ...)
 {
@@ -47,15 +48,15 @@ const char* MakeFormatString(const char* Format, ...)
 int main()
 {
 
-    ForceResize86 = LoadLibraryW(L"ForceResize86.dll");
+		ForceResize86 = LoadLibraryW(L"ForceResize86.dll");
 
 	HOOKPROC DllHookProc = (HOOKPROC)GetProcAddress(ForceResize86, "HookProc");
 
 	if (!DllHookProc)
         FailWithCode(L"Couldn't find DLL HookProc");
 
-    if (!ForceResize86)
-        FailWithCode(L"Couldn't load ForceResizeX86.dll ");
+	if (!ForceResize86)
+			FailWithCode(L"Couldn't load ForceResizeX86.dll ");
 
     ServerPipe = CreateNamedPipeW(  WIN3M_PIPE_NAME,
                                     PIPE_ACCESS_DUPLEX,
@@ -82,11 +83,10 @@ int main()
 	ResetEvent(PipeEvent);
 
 	printf("pipe signaled\n");
-
-    printf("ServerPipe : %X\n", ServerPipe);
+	printf("ServerPipe : %X\n", ServerPipe);
 
 	if (!ConnectNamedPipe(ServerPipe, NULL) && GetLastError() != ERROR_PIPE_CONNECTED)
-		FailWithCode("Couldn't Connect Server Pipe");
+		FailWithCode(L"Couldn't Connect Server Pipe");
     
     DWORD TargetWindow;
     DWORD BytesRead;
@@ -95,11 +95,11 @@ int main()
     {
         DWORD RetVal = ReadFile(ServerPipe, &TargetWindow, sizeof(DWORD), &BytesRead, NULL);
 
-		if (!RetVal)
-			FailWithCode("ReadFile\n");
+				if (!RetVal)
+					FailWithCode("ReadFile\n");
 
         if (BytesRead != sizeof(DWORD))
-            Fail("did HWND Bytes");
+            Fail(L"did HWND Bytes");
 
 		HWND WindowHandle = (HWND)TargetWindow;
 

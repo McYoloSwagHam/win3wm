@@ -20,6 +20,31 @@
 #define ID_EXIT 6
 #define TIMER_FOCUS 0x1234
 
+#define DispatchPrivateVersion(Function, FunctionDefault) \
+		switch (this->VersionNumber) \
+		{ \
+		case 21313: \
+		case 21318: \
+		case 21322: \
+		case 21327: \
+		case 21332: \
+		case 21337: \
+		case 21343: \
+		case 21354: \
+		case 21359: \
+		case 21364: \
+		case 21370: \
+		case 21376: \
+		    Result = VDesktopManagerInternal_21313->Function; \
+		    break; \
+		case 20241: \
+		    Result = VDesktopManagerInternal_20241->Function; \
+		    break; \
+		default: \
+		    Result = VDesktopManagerInternal->FunctionDefault; \
+		    break; \
+		} \
+
 const CLSID CLSID_ImmersiveShell = {
 	0xC2F03A33, 0x21F5, 0x47FA, 0xB4, 0xBB, 0x15, 0x63, 0x62, 0xA2, 0xF2, 0x39 };
 
@@ -301,20 +326,27 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		switch (this->VersionNumber)
-		{
-		case 21313:
-		case 21318:
-		case 21322:
-			Result = VDesktopManagerInternal_21313->MoveViewToDesktop(TargetView, TargetDesktop);
-			break;
-		case 20241:
-			Result = VDesktopManagerInternal_20241->MoveViewToDesktop(TargetView, TargetDesktop);
-			break;
-		default:
-			Result = VDesktopManagerInternal->MoveViewToDesktop(TargetView, TargetDesktop);
-			break;
-		}
+		//switch (this->VersionNumber)
+		//{
+		//case 21313:
+		//case 21318:
+		//case 21322:
+		//case 21327:
+		//case 21332:
+		//case 21337:
+		//case 21343:
+		//case 21354:
+		//	Result = VDesktopManagerInternal_21313->MoveViewToDesktop(TargetView, TargetDesktop);
+		//	break;
+		//case 20241:
+		//	Result = VDesktopManagerInternal_20241->MoveViewToDesktop(TargetView, TargetDesktop);
+		//	break;
+		//default:
+		//	Result = VDesktopManagerInternal->MoveViewToDesktop(TargetView, TargetDesktop);
+		//	break;
+		//}
+
+		DispatchPrivateVersion(MoveViewToDesktop(TargetView, TargetDesktop), MoveViewToDesktop(TargetView, TargetDesktop));
 
 
 		return Result;
@@ -324,20 +356,22 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		switch (this->VersionNumber)
-		{
-		case 21313:
-		case 21318:
-		case 21322:
-			Result = VDesktopManagerInternal_21313->CreateDesktopW(NULL, VirtualDesktop);
-			break;
-		case 20241:
-			Result = VDesktopManagerInternal_20241->CreateDesktopW(NULL, VirtualDesktop);
-			break;
-		default:
-			Result = VDesktopManagerInternal->CreateDesktopW(VirtualDesktop);
-			break;
-		}
+		//switch (this->VersionNumber)
+		//{
+		//case 21313:
+		//case 21318:
+		//case 21322:
+		//	Result = VDesktopManagerInternal_21313->CreateDesktopW(NULL, VirtualDesktop);
+		//	break;
+		//case 20241:
+		//	Result = VDesktopManagerInternal_20241->CreateDesktopW(NULL, VirtualDesktop);
+		//	break;
+		//default:
+		//	Result = VDesktopManagerInternal->CreateDesktopW(VirtualDesktop);
+		//	break;
+		//}
+
+		DispatchPrivateVersion(CreateDesktopW(NULL, VirtualDesktop), CreateDesktopW(VirtualDesktop));
 
 		return Result;
 	}
@@ -346,20 +380,22 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		switch (this->VersionNumber)
-		{
-		case 21313:
-		case 21318:
-		case 21322:
-			Result = VDesktopManagerInternal_21313->SwitchDesktop(NULL, VirtualDesktop);
-			break;
-		case 20241:
-			Result = VDesktopManagerInternal_20241->SwitchDesktop(NULL, VirtualDesktop);
-			break;
-		default:
-			Result = VDesktopManagerInternal->SwitchDesktop(VirtualDesktop);
-			break;
-		}
+		//switch (this->VersionNumber)
+		//{
+		//case 21313:
+		//case 21318:
+		//case 21322:
+		//	Result = VDesktopManagerInternal_21313->SwitchDesktop(NULL, VirtualDesktop);
+		//	break;
+		//case 20241:
+		//	Result = VDesktopManagerInternal_20241->SwitchDesktop(NULL, VirtualDesktop);
+		//	break;
+		//default:
+		//	Result = VDesktopManagerInternal->SwitchDesktop(VirtualDesktop);
+		//	break;
+		//}
+
+		DispatchPrivateVersion(SwitchDesktop(NULL, VirtualDesktop), SwitchDesktop(VirtualDesktop));
 
 		return Result;
 
@@ -369,20 +405,22 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		switch (this->VersionNumber)
-		{
-		case 21313:
-		case 21318:
-		case 21322:
-			Result = VDesktopManagerInternal_21313->GetDesktops(NULL, ObjectArray);
-			break;
-		case 20241:
-			Result = VDesktopManagerInternal_20241->GetDesktops(NULL, ObjectArray);
-			break;
-		default:
-			Result = VDesktopManagerInternal->GetDesktops(ObjectArray);
-			break;
-		}
+		//switch (this->VersionNumber)
+		//{
+		//case 21313:
+		//case 21318:
+		//case 21322:
+		//	Result = VDesktopManagerInternal_21313->GetDesktops(NULL, ObjectArray);
+		//	break;
+		//case 20241:
+		//	Result = VDesktopManagerInternal_20241->GetDesktops(NULL, ObjectArray);
+		//	break;
+		//default:
+		//	Result = VDesktopManagerInternal->GetDesktops(ObjectArray);
+		//	break;
+		//}
+
+		DispatchPrivateVersion(GetDesktops(NULL, ObjectArray), GetDesktops(ObjectArray));
 
 		return Result;
 	}
@@ -391,20 +429,22 @@ struct VirtualDesktopWrapper {
 
 		HRESULT Result;
 
-		switch (this->VersionNumber)
-		{
-		case 21313:
-		case 21318:
-		case 21322:
-			Result = VDesktopManagerInternal_21313->RemoveDesktop(Desktop, Fallback);
-			break;
-		case 20241:
-			Result = VDesktopManagerInternal_20241->RemoveDesktop(Desktop, Fallback);
-			break;
-		default:
-			Result = VDesktopManagerInternal->RemoveDesktop(Desktop, Fallback);
-			break;
-		}
+		//switch (this->VersionNumber)
+		//{
+		//case 21313:
+		//case 21318:
+		//case 21322:
+		//	Result = VDesktopManagerInternal_21313->RemoveDesktop(Desktop, Fallback);
+		//	break;
+		//case 20241:
+		//	Result = VDesktopManagerInternal_20241->RemoveDesktop(Desktop, Fallback);
+		//	break;
+		//default:
+		//	Result = VDesktopManagerInternal->RemoveDesktop(Desktop, Fallback);
+		//	break;
+		//}
+
+		DispatchPrivateVersion(RemoveDesktop(Desktop, Fallback), RemoveDesktop(Desktop, Fallback));
 
 		return Result;
 

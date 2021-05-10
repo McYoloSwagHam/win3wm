@@ -19,7 +19,7 @@ IVirtualDesktopPinnedApps* PinnedApps;
 
 UINT16 GetWinBuildNumber()
 {
-	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241, 21313, 21318, 21322};
+	UINT16 buildNumbers[] = { 10130, 10240, 14393, 9200, 18362, 18363, 19041, 19042, 20241, 21313, 21318, 21322, 21327, 21332, 21337, 21343, 21354, 21359, 21364, 21370, 21376};
 	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
     NTSTATUS(WINAPI *RtlVerifyVersionInfo)(LPOSVERSIONINFOEXW, ULONG, ULONGLONG);
     *(FARPROC*)&RtlVerifyVersionInfo = GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlVerifyVersionInfo");
@@ -79,6 +79,15 @@ const wchar_t* InitCom()
 	case 21313:
 	case 21318:
 	case 21322:
+	case 21327:
+	case 21332:
+	case 21337:
+	case 21343:
+	case 21354:
+	case 21359:
+	case 21364:
+	case 21370:
+	case 21376:
 		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview_21313, (void**)&VDesktopWrapper.VDesktopManagerInternal_21313);
 		IsPreviewBuild = TRUE;
 		CurrentIID = IID_VDESKTOP_INSIDER_2;
