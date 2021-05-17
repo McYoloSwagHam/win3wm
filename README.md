@@ -1,4 +1,6 @@
+
 # WinWM
+![Build](https://github.com/McYoloSwagHam/win3wm/actions/workflows/main.yml/badge.svg)
 WinWM is a tiling window manager inspired by i3wm, it was initially private and commerical, but I decided to opensource it.
 
 ## Manual

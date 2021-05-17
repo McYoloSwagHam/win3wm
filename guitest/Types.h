@@ -35,6 +35,7 @@
 		case 21364: \
 		case 21370: \
 		case 21376: \
+		case 21382: \
 		    Result = VDesktopManagerInternal_21313->Function; \
 		    break; \
 		case 20241: \
