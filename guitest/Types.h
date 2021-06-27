@@ -47,7 +47,7 @@
 				} \
 				else {  \
 					Result = VDesktopManagerInternal->FunctionDefault; \
-				} \ 
+				} \
 		    break; \
 		} \
 

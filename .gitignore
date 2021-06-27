@@ -348,3 +348,13 @@ _*
 /guitest/luatest
 /guitest/VTune Profiler Results/guitest
 /guitest/VTune Profiler Results/sample (matrix)
+Build/x86ipc.exe
+Build/WinWM.lib
+Build/WinWM.exp
+Build/WinWM.exe
+Build/ForceResize86.lib
+Build/ForceResize86.exp
+Build/ForceResize86.dll
+Build/ForceResize64.lib
+Build/ForceResize64.exp
+Build/ForceResize64.dll
