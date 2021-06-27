@@ -108,8 +108,19 @@ const wchar_t* InitCom()
 		break;
 	case 14393:
 	default:
-		hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopWrapper.VDesktopManagerInternal);
-		CurrentIID = IID_VDESKTOP;
+
+		//if the build number is 0 it means it's not on the list
+		//probably unupdated insider version
+		//Hacky solution, but I'll fix later since no idea if this COM API is stable
+		if (buildNumber > 21000 || buildNumber == 0) {
+			hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UIID_IVirtualDesktopWinPreview_21313, (void**)&VDesktopWrapper.VDesktopManagerInternal_21313);
+			IsPreviewBuild = TRUE;
+			CurrentIID = IID_VDESKTOP_INSIDER_2;
+		} else {
+			hr = ServiceProvider->QueryService(CLSID_VirtualDesktopAPI_Unknown, UUID_IVirtualDesktopManagerInternal_14393, (void**)&VDesktopWrapper.VDesktopManagerInternal);
+			CurrentIID = IID_VDESKTOP;
+		}
+
 		break;
 	}
 

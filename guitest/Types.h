@@ -42,7 +42,12 @@
 		    Result = VDesktopManagerInternal_20241->Function; \
 		    break; \
 		default: \
-		    Result = VDesktopManagerInternal->FunctionDefault; \
+				if (this->VersionNumber == 0 || this->VersionNumber > 21000) { \
+					Result = VDesktopManagerInternal_21313->Function; \
+				} \
+				else {  \
+					Result = VDesktopManagerInternal->FunctionDefault; \
+				} \ 
 		    break; \
 		} \
 
