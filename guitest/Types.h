@@ -11,7 +11,7 @@
 #include "sol.hpp"
 
 
-#define WM_INSTALL_HOOKS 	0x8069
+#define WM_INSTALL_HOOKS	0x8069
 #define WM_SHUTDOWN 		0x806C
 #define WM_MOVE_TILE 		0x806B
 #define WM_TILE_CHANGED 	0x806D
