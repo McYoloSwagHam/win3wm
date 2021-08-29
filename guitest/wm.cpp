@@ -44,6 +44,7 @@
 #define RtlAlloc malloc
 #define ForegroundClass 25
 FILE* FilePointer;
+UINT WM_SHELLHOOKMESSAGE;
 
 //------------------------------------------------------------------
 // COM Variables
@@ -216,6 +217,7 @@ BOOL IsGapsEnabled;
 BOOL ShouldRemoveTitleBars;
 BOOL IsFullScreenMax;
 BOOL ShouldLog;
+BOOL ShouldFollow;
 BOOL ShouldForceFocus;
 BOOL ShouldBSplit;
 POINT NewOrigin;
@@ -461,7 +463,6 @@ BOOL IsIgnoreWindowEx(HWND WindowHandle)
 		return TRUE;
 	}
 
-	LogEx("OnNewWindow : %X\n", WindowHandle);
 	return FALSE;
 }
 
@@ -2423,6 +2424,8 @@ VOID HandleShutdown()
 
 	LogEx("Shutting Down\n");
 
+	DeregisterShellHookWindow(MainWindow);
+
 	if (FilePointer)
 		fclose(FilePointer);
 
@@ -2664,6 +2667,8 @@ extern "C" __declspec(dllexport) VOID OnNewWindow(HWND WindowHandle)
 		return;
 	}
 
+	LogEx("OnNewWindow : %X\n", WindowHandle);
+
 	WCHAR WindowClass[512];
 	BOOL IsConsole = FALSE;
 
@@ -2742,6 +2747,7 @@ TILE_INFO* VerifyExistingWindow(TILE_INFO* Tiles, HWND WindowHandle)
 
 }
 
+// Get Tile Tree of HWND
 TILE_TREE* GetTileWindowTree(WORKSPACE_INFO* Workspace, HWND WindowHandle)
 {
 
@@ -2763,6 +2769,7 @@ TILE_TREE* GetTileWindowTree(WORKSPACE_INFO* Workspace, HWND WindowHandle)
 
 }
 
+// Look for HWND in all TREEs
 TILE_INFO* VerifyExistingWindowEx(WORKSPACE_INFO* Workspace, HWND WindowHandle)
 {
 
@@ -2913,6 +2920,38 @@ LRESULT CALLBACK StatusBarMsgHandler(
 	return 0;
 }
 
+
+// Follow Cursor Focus 
+VOID HandleMouseEnter(HWND EnterWindow) {
+
+	// TODO: Make an inverse map here. Std::Unordered Map
+	// Actually this should be done for all lookups, because lookups are stupid.
+	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
+
+	LogEx("Mouse Enter received %d\n", EnterWindow);
+
+	if (!TreeHas(Root))
+		return;
+
+	TILE_INFO* NewFocusTile = VerifyExistingWindowEx(Workspace, EnterWindow);
+
+	if (!NewFocusTile)
+		return;
+
+	TILE_TREE* TargetTree = GetTileWindowTree(Workspace, EnterWindow);
+
+	// Make sure current monitor is the focus 
+	if (TargetTree != Workspace->Tree) 
+	{
+		Workspace->Dsp = TargetTree->Display;
+		Workspace->Tree = TargetTree;
+	}
+
+	Workspace->Tree->Focus = NewFocusTile;
+	RenderFocusWindowEx(Workspace);
+
+}
+
 LRESULT CALLBACK ShellHookDispatcher(
 	HWND WindowHandle,
 	UINT Message,
@@ -2921,15 +2960,34 @@ LRESULT CALLBACK ShellHookDispatcher(
 )
 {
 
-	switch (WParam)
+	if (Message == WM_SHELLHOOKMESSAGE) 
 	{
-	case HSHELL_WINDOWCREATED:
-		OnNewWindow((HWND)LParam);
-		break;
-	case HSHELL_WINDOWDESTROYED:
-		OnDestroyWindow((HWND)LParam);
-		break;
+
+		switch (WParam)
+		{
+		case HSHELL_WINDOWCREATED:
+			OnNewWindow((HWND)LParam);
+			break;
+		case HSHELL_WINDOWDESTROYED:
+			OnDestroyWindow((HWND)LParam);
+			break;
+		}
+
+		return DefWindowProcW(WindowHandle, Message, WParam, LParam);
+		
 	}
+
+	switch (Message) 
+	{
+	case WM_MOUSE_ENTER:
+		if (ShouldFollow) 
+			HandleMouseEnter((HWND)WParam);
+		break;
+	//case WM_DESTROY:
+	//	DeregisterShellHookWindow(WindowHandle);
+	//	break;
+	}
+
 
 	return DefWindowProcW(WindowHandle, Message, WParam, LParam);
 }
@@ -3083,6 +3141,7 @@ LRESULT CALLBACK NewWindowHookProc(int nCode, WPARAM WParam, LPARAM LParam)
 VOID InstallNewWindowHook()
 {
 	RegisterShellHookWindow(MainWindow);
+
 }
 
 VOID HandleWindowMessage(MSG* Message)
@@ -3102,6 +3161,9 @@ VOID HandleWindowMessage(MSG* Message)
 
 VOID CreateInitialWindow()
 {
+
+	WM_SHELLHOOKMESSAGE = RegisterWindowMessage(TEXT("SHELLHOOK"));
+
 	WNDCLASSEXW WindowClass;
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
@@ -3141,6 +3203,9 @@ VOID CreateInitialWindow()
 		FailWithCode(L"Could not create main window!");
 
 	if (!ChangeWindowMessageFilterEx(MainWindow, WM_INSTALL_HOOKS, MSGFLT_ALLOW, NULL))
+		FailWithCode(L"Change Window Perms");
+
+	if (!ChangeWindowMessageFilterEx(MainWindow, WM_MOUSE_ENTER, MSGFLT_ALLOW, NULL))
 		FailWithCode(L"Change Window Perms");
 
 }
@@ -4065,6 +4130,16 @@ INT GetDisplayIdx(DISPLAY_INFO* Display)
 	return DispIdx;
 }
 
+VOID MoveMonitorToTree(WORKSPACE_INFO* Workspace, TILE_TREE* TargetTree) 
+{
+
+	RenderStatusBar();
+
+	return;
+	
+}
+
+
 VOID MoveMonitorLeft(BOOL ShouldMove, BOOL RetEarly)
 {
 	WORKSPACE_INFO* Workspace = &WorkspaceList[CurWk];
@@ -4313,6 +4388,7 @@ VOID InitConfig()
 		//ParseBoolOptionEx(GetJsonEx("remove_titlebar"), &ShouldRemoveTitleBars);
 		ParseBoolOptionEx(GetJsonEx("true_fullscreen"), &IsFullScreenMax);
 		ParseBoolOptionEx(GetJsonEx("enable_logs"), &ShouldLog);
+		ParseBoolOptionEx(GetJsonEx("mouse_follow"), &ShouldFollow);
 		ParseBoolOptionEx(GetJsonEx("force_focus"), &ShouldForceFocus);
 
 		if (ShouldLog)
@@ -4599,6 +4675,7 @@ VOID GetMonitors()
 	}
 }
 
+
 INT main()
 {
 
@@ -4668,6 +4745,7 @@ INT main()
 		case WM_INSTALL_HOOKS:
 			HandleWindowMessage(&Message);
 			continue;
+		case WM_MOUSE_ENTER:
 		case WM_TILE_CHANGED:
 		default:
 			break;

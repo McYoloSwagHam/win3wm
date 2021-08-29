@@ -3,32 +3,54 @@
 #include <commctrl.h>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 
 HWND MainWin3WMWindow;
 HINSTANCE InstanceBase;
 HHOOK HookAddress;
 std::vector<HWND> TargetWindowList;
+std::unordered_map<HWND, bool> MouseCapture;
 WNDPROC OrigWndProc;
-#define CustomMessage 0x8069
+#define WM_INSTALL_HOOKS 0x8069
 #define WM_TILE_CHANGED 0x806D
+#define WM_MOUSE_ENTER 0x806E
+
 
 LRESULT CALLBACK SubclassHookProc(HWND WindowHandle, UINT Msg, WPARAM WParam, LPARAM LParam, UINT_PTR uIdSubclass, DWORD_PTR DwRefData)
 {
+	switch (Msg) {
 
-	if (Msg == WM_NCDESTROY)
-	{
-
+	case WM_NCDESTROY:
 		TargetWindowList.erase(std::remove(TargetWindowList.begin(), TargetWindowList.end(), WindowHandle), TargetWindowList.end());
 		RemoveWindowSubclass(WindowHandle, SubclassHookProc, 0);
+		break;
+	case WM_GETMINMAXINFO:
+		{
+			PMINMAXINFO pMessage = (PMINMAXINFO)LParam;
+			pMessage->ptMinTrackSize.x = 0;
+			pMessage->ptMinTrackSize.y = 0;
+			return 0;
+		}
+	case WM_ACTIVATE:
+		if (LOWORD(WParam) == WA_CLICKACTIVE) 
+			SendMessageW(MainWin3WMWindow, WM_MOUSE_ENTER, (WPARAM)WindowHandle, 0);
+		break;
 
-	}
+	//case WM_MOUSEACTIVATE:
+	//	SendMessageW(MainWin3WMWindow, WM_MOUSE_ENTER, (WPARAM)WindowHandle, 0);
+	//	break;
+	//case WM_MOUSEMOVE:
+	//	//MessageBoxA(GetForegroundWindow(), "MOUSEMOVE", NULL, MB_OK);
+	//	if (!MouseCapture[WindowHandle])  
+	//	{
+	//		MouseCapture[WindowHandle] = TRUE;
+	//		SendMessageW(MainWin3WMWindow, WM_MOUSE_ENTER, (WPARAM)WindowHandle, 0);
+	//	}
+	//	break;
+	//case WM_MOUSELEAVE:
+	//	MouseCapture[WindowHandle] = FALSE;
+	//	break;
 
-	if (Msg == WM_GETMINMAXINFO)
-	{
-		PMINMAXINFO pMessage = (PMINMAXINFO)LParam;
-		pMessage->ptMinTrackSize.x = 0;
-		pMessage->ptMinTrackSize.y = 0;
-		return 0;
 	}
 
 	return DefSubclassProc(WindowHandle, Msg, WParam, LParam);
@@ -72,13 +94,14 @@ extern "C" __declspec(dllexport) LRESULT HookProc(int nCode, WPARAM WParam, LPAR
 		//}
 
 			
-		if (pMessage->message == CustomMessage)
+		if (pMessage->message == WM_INSTALL_HOOKS)
 		{
 
 			WCHAR FormatString[1024] = { 0 };
 
 			HWND WindowToAdd = (HWND)pMessage->lParam;
 
+			// Don't install this hook into the main Win3wm window.
 			if (pMessage->hwnd == MainWin3WMWindow)
 				return CallNextHookEx(HookAddress, nCode, WParam, LParam);
 
@@ -96,6 +119,7 @@ extern "C" __declspec(dllexport) LRESULT HookProc(int nCode, WPARAM WParam, LPAR
 			if (!Found)
 			{
 				TargetWindowList.push_back(WindowToAdd);
+				MouseCapture[WindowToAdd] = FALSE;
 				if (!SetWindowSubclass(WindowToAdd, SubclassHookProc, TargetWindowList.size(), NULL))
 				{
 					_snwprintf(FormatString, 1024, L"SetWindowSubclass Failed %u : LPARAM : %p : WPARAM %p", GetLastError(), LParam, WParam);

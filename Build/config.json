@@ -59,6 +59,7 @@
 	"remove_titlebars_experimental" : "n",
 	"enable_logs" : "n",
 	"force_focus" : "n",
+	"mouse_follow" : "n",
 	
 	"gaps_enabled" : "y",
 	"outer_gaps_vertical" : 10,
