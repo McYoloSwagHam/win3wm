@@ -18,6 +18,10 @@ please check the page [here](https://mcyoloswagham.github.io/win3wm)
  * WinHook - is the DLL that is to be injected in all applications to notify the main application of window creation/destruction.
  * x86ipc - Due to WinAPI constraints, there needs to be a child process for interacting with x86 processes
  * WinWMGUI - was the C# gui that was to be used for licensing purposes.
+
+ ## Installation/Running
+ You do not have to install Win3WM, just extract it from the zip and run (WinWM.exe).
+ The latest version can be obtained [here](https://github.com/McYoloSwagHam/win3wm/actions)
  
  ## Building
  * Open Developer Command Prompt for vs2019
